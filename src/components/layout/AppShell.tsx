@@ -3,6 +3,10 @@ import { Menu, Plus } from 'lucide-react'
 import { Sidebar } from './Sidebar'
 import { useUIStore } from '@/store/uiStore'
 
+const TODAY = new Date().toLocaleDateString('fr-FR', {
+  weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
+})
+
 const PAGE_TITLES: Record<string, string> = {
   '/': 'Dashboard',
   '/applications': 'Candidatures',
@@ -33,7 +37,12 @@ export function AppShell({ userName, onLogout, onAddApplication }: AppShellProps
           >
             <Menu size={20} />
           </button>
-          <h2 className="flex-1 text-lg font-bold">{title}</h2>
+          <div className="flex-1">
+            <h2 className="text-lg font-bold leading-tight">{title}</h2>
+            {location.pathname === '/' && (
+              <p className="text-[var(--color-muted)] capitalize" style={{ fontSize: 12 }}>{TODAY}</p>
+            )}
+          </div>
           <button className="btn btn-primary btn-sm" onClick={onAddApplication}>
             <Plus size={14} />
             Nouvelle candidature

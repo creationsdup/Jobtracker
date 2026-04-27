@@ -1,3 +1,8 @@
+import { AlertBanner } from '@/components/dashboard/AlertBanner'
+import { StatusPills } from '@/components/dashboard/StatusPills'
+import { UrgencyCard } from '@/components/dashboard/UrgencyCard'
+import { MetricsCard } from '@/components/dashboard/MetricsCard'
+import { GoalCard } from '@/components/dashboard/GoalCard'
 import { ApplicationCard } from '@/components/applications/ApplicationCard'
 import type { Application } from '@/lib/types'
 
@@ -8,53 +13,87 @@ interface DashboardPageProps {
 }
 
 export function DashboardPage({ applications, loading, onOpenDetail }: DashboardPageProps) {
-  const applied = applications.filter((a) => a.status === 'APPLIED').length
-  const interview = applications.filter((a) => a.status === 'INTERVIEW').length
-  const offer = applications.filter((a) => a.status === 'OFFER' || a.status === 'ACCEPTED').length
-
   const recent = [...applications]
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
     .slice(0, 5)
 
+  const sectors = [...new Set(applications.map((a) => a.company))].slice(0, 12)
+
   return (
-    <div>
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-        {[
-          { label: 'Total', value: applications.length, color: 'text-[var(--color-ink)]' },
-          { label: 'Postulées', value: applied, color: 'text-blue-500' },
-          { label: 'Entretiens', value: interview, color: 'text-orange-500' },
-          { label: 'Offres', value: offer, color: 'text-green-500' },
-        ].map(({ label, value, color }) => (
-          <div key={label} className="card p-5 text-center">
-            <div className={`text-4xl font-bold ${color}`}>{loading ? '—' : value}</div>
-            <div className="text-xs text-[var(--color-muted)] mt-1">{label}</div>
+    <div className="flex flex-col gap-4">
+      {/* Alert banner — full width above columns */}
+      {!loading && <AlertBanner applications={applications} onOpenDetail={onOpenDetail} />}
+
+      {/* Two-column layout */}
+      <div className="flex gap-5 items-start flex-col md:flex-row">
+
+        {/* ── LEFT COLUMN ── */}
+        <div className="flex-1 min-w-0 flex flex-col gap-4">
+          {/* Status pills */}
+          <StatusPills applications={applications} loading={loading} />
+
+          {/* Recent applications card */}
+          <div className="card p-4 flex flex-col gap-3">
+            <h3 className="text-sm font-semibold">Dernières candidatures</h3>
+
+            {loading ? (
+              <div className="flex flex-col gap-2">
+                {[1, 2, 3].map((i) => (
+                  <div key={i} className="h-14 rounded-[var(--radius-sm)] animate-pulse bg-[var(--color-bg)]" />
+                ))}
+              </div>
+            ) : recent.length === 0 ? (
+              <div className="empty-state py-10">
+                <div className="text-4xl mb-2">📋</div>
+                <p className="font-semibold text-sm">Aucune candidature</p>
+                <p className="text-xs mt-1">Commencez par en ajouter une !</p>
+              </div>
+            ) : (
+              <div className="flex flex-col gap-2">
+                {recent.map((app) => (
+                  <ApplicationCard
+                    key={app.id}
+                    application={app}
+                    onClick={() => onOpenDetail(app)}
+                  />
+                ))}
+              </div>
+            )}
+
+            {/* Secteurs explorés */}
+            {!loading && sectors.length > 0 && (
+              <>
+                <div className="border-t border-[var(--color-border)] pt-3 flex flex-col gap-2">
+                  <span
+                    className="text-[var(--color-muted)] font-semibold tracking-wider uppercase"
+                    style={{ fontSize: 11 }}
+                  >
+                    Secteurs explorés
+                  </span>
+                  <div className="flex flex-wrap gap-1.5">
+                    {sectors.map((company) => (
+                      <span
+                        key={company}
+                        className="px-2 py-0.5 rounded-[var(--radius-sm)] text-[var(--color-muted)] border border-[var(--color-border)]"
+                        style={{ fontSize: 12, background: 'var(--color-bg)' }}
+                      >
+                        {company}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              </>
+            )}
           </div>
-        ))}
-      </div>
+        </div>
 
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="text-base font-semibold">Candidatures récentes</h3>
+        {/* ── RIGHT COLUMN ── */}
+        <div className="w-full md:w-[260px] flex-shrink-0 flex flex-col gap-4">
+          {!loading && <UrgencyCard applications={applications} />}
+          <MetricsCard applications={applications} />
+          <GoalCard applications={applications} />
+        </div>
       </div>
-
-      {loading ? (
-        <div className="flex flex-col gap-3">
-          {[1, 2, 3].map((i) => (
-            <div key={i} className="card px-5 py-4 h-16 animate-pulse bg-[var(--color-bg)]" />
-          ))}
-        </div>
-      ) : recent.length === 0 ? (
-        <div className="empty-state">
-          <div className="text-5xl mb-3">📋</div>
-          <p className="font-semibold">Aucune candidature</p>
-          <p className="text-xs mt-1">Commencez par en ajouter une !</p>
-        </div>
-      ) : (
-        <div className="flex flex-col gap-3">
-          {recent.map((app) => (
-            <ApplicationCard key={app.id} application={app} onClick={() => onOpenDetail(app)} />
-          ))}
-        </div>
-      )}
     </div>
   )
 }
