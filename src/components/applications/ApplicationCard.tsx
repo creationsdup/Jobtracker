@@ -1,4 +1,4 @@
-import { MapPin, FileText, DollarSign } from 'lucide-react'
+import { MapPin, FileText } from 'lucide-react'
 import { StatusBadge } from './StatusBadge'
 import { formatDate, getInitial } from '@/lib/utils'
 import type { Application } from '@/lib/types'
@@ -9,7 +9,7 @@ interface ApplicationCardProps {
 }
 
 export function ApplicationCard({ application, onClick }: ApplicationCardProps) {
-  const { company, role, location, contract_type, salary, status, created_at } = application
+  const { company, position, location, contractType, status, createdAt } = application
 
   return (
     <div
@@ -21,20 +21,19 @@ export function ApplicationCard({ application, onClick }: ApplicationCardProps) 
       </div>
 
       <div className="flex-1 min-w-0">
-        <div className="font-semibold text-sm truncate">{role}</div>
+        <div className="font-semibold text-sm truncate">{position}</div>
         <div className="text-[var(--color-muted)] text-xs">{company}</div>
-        {(location || contract_type || salary) && (
+        {(location || contractType) && (
           <div className="flex items-center gap-2 mt-1 text-xs text-[var(--color-muted)]">
             {location && <span className="flex items-center gap-1"><MapPin size={11} />{location}</span>}
-            {contract_type && <span className="flex items-center gap-1"><FileText size={11} />{contract_type}</span>}
-            {salary && <span className="flex items-center gap-1"><DollarSign size={11} />{salary}</span>}
+            {contractType && <span className="flex items-center gap-1"><FileText size={11} />{contractType}</span>}
           </div>
         )}
       </div>
 
       <div className="flex flex-col items-end gap-2 flex-shrink-0">
         <StatusBadge status={status} />
-        <span className="text-xs text-[var(--color-muted)]">{formatDate(created_at)}</span>
+        <span className="text-xs text-[var(--color-muted)]">{formatDate(createdAt)}</span>
       </div>
     </div>
   )

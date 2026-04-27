@@ -1,21 +1,48 @@
-import { useState, useCallback } from 'react'
-
-const STORAGE_KEY = 'jt_user'
+import { useState, useEffect, useCallback } from 'react'
+import { supabase } from '@/lib/supabase'
+import type { User, Session } from '@supabase/supabase-js'
 
 export function useAuth() {
-  const [userName, setUserName] = useState<string | null>(
-    () => localStorage.getItem(STORAGE_KEY),
-  )
+  const [user, setUser] = useState<User | null>(null)
+  const [session, setSession] = useState<Session | null>(null)
+  const [loading, setLoading] = useState(true)
 
-  const login = useCallback((name: string) => {
-    localStorage.setItem(STORAGE_KEY, name)
-    setUserName(name)
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session)
+      setUser(session?.user ?? null)
+      setLoading(false)
+    })
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session)
+      setUser(session?.user ?? null)
+    })
+
+    return () => subscription.unsubscribe()
   }, [])
 
-  const logout = useCallback(() => {
-    localStorage.removeItem(STORAGE_KEY)
-    setUserName(null)
+  const signIn = useCallback(async (email: string, password: string) => {
+    const { error } = await supabase.auth.signInWithPassword({ email, password })
+    return error
   }, [])
 
-  return { userName, isAuthenticated: userName !== null, login, logout }
+  const signUp = useCallback(async (email: string, password: string) => {
+    const { error } = await supabase.auth.signUp({ email, password })
+    return error
+  }, [])
+
+  const signOut = useCallback(async () => {
+    await supabase.auth.signOut()
+  }, [])
+
+  return {
+    user,
+    session,
+    loading,
+    isAuthenticated: !!user,
+    signIn,
+    signUp,
+    signOut,
+  }
 }

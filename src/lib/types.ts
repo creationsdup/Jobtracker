@@ -1,73 +1,110 @@
+// ─── Application ────────────────────────────────────────────────────────────
+
 export type ApplicationStatus =
-  | 'saved'
-  | 'applied'
-  | 'interview'
-  | 'offer'
-  | 'rejected'
-
-export type StepStatus = 'done' | 'current' | 'upcoming'
-
-export type StepType =
-  | 'applied'
-  | 'confirmation'
-  | 'interview_hr'
-  | 'interview_manager'
-  | 'test'
-  | 'offer'
-  | 'rejected'
-  | 'custom'
+  | 'WISHLIST'
+  | 'APPLIED'
+  | 'PHONE_SCREEN'
+  | 'INTERVIEW'
+  | 'TECHNICAL_TEST'
+  | 'OFFER'
+  | 'ACCEPTED'
+  | 'REJECTED'
+  | 'WITHDRAWN'
 
 export interface Application {
   id: string
+  userId: string
   company: string
-  role: string
-  location: string
-  contract_type: string
-  salary: string
+  position: string
+  location: string | null
+  jobUrl: string | null
   status: ApplicationStatus
-  url: string
-  description: string
-  created_at: string
-  updated_at: string
+  contractType: string | null
+  notes: string | null
+  appliedAt: string | null
+  resumeId: string | null
+  createdAt: string
+  updatedAt: string
 }
+
+// ─── Timeline ────────────────────────────────────────────────────────────────
+
+export type StepStatus = 'UPCOMING' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED'
 
 export interface TimelineStep {
   id: string
-  application_id: string
+  applicationId: string
   title: string
-  step_type: StepType
   date: string
-  time: string
+  time: string | null
+  notes: string | null
   status: StepStatus
-  notes: string
-  created_at: string
+  order: number
+  createdAt: string
 }
+
+// ─── Experience ──────────────────────────────────────────────────────────────
+
+export type ExperienceType = 'WORK' | 'VOLUNTEER' | 'EDUCATION' | 'PROJECT' | 'OTHER'
+
+export interface Experience {
+  id: string
+  userId: string
+  type: ExperienceType
+  title: string
+  organization: string
+  location: string | null
+  startDate: string
+  endDate: string | null
+  current: boolean
+  description: string | null
+  skills: string[]
+  subsection: string | null
+  createdAt: string
+}
+
+// ─── Resume ──────────────────────────────────────────────────────────────────
+
+export interface Resume {
+  id: string
+  userId: string
+  name: string
+  targetPosition: string | null
+  experienceIds: string[]
+  customSections: Record<string, unknown>
+  createdAt: string
+}
+
+// ─── JobOffer ────────────────────────────────────────────────────────────────
+
+export interface JobOffer {
+  id: string
+  title: string
+  company: string
+  location: string | null
+  description: string | null
+  url: string | null
+  createdAt: string
+}
+
+// ─── Labels ──────────────────────────────────────────────────────────────────
 
 export const STATUS_LABELS: Record<ApplicationStatus, string> = {
-  saved: 'Sauvegardée',
-  applied: 'Postulée',
-  interview: 'Entretien',
-  offer: 'Offre reçue',
-  rejected: 'Refusée',
+  WISHLIST: 'À postuler',
+  APPLIED: 'Postulée',
+  PHONE_SCREEN: 'Pré-sélection',
+  INTERVIEW: 'Entretien',
+  TECHNICAL_TEST: 'Test technique',
+  OFFER: 'Offre reçue',
+  ACCEPTED: 'Acceptée',
+  REJECTED: 'Refusée',
+  WITHDRAWN: 'Abandonnée',
 }
 
-export const STEP_LABELS: Record<StepType, string> = {
-  applied: 'Candidature envoyée',
-  confirmation: 'Accusé de réception',
-  interview_hr: 'Entretien RH',
-  interview_manager: 'Entretien manager',
-  test: 'Test / Cas pratique',
-  offer: 'Offre reçue',
-  rejected: 'Refus',
-  custom: 'Étape libre',
-}
-
-export const STEP_TO_STATUS: Partial<Record<StepType, ApplicationStatus>> = {
-  applied: 'applied',
-  confirmation: 'applied',
-  interview_hr: 'interview',
-  interview_manager: 'interview',
-  test: 'interview',
-  offer: 'offer',
-  rejected: 'rejected',
-}
+export const KANBAN_COLUMNS: ApplicationStatus[] = [
+  'WISHLIST',
+  'APPLIED',
+  'INTERVIEW',
+  'OFFER',
+  'REJECTED',
+]

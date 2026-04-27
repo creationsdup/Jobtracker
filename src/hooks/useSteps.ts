@@ -1,49 +1,38 @@
 import { useState, useCallback } from 'react'
+import { supabase } from '@/lib/supabase'
 import type { TimelineStep } from '@/lib/types'
-import { uid } from '@/lib/utils'
-
-const STORAGE_KEY = 'jt_steps'
-
-function load(): TimelineStep[] {
-  try {
-    return JSON.parse(localStorage.getItem(STORAGE_KEY) ?? 'null') ?? []
-  } catch {
-    return []
-  }
-}
-
-function save(steps: TimelineStep[]) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(steps))
-}
 
 export function useSteps() {
-  const [steps, setSteps] = useState<TimelineStep[]>(load)
+  const [steps, setSteps] = useState<TimelineStep[]>([])
 
-  const persist = useCallback((next: TimelineStep[]) => {
-    save(next)
-    setSteps(next)
+  const fetchStepsForApplication = useCallback(async (applicationId: string) => {
+    const { data, error } = await supabase
+      .from('TimelineStep')
+      .select('*')
+      .eq('applicationId', applicationId)
+      .order('date', { ascending: true })
+    if (!error) setSteps(data ?? [])
   }, [])
 
-  const addStep = useCallback(
-    (data: Omit<TimelineStep, 'id' | 'created_at'>) => {
-      const next = [...load(), { id: uid(), ...data, created_at: new Date().toISOString() }]
-      persist(next)
-    },
-    [persist],
-  )
+  const addStep = useCallback(async (data: Omit<TimelineStep, 'id' | 'createdAt'>) => {
+    const { data: inserted, error } = await supabase
+      .from('TimelineStep')
+      .insert(data)
+      .select()
+      .single()
+    if (!error) setSteps((prev) => [...prev, inserted].sort((a, b) => a.date.localeCompare(b.date)))
+    return error
+  }, [])
 
-  const deleteStepsForApplication = useCallback(
-    (applicationId: string) => {
-      persist(load().filter((s) => s.application_id !== applicationId))
-    },
-    [persist],
-  )
+  const deleteStepsForApplication = useCallback(async (applicationId: string) => {
+    await supabase.from('TimelineStep').delete().eq('applicationId', applicationId)
+    setSteps((prev) => prev.filter((s) => s.applicationId !== applicationId))
+  }, [])
 
   const getStepsForApplication = useCallback(
-    (applicationId: string) =>
-      steps.filter((s) => s.application_id === applicationId).sort((a, b) => a.date.localeCompare(b.date)),
+    (applicationId: string) => steps.filter((s) => s.applicationId === applicationId),
     [steps],
   )
 
-  return { steps, addStep, deleteStepsForApplication, getStepsForApplication }
+  return { steps, fetchStepsForApplication, addStep, deleteStepsForApplication, getStepsForApplication }
 }

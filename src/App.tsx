@@ -6,26 +6,34 @@ import { DashboardPage } from '@/pages/DashboardPage'
 import { ApplicationsPage } from '@/pages/ApplicationsPage'
 import { KanbanPage } from '@/pages/KanbanPage'
 import { ApplicationForm } from '@/components/applications/ApplicationForm'
-import { ApplicationDetail, STEP_TO_STATUS } from '@/components/applications/ApplicationDetail'
+import { ApplicationDetail } from '@/components/applications/ApplicationDetail'
 import { useAuth } from '@/hooks/useAuth'
 import { useApplications } from '@/hooks/useApplications'
 import { useSteps } from '@/hooks/useSteps'
 import type { Application } from '@/lib/types'
 
 export function App() {
-  const { userName, isAuthenticated, login, logout } = useAuth()
-  const { applications, addApplication, updateApplication, deleteApplication } = useApplications()
-  const { addStep, deleteStepsForApplication, getStepsForApplication } = useSteps()
+  const { user, loading: authLoading, isAuthenticated, signIn, signUp, signOut } = useAuth()
+  const { applications, loading: appsLoading, addApplication, updateApplication, deleteApplication } = useApplications(user?.id ?? null)
+  const { fetchStepsForApplication, addStep, deleteStepsForApplication, getStepsForApplication } = useSteps()
 
   const [formOpen, setFormOpen] = useState(false)
   const [editingApp, setEditingApp] = useState<Application | null>(null)
   const [detailApp, setDetailApp] = useState<Application | null>(null)
 
-  if (!isAuthenticated || !userName) {
-    return <LoginPage onLogin={login} />
+  if (authLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[var(--color-bg)]">
+        <div className="text-[var(--color-muted)] text-sm">Chargement...</div>
+      </div>
+    )
   }
 
-  function handleSave(data: Omit<Application, 'id' | 'created_at' | 'updated_at'>) {
+  if (!isAuthenticated || !user) {
+    return <LoginPage onSignIn={signIn} onSignUp={signUp} />
+  }
+
+  function handleSave(data: Omit<Application, 'id' | 'createdAt' | 'updatedAt'>) {
     if (editingApp) {
       updateApplication(editingApp.id, data)
     } else {
@@ -35,15 +43,17 @@ export function App() {
     setEditingApp(null)
   }
 
-  function handleDelete(app: Application) {
+  async function handleDelete(app: Application) {
     if (!window.confirm('Supprimer cette candidature ?')) return
-    deleteApplication(app.id)
-    deleteStepsForApplication(app.id)
+    await deleteApplication(app.id)
+    await deleteStepsForApplication(app.id)
     setDetailApp(null)
   }
 
   function handleOpenDetail(app: Application) {
-    setDetailApp(applications.find((a) => a.id === app.id) ?? app)
+    const current = applications.find((a) => a.id === app.id) ?? app
+    setDetailApp(current)
+    fetchStepsForApplication(current.id)
   }
 
   return (
@@ -52,15 +62,15 @@ export function App() {
         <Route
           element={
             <AppShell
-              userName={userName}
-              onLogout={logout}
+              userName={user.email ?? 'Utilisateur'}
+              onLogout={signOut}
               onAddApplication={() => { setEditingApp(null); setFormOpen(true) }}
             />
           }
         >
-          <Route index element={<DashboardPage applications={applications} onOpenDetail={handleOpenDetail} />} />
-          <Route path="applications" element={<ApplicationsPage applications={applications} onOpenDetail={handleOpenDetail} />} />
-          <Route path="kanban" element={<KanbanPage applications={applications} onOpenDetail={handleOpenDetail} />} />
+          <Route index element={<DashboardPage applications={applications} loading={appsLoading} onOpenDetail={handleOpenDetail} />} />
+          <Route path="applications" element={<ApplicationsPage applications={applications} loading={appsLoading} onOpenDetail={handleOpenDetail} />} />
+          <Route path="kanban" element={<KanbanPage applications={applications} loading={appsLoading} onOpenDetail={handleOpenDetail} />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
       </Routes>
@@ -68,6 +78,7 @@ export function App() {
       {formOpen && (
         <ApplicationForm
           initial={editingApp}
+          userId={user.id}
           onSave={handleSave}
           onClose={() => { setFormOpen(false); setEditingApp(null) }}
         />
@@ -75,17 +86,12 @@ export function App() {
 
       {detailApp && (
         <ApplicationDetail
-          application={detailApp}
+          application={applications.find((a) => a.id === detailApp.id) ?? detailApp}
           steps={getStepsForApplication(detailApp.id)}
           onEdit={() => { setEditingApp(detailApp); setDetailApp(null); setFormOpen(true) }}
           onDelete={() => handleDelete(detailApp)}
           onClose={() => setDetailApp(null)}
-          onAddStep={(step) => {
-            addStep(step)
-            const mappedStatus = STEP_TO_STATUS[step.step_type]
-            if (mappedStatus) updateApplication(detailApp.id, { status: mappedStatus })
-            setDetailApp((prev) => prev ? { ...prev, status: mappedStatus ?? prev.status } : null)
-          }}
+          onAddStep={(step) => addStep(step)}
         />
       )}
     </BrowserRouter>

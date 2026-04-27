@@ -1,12 +1,26 @@
+import { useState } from 'react'
+
 interface LoginPageProps {
-  onLogin: (name: string) => void
+  onSignIn: (email: string, password: string) => Promise<unknown>
+  onSignUp: (email: string, password: string) => Promise<unknown>
 }
 
-export function LoginPage({ onLogin }: LoginPageProps) {
-  function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+export function LoginPage({ onSignIn, onSignUp }: LoginPageProps) {
+  const [mode, setMode] = useState<'login' | 'signup'>('login')
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [error, setError] = useState<string | null>(null)
+  const [loading, setLoading] = useState(false)
+
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    const name = (new FormData(e.currentTarget).get('username') as string).trim()
-    if (name) onLogin(name)
+    setError(null)
+    setLoading(true)
+    const err = mode === 'login'
+      ? await onSignIn(email, password)
+      : await onSignUp(email, password)
+    if (err) setError((err as { message: string }).message)
+    setLoading(false)
   }
 
   return (
@@ -23,13 +37,46 @@ export function LoginPage({ onLogin }: LoginPageProps) {
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           <div className="flex flex-col gap-1.5">
-            <label className="text-xs font-medium">Nom d'utilisateur</label>
-            <input className="input" name="username" placeholder="Votre prénom" required autoFocus />
+            <label className="text-xs font-medium">Email</label>
+            <input
+              className="input"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="vous@exemple.com"
+              required
+              autoFocus
+            />
           </div>
-          <button type="submit" className="btn btn-primary btn-full mt-2">
-            Commencer
+          <div className="flex flex-col gap-1.5">
+            <label className="text-xs font-medium">Mot de passe</label>
+            <input
+              className="input"
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="••••••••"
+              required
+              minLength={6}
+            />
+          </div>
+
+          {error && <p className="text-xs text-[var(--color-danger)]">{error}</p>}
+
+          <button type="submit" className="btn btn-primary btn-full mt-2" disabled={loading}>
+            {loading ? 'Chargement...' : mode === 'login' ? 'Se connecter' : 'Créer un compte'}
           </button>
         </form>
+
+        <p className="text-center text-xs text-[var(--color-muted)] mt-5">
+          {mode === 'login' ? "Pas encore de compte ? " : "Déjà un compte ? "}
+          <button
+            className="text-[var(--color-primary)] underline bg-transparent border-0 cursor-pointer"
+            onClick={() => { setMode(mode === 'login' ? 'signup' : 'login'); setError(null) }}
+          >
+            {mode === 'login' ? 'Créer un compte' : 'Se connecter'}
+          </button>
+        </p>
       </div>
     </div>
   )

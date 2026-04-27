@@ -1,59 +1,64 @@
-import { useState, useCallback } from 'react'
+import { useState, useEffect, useCallback } from 'react'
+import { supabase } from '@/lib/supabase'
 import type { Application, ApplicationStatus } from '@/lib/types'
-import { uid } from '@/lib/utils'
 
-const STORAGE_KEY = 'jt_applications'
+export function useApplications(userId: string | null) {
+  const [applications, setApplications] = useState<Application[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
-function load(): Application[] {
-  try {
-    return JSON.parse(localStorage.getItem(STORAGE_KEY) ?? 'null') ?? []
-  } catch {
-    return []
-  }
-}
+  const fetchApplications = useCallback(async () => {
+    if (!userId) { setApplications([]); setLoading(false); return }
+    setLoading(true)
+    const { data, error } = await supabase
+      .from('Application')
+      .select('*')
+      .eq('userId', userId)
+      .order('createdAt', { ascending: false })
+    if (error) setError(error.message)
+    else setApplications(data ?? [])
+    setLoading(false)
+  }, [userId])
 
-function save(apps: Application[]) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(apps))
-}
-
-export function useApplications() {
-  const [applications, setApplications] = useState<Application[]>(load)
-
-  const persist = useCallback((apps: Application[]) => {
-    save(apps)
-    setApplications(apps)
-  }, [])
+  useEffect(() => { fetchApplications() }, [fetchApplications])
 
   const addApplication = useCallback(
-    (data: Omit<Application, 'id' | 'created_at' | 'updated_at'>) => {
-      const now = new Date().toISOString()
-      const next = [{ id: uid(), ...data, created_at: now, updated_at: now }, ...load()]
-      persist(next)
+    async (data: Omit<Application, 'id' | 'createdAt' | 'updatedAt'>) => {
+      const { data: inserted, error } = await supabase
+        .from('Application')
+        .insert(data)
+        .select()
+        .single()
+      if (error) { setError(error.message); return }
+      setApplications((prev) => [inserted, ...prev])
     },
-    [persist],
+    [],
   )
 
   const updateApplication = useCallback(
-    (id: string, data: Partial<Omit<Application, 'id' | 'created_at'>>) => {
-      const apps = load().map((a) =>
-        a.id === id ? { ...a, ...data, updated_at: new Date().toISOString() } : a,
-      )
-      persist(apps)
+    async (id: string, data: Partial<Omit<Application, 'id' | 'createdAt'>>) => {
+      const { data: updated, error } = await supabase
+        .from('Application')
+        .update({ ...data, updatedAt: new Date().toISOString() })
+        .eq('id', id)
+        .select()
+        .single()
+      if (error) { setError(error.message); return }
+      setApplications((prev) => prev.map((a) => (a.id === id ? updated : a)))
     },
-    [persist],
+    [],
   )
 
-  const deleteApplication = useCallback(
-    (id: string) => {
-      persist(load().filter((a) => a.id !== id))
-    },
-    [persist],
-  )
+  const deleteApplication = useCallback(async (id: string) => {
+    const { error } = await supabase.from('Application').delete().eq('id', id)
+    if (error) { setError(error.message); return }
+    setApplications((prev) => prev.filter((a) => a.id !== id))
+  }, [])
 
   const updateStatus = useCallback(
     (id: string, status: ApplicationStatus) => updateApplication(id, { status }),
     [updateApplication],
   )
 
-  return { applications, addApplication, updateApplication, deleteApplication, updateStatus }
+  return { applications, loading, error, addApplication, updateApplication, deleteApplication, updateStatus, refetch: fetchApplications }
 }

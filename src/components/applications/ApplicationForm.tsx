@@ -1,24 +1,27 @@
-import { useEffect, useRef } from 'react'
+import { useEffect } from 'react'
 import { X } from 'lucide-react'
 import type { Application, ApplicationStatus } from '@/lib/types'
 
 const STATUS_OPTIONS: { value: ApplicationStatus; label: string }[] = [
-  { value: 'saved', label: 'Sauvegardée' },
-  { value: 'applied', label: 'Postulée' },
-  { value: 'interview', label: 'Entretien' },
-  { value: 'offer', label: 'Offre reçue' },
-  { value: 'rejected', label: 'Refusée' },
+  { value: 'WISHLIST', label: 'À postuler' },
+  { value: 'APPLIED', label: 'Postulée' },
+  { value: 'PHONE_SCREEN', label: 'Pré-sélection' },
+  { value: 'INTERVIEW', label: 'Entretien' },
+  { value: 'TECHNICAL_TEST', label: 'Test technique' },
+  { value: 'OFFER', label: 'Offre reçue' },
+  { value: 'ACCEPTED', label: 'Acceptée' },
+  { value: 'REJECTED', label: 'Refusée' },
+  { value: 'WITHDRAWN', label: 'Abandonnée' },
 ]
 
 interface ApplicationFormProps {
   initial?: Application | null
-  onSave: (data: Omit<Application, 'id' | 'created_at' | 'updated_at'>) => void
+  userId: string
+  onSave: (data: Omit<Application, 'id' | 'createdAt' | 'updatedAt'>) => void
   onClose: () => void
 }
 
-export function ApplicationForm({ initial, onSave, onClose }: ApplicationFormProps) {
-  const formRef = useRef<HTMLFormElement>(null)
-
+export function ApplicationForm({ initial, userId, onSave, onClose }: ApplicationFormProps) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
     window.addEventListener('keydown', onKey)
@@ -29,14 +32,16 @@ export function ApplicationForm({ initial, onSave, onClose }: ApplicationFormPro
     e.preventDefault()
     const fd = new FormData(e.currentTarget)
     onSave({
+      userId,
       company: (fd.get('company') as string).trim(),
-      role: (fd.get('role') as string).trim(),
-      location: (fd.get('location') as string).trim(),
-      contract_type: (fd.get('contract_type') as string).trim(),
-      salary: (fd.get('salary') as string).trim(),
+      position: (fd.get('position') as string).trim(),
+      location: (fd.get('location') as string).trim() || null,
+      contractType: (fd.get('contractType') as string).trim() || null,
+      jobUrl: (fd.get('jobUrl') as string).trim() || null,
       status: fd.get('status') as ApplicationStatus,
-      url: (fd.get('url') as string).trim(),
-      description: (fd.get('description') as string).trim(),
+      notes: (fd.get('notes') as string).trim() || null,
+      appliedAt: null,
+      resumeId: null,
     })
   }
 
@@ -51,7 +56,7 @@ export function ApplicationForm({ initial, onSave, onClose }: ApplicationFormPro
           <button className="btn btn-ghost p-1" onClick={onClose}><X size={18} /></button>
         </div>
 
-        <form ref={formRef} onSubmit={handleSubmit} className="p-6 flex flex-col gap-4">
+        <form onSubmit={handleSubmit} className="p-6 flex flex-col gap-4">
           <div className="grid grid-cols-2 gap-4">
             <div className="flex flex-col gap-1.5">
               <label className="text-xs font-medium">Entreprise *</label>
@@ -59,7 +64,7 @@ export function ApplicationForm({ initial, onSave, onClose }: ApplicationFormPro
             </div>
             <div className="flex flex-col gap-1.5">
               <label className="text-xs font-medium">Poste *</label>
-              <input className="input" name="role" defaultValue={initial?.role ?? ''} placeholder="Développeur Frontend" required />
+              <input className="input" name="position" defaultValue={initial?.position ?? ''} placeholder="Développeur Frontend" required />
             </div>
           </div>
 
@@ -70,33 +75,28 @@ export function ApplicationForm({ initial, onSave, onClose }: ApplicationFormPro
             </div>
             <div className="flex flex-col gap-1.5">
               <label className="text-xs font-medium">Contrat</label>
-              <input className="input" name="contract_type" defaultValue={initial?.contract_type ?? ''} placeholder="CDI, CDD, Stage..." />
+              <input className="input" name="contractType" defaultValue={initial?.contractType ?? ''} placeholder="CDI, CDD, Stage..." />
             </div>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div className="flex flex-col gap-1.5">
-              <label className="text-xs font-medium">Salaire</label>
-              <input className="input" name="salary" defaultValue={initial?.salary ?? ''} placeholder="45 000€" />
-            </div>
-            <div className="flex flex-col gap-1.5">
               <label className="text-xs font-medium">Statut</label>
-              <select className="input" name="status" defaultValue={initial?.status ?? 'saved'}>
+              <select className="input" name="status" defaultValue={initial?.status ?? 'WISHLIST'}>
                 {STATUS_OPTIONS.map((o) => (
                   <option key={o.value} value={o.value}>{o.label}</option>
                 ))}
               </select>
             </div>
-          </div>
-
-          <div className="flex flex-col gap-1.5">
-            <label className="text-xs font-medium">URL de l'offre</label>
-            <input className="input" name="url" type="url" defaultValue={initial?.url ?? ''} placeholder="https://..." />
+            <div className="flex flex-col gap-1.5">
+              <label className="text-xs font-medium">URL de l'offre</label>
+              <input className="input" name="jobUrl" type="url" defaultValue={initial?.jobUrl ?? ''} placeholder="https://..." />
+            </div>
           </div>
 
           <div className="flex flex-col gap-1.5">
             <label className="text-xs font-medium">Notes</label>
-            <textarea className="input resize-y" name="description" rows={3} defaultValue={initial?.description ?? ''} placeholder="Notes sur la candidature..." />
+            <textarea className="input resize-y" name="notes" rows={3} defaultValue={initial?.notes ?? ''} placeholder="Notes sur la candidature..." />
           </div>
 
           <div className="flex justify-end gap-2.5 mt-2">

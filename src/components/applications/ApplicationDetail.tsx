@@ -1,8 +1,8 @@
 import { useEffect } from 'react'
-import { X, MapPin, FileText, DollarSign, Link as LinkIcon, Plus } from 'lucide-react'
+import { X, MapPin, FileText, Link as LinkIcon, Plus } from 'lucide-react'
 import { StatusBadge } from './StatusBadge'
 import { formatDate } from '@/lib/utils'
-import { STEP_LABELS, STEP_TO_STATUS, type Application, type TimelineStep, type StepType, type StepStatus } from '@/lib/types'
+import type { Application, TimelineStep, StepStatus } from '@/lib/types'
 
 interface ApplicationDetailProps {
   application: Application
@@ -10,30 +10,21 @@ interface ApplicationDetailProps {
   onEdit: () => void
   onDelete: () => void
   onClose: () => void
-  onAddStep: (step: Omit<TimelineStep, 'id' | 'created_at'>) => void
+  onAddStep: (step: Omit<TimelineStep, 'id' | 'createdAt'>) => void
 }
 
-const STEP_TYPE_OPTIONS: { value: StepType; label: string }[] = [
-  { value: 'applied', label: 'Candidature envoyée' },
-  { value: 'confirmation', label: 'Accusé de réception' },
-  { value: 'interview_hr', label: 'Entretien RH' },
-  { value: 'interview_manager', label: 'Entretien manager' },
-  { value: 'test', label: 'Test / Cas pratique' },
-  { value: 'offer', label: 'Offre reçue' },
-  { value: 'rejected', label: 'Refus' },
-  { value: 'custom', label: 'Étape libre' },
-]
-
-const DOT_CLASSES: Record<StepStatus, string> = {
-  done: 'bg-green-100 text-green-700 border-2 border-green-500',
-  current: 'bg-blue-100 text-blue-700 border-2 border-blue-500',
-  upcoming: 'bg-[var(--color-bg)] text-[var(--color-muted)] border-2 border-[var(--color-border)]',
+const DOT_STYLES: Record<StepStatus, string> = {
+  COMPLETED:  'bg-green-100 text-green-700 border-2 border-green-500',
+  IN_PROGRESS:'bg-blue-100 text-blue-700 border-2 border-blue-500',
+  UPCOMING:   'bg-[var(--color-bg)] text-[var(--color-muted)] border-2 border-[var(--color-border)]',
+  CANCELLED:  'bg-red-50 text-red-400 border-2 border-red-200',
 }
 
 const DOT_CHARS: Record<StepStatus, string> = {
-  done: '✓',
-  current: '●',
-  upcoming: '○',
+  COMPLETED: '✓',
+  IN_PROGRESS: '●',
+  UPCOMING: '○',
+  CANCELLED: '✕',
 }
 
 export function ApplicationDetail({ application, steps, onEdit, onDelete, onClose, onAddStep }: ApplicationDetailProps) {
@@ -46,18 +37,14 @@ export function ApplicationDetail({ application, steps, onEdit, onDelete, onClos
   function handleAddStep(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     const fd = new FormData(e.currentTarget)
-    const type = fd.get('step_type') as StepType
-    const customTitle = (fd.get('custom_title') as string).trim()
-    const title = type === 'custom' ? (customTitle || 'Étape libre') : STEP_LABELS[type]
-
     onAddStep({
-      application_id: application.id,
-      title,
-      step_type: type,
+      applicationId: application.id,
+      title: (fd.get('title') as string).trim() || 'Étape',
       date: fd.get('date') as string,
-      time: fd.get('time') as string,
+      time: (fd.get('time') as string) || null,
       status: fd.get('status') as StepStatus,
-      notes: (fd.get('notes') as string).trim(),
+      notes: (fd.get('notes') as string).trim() || null,
+      order: steps.length,
     })
     e.currentTarget.reset()
   }
@@ -70,7 +57,7 @@ export function ApplicationDetail({ application, steps, onEdit, onDelete, onClos
       <div className="bg-[var(--color-surface)] rounded-[var(--radius)] w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-[var(--shadow-lg)]">
         <div className="flex items-start justify-between px-6 pt-5">
           <div>
-            <h3 className="text-lg font-bold">{application.role}</h3>
+            <h3 className="text-lg font-bold">{application.position}</h3>
             <p className="text-sm text-[var(--color-muted)]">{application.company}</p>
           </div>
           <button className="btn btn-ghost p-1" onClick={onClose}><X size={18} /></button>
@@ -86,19 +73,14 @@ export function ApplicationDetail({ application, steps, onEdit, onDelete, onClos
                   <MapPin size={11} />{application.location}
                 </span>
               )}
-              {application.contract_type && (
+              {application.contractType && (
                 <span className="flex items-center gap-1 text-xs text-[var(--color-muted)]">
-                  <FileText size={11} />{application.contract_type}
+                  <FileText size={11} />{application.contractType}
                 </span>
               )}
-              {application.salary && (
-                <span className="flex items-center gap-1 text-xs text-[var(--color-muted)]">
-                  <DollarSign size={11} />{application.salary}
-                </span>
-              )}
-              {application.url && (
+              {application.jobUrl && (
                 <a
-                  href={application.url}
+                  href={application.jobUrl}
                   target="_blank"
                   rel="noreferrer"
                   className="btn btn-secondary btn-sm flex items-center gap-1"
@@ -113,6 +95,10 @@ export function ApplicationDetail({ application, steps, onEdit, onDelete, onClos
             </div>
           </div>
 
+          {application.notes && (
+            <p className="text-sm text-[var(--color-muted)] bg-[var(--color-bg)] rounded-[var(--radius-sm)] p-3">{application.notes}</p>
+          )}
+
           {/* Timeline */}
           <div className="border-t border-[var(--color-border)] pt-4">
             <h4 className="text-sm font-semibold mb-4">Timeline</h4>
@@ -125,7 +111,7 @@ export function ApplicationDetail({ application, steps, onEdit, onDelete, onClos
                     {i < steps.length - 1 && (
                       <div className="absolute left-[11px] top-9 bottom-[-12px] w-0.5 bg-[var(--color-border)]" />
                     )}
-                    <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-bold flex-shrink-0 mt-0.5 ${DOT_CLASSES[step.status]}`}>
+                    <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-bold flex-shrink-0 mt-0.5 ${DOT_STYLES[step.status]}`}>
                       {DOT_CHARS[step.status]}
                     </div>
                     <div className="flex-1">
@@ -140,28 +126,24 @@ export function ApplicationDetail({ application, steps, onEdit, onDelete, onClos
               </div>
             )}
 
-            {/* Add step form */}
+            {/* Add step */}
             <form onSubmit={handleAddStep} className="mt-4 p-4 bg-[var(--color-bg)] rounded-[var(--radius-sm)] flex flex-col gap-3">
               <div className="flex items-center gap-2 text-xs font-semibold text-[var(--color-muted)]">
                 <Plus size={12} /> Ajouter une étape
               </div>
               <div className="grid grid-cols-2 gap-3">
-                <select className="input text-xs" name="step_type">
-                  {STEP_TYPE_OPTIONS.map((o) => (
-                    <option key={o.value} value={o.value}>{o.label}</option>
-                  ))}
-                </select>
+                <input className="input text-xs" name="title" placeholder="Entretien RH, Test technique..." required />
                 <select className="input text-xs" name="status">
-                  <option value="done">Terminé</option>
-                  <option value="current">En cours</option>
-                  <option value="upcoming">À venir</option>
+                  <option value="UPCOMING">À venir</option>
+                  <option value="IN_PROGRESS">En cours</option>
+                  <option value="COMPLETED">Terminé</option>
+                  <option value="CANCELLED">Annulé</option>
                 </select>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <input className="input text-xs" name="date" type="date" defaultValue={new Date().toISOString().split('T')[0]} required />
                 <input className="input text-xs" name="time" type="time" />
               </div>
-              <input className="input text-xs" name="custom_title" placeholder="Titre (si étape libre)" />
               <textarea className="input text-xs resize-y" name="notes" rows={2} placeholder="Notes..." />
               <div className="flex justify-end">
                 <button type="submit" className="btn btn-primary btn-sm">Ajouter</button>
@@ -173,5 +155,3 @@ export function ApplicationDetail({ application, steps, onEdit, onDelete, onClos
     </div>
   )
 }
-
-export { STEP_TO_STATUS }

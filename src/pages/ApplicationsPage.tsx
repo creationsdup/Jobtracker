@@ -5,29 +5,33 @@ import type { Application, ApplicationStatus } from '@/lib/types'
 
 const STATUS_OPTIONS: { value: ApplicationStatus | ''; label: string }[] = [
   { value: '', label: 'Tous les statuts' },
-  { value: 'saved', label: 'Sauvegardée' },
-  { value: 'applied', label: 'Postulée' },
-  { value: 'interview', label: 'Entretien' },
-  { value: 'offer', label: 'Offre reçue' },
-  { value: 'rejected', label: 'Refusée' },
+  { value: 'WISHLIST', label: 'À postuler' },
+  { value: 'APPLIED', label: 'Postulée' },
+  { value: 'PHONE_SCREEN', label: 'Pré-sélection' },
+  { value: 'INTERVIEW', label: 'Entretien' },
+  { value: 'TECHNICAL_TEST', label: 'Test technique' },
+  { value: 'OFFER', label: 'Offre reçue' },
+  { value: 'ACCEPTED', label: 'Acceptée' },
+  { value: 'REJECTED', label: 'Refusée' },
+  { value: 'WITHDRAWN', label: 'Abandonnée' },
 ]
 
 interface ApplicationsPageProps {
   applications: Application[]
+  loading: boolean
   onOpenDetail: (app: Application) => void
 }
 
-export function ApplicationsPage({ applications, onOpenDetail }: ApplicationsPageProps) {
+export function ApplicationsPage({ applications, loading, onOpenDetail }: ApplicationsPageProps) {
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<ApplicationStatus | ''>('')
 
   const filtered = applications
     .filter((a) => {
       const q = search.toLowerCase()
-      return !q || a.company.toLowerCase().includes(q) || a.role.toLowerCase().includes(q)
+      return !q || a.company.toLowerCase().includes(q) || a.position.toLowerCase().includes(q)
     })
     .filter((a) => !statusFilter || a.status === statusFilter)
-    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
 
   return (
     <div>
@@ -42,7 +46,7 @@ export function ApplicationsPage({ applications, onOpenDetail }: ApplicationsPag
           />
         </div>
         <select
-          className="input sm:w-48"
+          className="input sm:w-52"
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value as ApplicationStatus | '')}
         >
@@ -52,7 +56,13 @@ export function ApplicationsPage({ applications, onOpenDetail }: ApplicationsPag
         </select>
       </div>
 
-      {filtered.length === 0 ? (
+      {loading ? (
+        <div className="flex flex-col gap-3">
+          {[1, 2, 3, 4].map((i) => (
+            <div key={i} className="card px-5 py-4 h-16 animate-pulse bg-[var(--color-bg)]" />
+          ))}
+        </div>
+      ) : filtered.length === 0 ? (
         <div className="empty-state">
           <div className="text-5xl mb-3">📋</div>
           <p className="font-semibold">Aucune candidature trouvée</p>
