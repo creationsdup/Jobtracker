@@ -63,7 +63,8 @@ export function App() {
         <Route
           element={
             <AppShell
-              userName={user.email}
+              userEmail={user.email}
+              applicationsCount={applications.filter((a) => !['REJECTED', 'WITHDRAWN', 'ACCEPTED'].includes(a.status)).length}
               onLogout={signOut}
               onAddApplication={() => { setEditingApp(null); setFormOpen(true) }}
             />

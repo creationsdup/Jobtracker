@@ -1,0 +1,57 @@
+:root {
+  /* ── Sidebar ── */
+  --color-sidebar: #1E1966;
+  --color-sidebar-accent: #7F77DD;
+  --color-sidebar-active-bg: rgba(127, 119, 221, 0.20);
+  --color-sidebar-hover-bg: rgba(255, 255, 255, 0.05);
+  --color-sidebar-text: rgba(255, 255, 255, 0.55);
+  --color-sidebar-text-hover: rgba(255, 255, 255, 0.85);
+  --color-sidebar-text-active: #ffffff;
+  --color-sidebar-divider: rgba(255, 255, 255, 0.08);
+
+  /* ── Content area ── */
+  --color-content-bg: #F2EDE3;
+
+  /* ── Violet palette ── */
+  --color-violet-light: #EEEDFE;
+  --color-violet-mid: #7F77DD;
+  --color-violet-dark: #3C3489;
+  --color-violet-text: #534AB7;
+  --color-violet-deep: #1E1966;
+
+  /* ── Amber palette ── */
+  --color-amber-light: #FAEEDA;
+  --color-amber-text: #633806;
+  --color-amber: #EF9F27;
+
+  /* ── Green palette ── */
+  --color-green-light: #E1F5EE;
+  --color-green-text: #085041;
+  --color-green: #1D9E75;
+
+  /* ── Red palette ── */
+  --color-red-light: #FAECE7;
+  --color-red-text: #712B13;
+  --color-red: #D85A30;
+
+  /* ── Status accents (used by StatCard + ProgressWidget) ── */
+  --stat-wishlist-accent: #9ca3af;
+  --stat-wishlist-badge-bg: #f3f4f6;
+  --stat-wishlist-badge-fg: #374151;
+
+  --stat-applied-accent: #534AB7;
+  --stat-applied-badge-bg: var(--color-violet-light);
+  --stat-applied-badge-fg: var(--color-violet-text);
+
+  --stat-interview-accent: #EF9F27;
+  --stat-interview-badge-bg: var(--color-amber-light);
+  --stat-interview-badge-fg: var(--color-amber-text);
+
+  --stat-offer-accent: #1D9E75;
+  --stat-offer-badge-bg: var(--color-green-light);
+  --stat-offer-badge-fg: var(--color-green-text);
+
+  --stat-rejected-accent: #D85A30;
+  --stat-rejected-badge-bg: var(--color-red-light);
+  --stat-rejected-badge-fg: var(--color-red-text);
+}

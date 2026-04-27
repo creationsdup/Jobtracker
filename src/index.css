@@ -2,6 +2,8 @@
 @tailwind components;
 @tailwind utilities;
 
+@import './styles/tokens.css';
+
 /* ===== DESIGN TOKENS ===== */
 :root {
   /* Colors */
@@ -28,7 +30,7 @@
   --color-status-rejected-fg: #b91c1c;
 
   /* Layout */
-  --sidebar-w: 240px;
+  --sidebar-w: 220px;
 
   /* Shape */
   --radius: 12px;
