@@ -5,6 +5,7 @@ import { LoginPage } from '@/pages/LoginPage'
 import { DashboardPage } from '@/pages/DashboardPage'
 import { ApplicationsPage } from '@/pages/ApplicationsPage'
 import { KanbanPage } from '@/pages/KanbanPage'
+import { LibraryPage } from '@/pages/LibraryPage'
 import { ApplicationForm } from '@/components/applications/ApplicationForm'
 import { ApplicationDetail } from '@/components/applications/ApplicationDetail'
 import { useAuth } from '@/hooks/useAuth'
@@ -62,7 +63,7 @@ export function App() {
         <Route
           element={
             <AppShell
-              userName={user.email ?? 'Utilisateur'}
+              userName={user.email}
               onLogout={signOut}
               onAddApplication={() => { setEditingApp(null); setFormOpen(true) }}
             />
@@ -71,6 +72,7 @@ export function App() {
           <Route index element={<DashboardPage applications={applications} loading={appsLoading} onOpenDetail={handleOpenDetail} />} />
           <Route path="applications" element={<ApplicationsPage applications={applications} loading={appsLoading} onOpenDetail={handleOpenDetail} />} />
           <Route path="kanban" element={<KanbanPage applications={applications} loading={appsLoading} onOpenDetail={handleOpenDetail} />} />
+          <Route path="library" element={<LibraryPage userId={user.id} />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
       </Routes>

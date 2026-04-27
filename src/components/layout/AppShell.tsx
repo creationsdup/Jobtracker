@@ -7,6 +7,7 @@ const PAGE_TITLES: Record<string, string> = {
   '/': 'Dashboard',
   '/applications': 'Candidatures',
   '/kanban': 'Kanban',
+  '/library': 'Bibliothèque',
 }
 
 interface AppShellProps {

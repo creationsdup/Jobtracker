@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom'
-import { LayoutDashboard, Briefcase, Columns3, X } from 'lucide-react'
+import { LayoutDashboard, Briefcase, Columns3, BookOpen, X } from 'lucide-react'
 import { cn, getInitial } from '@/lib/utils'
 import { useUIStore } from '@/store/uiStore'
 
@@ -12,6 +12,7 @@ const NAV_ITEMS = [
   { to: '/', label: 'Dashboard', icon: LayoutDashboard },
   { to: '/applications', label: 'Candidatures', icon: Briefcase },
   { to: '/kanban', label: 'Kanban', icon: Columns3 },
+  { to: '/library', label: 'Bibliothèque', icon: BookOpen },
 ]
 
 export function Sidebar({ userName, onLogout }: SidebarProps) {

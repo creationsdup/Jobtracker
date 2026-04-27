@@ -1,22 +1,46 @@
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
-import type { User, Session } from '@supabase/supabase-js'
+import type { Session } from '@supabase/supabase-js'
+
+interface AppUser {
+  authId: string   // Supabase Auth UUID
+  id: string       // CUID dans la table User
+  email: string
+}
 
 export function useAuth() {
-  const [user, setUser] = useState<User | null>(null)
   const [session, setSession] = useState<Session | null>(null)
+  const [appUser, setAppUser] = useState<AppUser | null>(null)
   const [loading, setLoading] = useState(true)
 
+  async function resolveAppUser(session: Session | null) {
+    if (!session?.user?.email) {
+      setAppUser(null)
+      return
+    }
+    const { data } = await supabase
+      .from('User')
+      .select('id, email')
+      .eq('email', session.user.email)
+      .single()
+
+    if (data) {
+      setAppUser({ authId: session.user.id, id: data.id, email: data.email })
+    } else {
+      setAppUser(null)
+    }
+  }
+
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
       setSession(session)
-      setUser(session?.user ?? null)
+      await resolveAppUser(session)
       setLoading(false)
     })
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
       setSession(session)
-      setUser(session?.user ?? null)
+      await resolveAppUser(session)
     })
 
     return () => subscription.unsubscribe()
@@ -34,13 +58,14 @@ export function useAuth() {
 
   const signOut = useCallback(async () => {
     await supabase.auth.signOut()
+    setAppUser(null)
   }, [])
 
   return {
-    user,
+    user: appUser,
     session,
     loading,
-    isAuthenticated: !!user,
+    isAuthenticated: !!appUser,
     signIn,
     signUp,
     signOut,
