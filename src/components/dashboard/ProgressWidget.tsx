@@ -1,15 +1,16 @@
 import type { DashboardStats } from '@/hooks/useDashboardStats'
+import { STATUS_COLORS } from '@/utils/statusLabels'
 
 interface ProgressWidgetProps {
   stats: DashboardStats
 }
 
 const ROWS = [
-  { key: 'wishlist',  label: 'Wishlist',    accent: 'var(--stat-wishlist-accent)' },
-  { key: 'applied',   label: 'Postulé',     accent: 'var(--stat-applied-accent)' },
-  { key: 'interview', label: 'Entretien',   accent: 'var(--stat-interview-accent)' },
-  { key: 'offer',     label: 'Offre',       accent: 'var(--stat-offer-accent)' },
-  { key: 'rejected',  label: 'Refusé',      accent: 'var(--stat-rejected-accent)' },
+  { key: 'wishlist',  label: 'Sauvegardée', accent: STATUS_COLORS.wishlist.accent },
+  { key: 'applied',   label: 'Postulée',    accent: STATUS_COLORS.applied.accent },
+  { key: 'interview', label: 'Entretien',   accent: STATUS_COLORS.interview.accent },
+  { key: 'offer',     label: 'Offre',       accent: STATUS_COLORS.offer.accent },
+  { key: 'rejected',  label: 'Refusée',     accent: STATUS_COLORS.rejected.accent },
 ] as const
 
 export function ProgressWidget({ stats }: ProgressWidgetProps) {

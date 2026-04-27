@@ -8,6 +8,7 @@ import { TipBanner } from '@/components/dashboard/TipBanner'
 import { useDashboardStats } from '@/hooks/useDashboardStats'
 import { useActivityData } from '@/hooks/useActivityData'
 import { useAuth } from '@/hooks/useAuth'
+import { STATUS_COLORS } from '@/utils/statusLabels'
 import type { Application } from '@/lib/types'
 
 interface DashboardPageProps {
@@ -26,39 +27,39 @@ const TODAY = new Date().toLocaleDateString('fr-FR', {
 
 const STAT_CARDS = [
   {
-    key: 'total' as const,
-    label: 'Total',
-    accent: 'var(--color-violet-accent)',
-    bg: 'var(--color-violet-light)',
-    fg: 'var(--color-violet-text)',
-  },
-  {
     key: 'wishlist' as const,
-    label: 'Wishlist',
-    accent: 'var(--stat-wishlist-accent)',
-    bg: 'var(--stat-wishlist-badge-bg)',
-    fg: 'var(--stat-wishlist-badge-fg)',
+    label: 'Sauvegardée',
+    accent: STATUS_COLORS.wishlist.accent,
+    bg: STATUS_COLORS.wishlist.bg,
+    fg: STATUS_COLORS.wishlist.text,
   },
   {
     key: 'applied' as const,
-    label: 'Postulé',
-    accent: 'var(--stat-applied-accent)',
-    bg: 'var(--stat-applied-badge-bg)',
-    fg: 'var(--stat-applied-badge-fg)',
+    label: 'Postulée',
+    accent: STATUS_COLORS.applied.accent,
+    bg: STATUS_COLORS.applied.bg,
+    fg: STATUS_COLORS.applied.text,
   },
   {
     key: 'interview' as const,
     label: 'Entretien',
-    accent: 'var(--stat-interview-accent)',
-    bg: 'var(--stat-interview-badge-bg)',
-    fg: 'var(--stat-interview-badge-fg)',
+    accent: STATUS_COLORS.interview.accent,
+    bg: STATUS_COLORS.interview.bg,
+    fg: STATUS_COLORS.interview.text,
   },
   {
     key: 'offer' as const,
     label: 'Offre',
-    accent: 'var(--stat-offer-accent)',
-    bg: 'var(--stat-offer-badge-bg)',
-    fg: 'var(--stat-offer-badge-fg)',
+    accent: STATUS_COLORS.offer.accent,
+    bg: STATUS_COLORS.offer.bg,
+    fg: STATUS_COLORS.offer.text,
+  },
+  {
+    key: 'rejected' as const,
+    label: 'Refusée',
+    accent: STATUS_COLORS.rejected.accent,
+    bg: STATUS_COLORS.rejected.bg,
+    fg: STATUS_COLORS.rejected.text,
   },
 ] as const
 

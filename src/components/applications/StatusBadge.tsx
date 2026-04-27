@@ -1,16 +1,19 @@
 import { cn } from '@/lib/utils'
-import { STATUS_LABELS, type ApplicationStatus } from '@/lib/types'
+import { STATUS_LABELS as TYPE_LABELS } from '@/lib/types'
+import { STATUS_COLORS } from '@/utils/statusLabels'
+import type { ApplicationStatus } from '@/lib/types'
+import type { StatusKey } from '@/utils/statusLabels'
 
-const STATUS_STYLES: Record<ApplicationStatus, string> = {
-  WISHLIST:       'bg-gray-100 text-gray-700',
-  APPLIED:        'bg-blue-100 text-blue-700',
-  PHONE_SCREEN:   'bg-purple-100 text-purple-700',
-  INTERVIEW:      'bg-orange-100 text-orange-700',
-  TECHNICAL_TEST: 'bg-yellow-100 text-yellow-700',
-  OFFER:          'bg-green-100 text-green-700',
-  ACCEPTED:       'bg-emerald-100 text-emerald-700',
-  REJECTED:       'bg-red-100 text-red-700',
-  WITHDRAWN:      'bg-gray-100 text-gray-500',
+const STATUS_KEY_MAP: Record<ApplicationStatus, StatusKey> = {
+  WISHLIST:       'wishlist',
+  APPLIED:        'applied',
+  PHONE_SCREEN:   'applied',
+  INTERVIEW:      'interview',
+  TECHNICAL_TEST: 'interview',
+  OFFER:          'offer',
+  ACCEPTED:       'offer',
+  REJECTED:       'rejected',
+  WITHDRAWN:      'rejected',
 }
 
 interface StatusBadgeProps {
@@ -19,9 +22,15 @@ interface StatusBadgeProps {
 }
 
 export function StatusBadge({ status, className }: StatusBadgeProps) {
+  const key = STATUS_KEY_MAP[status]
+  const colors = STATUS_COLORS[key]
+
   return (
-    <span className={cn('badge', STATUS_STYLES[status], className)}>
-      {STATUS_LABELS[status]}
+    <span
+      className={cn('badge', className)}
+      style={{ background: colors.bg, color: colors.text }}
+    >
+      {TYPE_LABELS[status]}
     </span>
   )
 }
