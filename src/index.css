@@ -1,0 +1,111 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ===== DESIGN TOKENS ===== */
+:root {
+  /* Colors */
+  --color-bg: #f5f5f7;
+  --color-surface: #ffffff;
+  --color-border: #e5e7eb;
+  --color-ink: #111827;
+  --color-muted: #6b7280;
+  --color-primary: #3b82f6;
+  --color-primary-dark: #2563eb;
+  --color-danger: #ef4444;
+  --color-danger-dark: #dc2626;
+
+  /* Status colors */
+  --color-status-saved-bg: #f3f4f6;
+  --color-status-saved-fg: #374151;
+  --color-status-applied-bg: #dbeafe;
+  --color-status-applied-fg: #1d4ed8;
+  --color-status-interview-bg: #ffedd5;
+  --color-status-interview-fg: #c2410c;
+  --color-status-offer-bg: #dcfce7;
+  --color-status-offer-fg: #15803d;
+  --color-status-rejected-bg: #fee2e2;
+  --color-status-rejected-fg: #b91c1c;
+
+  /* Layout */
+  --sidebar-w: 240px;
+
+  /* Shape */
+  --radius: 12px;
+  --radius-sm: 8px;
+  --radius-lg: 16px;
+
+  /* Shadows */
+  --shadow: 0 1px 3px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.06);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  --shadow-lg: 0 20px 60px rgba(0, 0, 0, 0.15);
+}
+
+/* ===== BASE ===== */
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+html, body, #root {
+  height: 100%;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background: var(--color-bg);
+  color: var(--color-ink);
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ===== COMPONENT LAYER ===== */
+@layer components {
+  /* Buttons */
+  .btn {
+    @apply inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-[var(--radius-sm)] text-sm font-medium border-0 cursor-pointer transition-all duration-150 whitespace-nowrap select-none;
+  }
+  .btn-primary {
+    @apply bg-[var(--color-primary)] text-white hover:bg-[var(--color-primary-dark)];
+  }
+  .btn-secondary {
+    @apply bg-[var(--color-bg)] text-[var(--color-ink)] border border-[var(--color-border)] hover:bg-gray-200/60;
+  }
+  .btn-danger {
+    @apply bg-[var(--color-danger)] text-white hover:bg-[var(--color-danger-dark)];
+  }
+  .btn-ghost {
+    @apply bg-transparent text-[var(--color-muted)] hover:bg-[var(--color-bg)] hover:text-[var(--color-ink)];
+  }
+  .btn-sm {
+    @apply px-3 py-1.5 text-xs;
+  }
+  .btn-full {
+    @apply w-full;
+  }
+
+  /* Cards */
+  .card {
+    @apply bg-[var(--color-surface)] rounded-[var(--radius)] shadow-[var(--shadow)];
+  }
+
+  /* Form inputs */
+  .input {
+    @apply w-full px-3 py-2 border border-[var(--color-border)] rounded-[var(--radius-sm)] text-sm text-[var(--color-ink)] bg-[var(--color-surface)] outline-none transition-colors duration-150 focus:border-[var(--color-primary)];
+  }
+
+  /* Status badges */
+  .badge {
+    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
+  }
+  .badge-saved     { background: var(--color-status-saved-bg);    color: var(--color-status-saved-fg); }
+  .badge-applied   { background: var(--color-status-applied-bg);  color: var(--color-status-applied-fg); }
+  .badge-interview { background: var(--color-status-interview-bg);color: var(--color-status-interview-fg); }
+  .badge-offer     { background: var(--color-status-offer-bg);    color: var(--color-status-offer-fg); }
+  .badge-rejected  { background: var(--color-status-rejected-bg); color: var(--color-status-rejected-fg); }
+
+  /* Empty state */
+  .empty-state {
+    @apply text-center py-16 px-5 text-[var(--color-muted)];
+  }
+}
