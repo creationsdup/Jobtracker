@@ -3,58 +3,71 @@ import { supabase } from '@/lib/supabase'
 import type { Session } from '@supabase/supabase-js'
 
 interface AppUser {
-  authId: string
   id: string
   email: string
 }
 
-async function resolveAppUser(session: Session | null): Promise<AppUser | null> {
-  if (!session?.user?.email) return null
+async function resolveUserId(session: Session): Promise<AppUser> {
+  const fallback: AppUser = { id: session.user.id, email: session.user.email ?? '' }
 
-  const { data, error } = await supabase
-    .from('User')
-    .select('id, email')
-    .eq('email', session.user.email)
-    .single()
+  try {
+    let settled = false
+    const dbLookup = supabase
+      .from('User')
+      .select('id, email')
+      .eq('email', session.user.email)
+      .single()
+      .then(({ data, error }) => {
+        settled = true
+        if (error || !data) return fallback
+        return { id: (data as { id: string; email: string }).id, email: (data as { id: string; email: string }).email }
+      })
 
-  if (error || !data) {
-    // User table lookup failed — fall back to auth identity so the app doesn't stay stuck
-    console.warn('User table lookup failed, using auth identity:', error?.message)
-    return { authId: session.user.id, id: session.user.id, email: session.user.email }
+    const timeout = new Promise<AppUser>((resolve) =>
+      setTimeout(() => { if (!settled) resolve(fallback) }, 4000)
+    )
+
+    return await Promise.race([dbLookup, timeout])
+  } catch {
+    return fallback
   }
-
-  return { authId: session.user.id, id: data.id, email: data.email }
 }
 
 export function useAuth() {
-  const [session, setSession] = useState<Session | null>(null)
   const [appUser, setAppUser] = useState<AppUser | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     let mounted = true
 
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
-      if (!mounted) return
-      setSession(session)
-      const user = await resolveAppUser(session)
-      if (mounted) {
-        setAppUser(user)
-        setLoading(false)
-      }
-    }).catch(() => {
+    const safetyTimeout = setTimeout(() => {
       if (mounted) setLoading(false)
-    })
+    }, 6000)
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (!mounted) return
-      setSession(session)
-      const user = await resolveAppUser(session)
-      if (mounted) setAppUser(user)
+
+      if (event === 'SIGNED_OUT') {
+        setAppUser(null)
+        return
+      }
+
+      if (session) {
+        const user = await resolveUserId(session)
+        if (mounted) setAppUser(user)
+      } else {
+        if (mounted) setAppUser(null)
+      }
+
+      if (event === 'INITIAL_SESSION' && mounted) {
+        setLoading(false)
+        clearTimeout(safetyTimeout)
+      }
     })
 
     return () => {
       mounted = false
+      clearTimeout(safetyTimeout)
       subscription.unsubscribe()
     }
   }, [])
@@ -70,13 +83,15 @@ export function useAuth() {
   }, [])
 
   const signOut = useCallback(async () => {
-    await supabase.auth.signOut()
-    setAppUser(null)
+    try {
+      await supabase.auth.signOut()
+    } catch {
+      setAppUser(null)
+    }
   }, [])
 
   return {
     user: appUser,
-    session,
     loading,
     isAuthenticated: !!appUser,
     signIn,

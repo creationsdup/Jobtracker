@@ -1,4 +1,6 @@
 import { useState } from 'react'
+import { RotatingText } from '../components/auth/RotatingText'
+import styles from './LoginPage.module.css'
 
 interface LoginPageProps {
   onSignIn: (email: string, password: string) => Promise<unknown>
@@ -24,59 +26,100 @@ export function LoginPage({ onSignIn, onSignUp }: LoginPageProps) {
   }
 
   return (
-    <div
-      className="min-h-screen flex items-center justify-center p-4"
-      style={{ background: 'linear-gradient(135deg, #dbeafe 0%, #ede9fe 100%)' }}
-    >
-      <div className="card w-full max-w-sm p-10 shadow-[var(--shadow-md)]">
-        <div className="text-center mb-8">
-          <div className="text-4xl mb-2">💼</div>
-          <h1 className="text-2xl font-bold text-[var(--color-primary)]">JobTracker</h1>
-          <p className="text-xs text-[var(--color-muted)] mt-1">Suivez vos candidatures simplement</p>
+    <div className={styles.page}>
+      {/* ─── Panneau gauche 28% ─── */}
+      <div className={styles.left}>
+        {/* Cercles décoratifs */}
+        <div className={`${styles.circle} ${styles.circleTop}`} />
+        <div className={`${styles.circle} ${styles.circleMid}`} />
+        <div className={`${styles.circle} ${styles.circleSmall}`} />
+
+        {/* Logo */}
+        <div className={styles.logo}>
+          <span className={styles.logoIcon}>💼</span>
+          JobTracker
         </div>
 
-        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-          <div className="flex flex-col gap-1.5">
-            <label className="text-xs font-medium">Email</label>
-            <input
-              className="input"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="vous@exemple.com"
-              required
-              autoFocus
-            />
+        {/* Texte rotatif + stats */}
+        <div className={styles.leftBottom}>
+          <p className={styles.tagSmall}>Pourquoi JobTracker ?</p>
+          <RotatingText />
+          <div className={styles.stats}>
+            <div className={styles.stat}>
+              <span className={styles.statValue}>3×</span>
+              <span className={styles.statLabel}>plus de rappels</span>
+            </div>
+            <div className={styles.stat}>
+              <span className={styles.statValue}>100%</span>
+              <span className={styles.statLabel}>gratuit</span>
+            </div>
+            <div className={styles.stat}>
+              <span className={styles.statValue}>∞</span>
+              <span className={styles.statLabel}>candidatures</span>
+            </div>
           </div>
-          <div className="flex flex-col gap-1.5">
-            <label className="text-xs font-medium">Mot de passe</label>
-            <input
-              className="input"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="••••••••"
-              required
-              minLength={6}
-            />
-          </div>
+        </div>
+      </div>
 
-          {error && <p className="text-xs text-[var(--color-danger)]">{error}</p>}
+      {/* ─── Panneau droit 72% ─── */}
+      <div className={styles.right}>
+        <div className={styles.formBox}>
+          <h1 className={styles.formTitle}>
+            {mode === 'login' ? 'Bon retour 👋' : 'Crée ton compte'}
+          </h1>
+          <p className={styles.formSub}>
+            {mode === 'login'
+              ? 'Connecte-toi pour accéder à tes candidatures.'
+              : "Lance ta recherche d’emploi sur la bonne voie."}
+          </p>
 
-          <button type="submit" className="btn btn-primary btn-full mt-2" disabled={loading}>
-            {loading ? 'Chargement...' : mode === 'login' ? 'Se connecter' : 'Créer un compte'}
-          </button>
-        </form>
+          <form onSubmit={handleSubmit} className={styles.form}>
+            <div className={styles.fieldGroup}>
+              <label className={styles.label}>Email</label>
+              <input
+                className="input"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="vous@exemple.com"
+                required
+                autoFocus
+              />
+            </div>
+            <div className={styles.fieldGroup}>
+              <label className={styles.label}>Mot de passe</label>
+              <input
+                className="input"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="••••••••"
+                required
+                minLength={6}
+              />
+            </div>
 
-        <p className="text-center text-xs text-[var(--color-muted)] mt-5">
-          {mode === 'login' ? "Pas encore de compte ? " : "Déjà un compte ? "}
-          <button
-            className="text-[var(--color-primary)] underline bg-transparent border-0 cursor-pointer"
-            onClick={() => { setMode(mode === 'login' ? 'signup' : 'login'); setError(null) }}
-          >
-            {mode === 'login' ? 'Créer un compte' : 'Se connecter'}
-          </button>
-        </p>
+            {error && <p className={styles.error}>{error}</p>}
+
+            <button
+              type="submit"
+              className={`btn btn-primary btn-full ${styles.submitBtn}`}
+              disabled={loading}
+            >
+              {loading ? 'Chargement…' : mode === 'login' ? 'Se connecter' : 'Créer un compte'}
+            </button>
+          </form>
+
+          <p className={styles.switchRow}>
+            {mode === 'login' ? 'Pas encore de compte ? ' : 'Déjà un compte ? '}
+            <button
+              className={styles.switchBtn}
+              onClick={() => { setMode(mode === 'login' ? 'signup' : 'login'); setError(null) }}
+            >
+              {mode === 'login' ? 'Créer un compte' : 'Se connecter'}
+            </button>
+          </p>
+        </div>
       </div>
     </div>
   )
