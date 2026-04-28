@@ -23,36 +23,39 @@ export function useApplications(userId: string | null) {
   useEffect(() => { fetchApplications() }, [fetchApplications])
 
   const addApplication = useCallback(
-    async (data: Omit<Application, 'id' | 'createdAt' | 'updatedAt'>) => {
+    async (data: Omit<Application, 'id' | 'createdAt' | 'updatedAt'>): Promise<string | null> => {
       const { data: inserted, error } = await supabase
         .from('Application')
         .insert(data)
         .select()
         .single()
-      if (error) { setError(error.message); return }
+      if (error) { setError(error.message); return error.message }
       setApplications((prev) => [inserted, ...prev])
+      return null
     },
     [],
   )
 
   const updateApplication = useCallback(
-    async (id: string, data: Partial<Omit<Application, 'id' | 'createdAt'>>) => {
+    async (id: string, data: Partial<Omit<Application, 'id' | 'createdAt'>>): Promise<string | null> => {
       const { data: updated, error } = await supabase
         .from('Application')
         .update({ ...data, updatedAt: new Date().toISOString() })
         .eq('id', id)
         .select()
         .single()
-      if (error) { setError(error.message); return }
+      if (error) { setError(error.message); return error.message }
       setApplications((prev) => prev.map((a) => (a.id === id ? updated : a)))
+      return null
     },
     [],
   )
 
-  const deleteApplication = useCallback(async (id: string) => {
+  const deleteApplication = useCallback(async (id: string): Promise<string | null> => {
     const { error } = await supabase.from('Application').delete().eq('id', id)
-    if (error) { setError(error.message); return }
+    if (error) { setError(error.message); return error.message }
     setApplications((prev) => prev.filter((a) => a.id !== id))
+    return null
   }, [])
 
   const updateStatus = useCallback(

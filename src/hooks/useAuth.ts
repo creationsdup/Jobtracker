@@ -1,36 +1,9 @@
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
-import type { Session } from '@supabase/supabase-js'
 
 interface AppUser {
   id: string
   email: string
-}
-
-async function resolveUserId(session: Session): Promise<AppUser> {
-  const fallback: AppUser = { id: session.user.id, email: session.user.email ?? '' }
-
-  try {
-    let settled = false
-    const dbLookup = supabase
-      .from('User')
-      .select('id, email')
-      .eq('email', session.user.email)
-      .single()
-      .then(({ data, error }) => {
-        settled = true
-        if (error || !data) return fallback
-        return { id: (data as { id: string; email: string }).id, email: (data as { id: string; email: string }).email }
-      })
-
-    const timeout = new Promise<AppUser>((resolve) =>
-      setTimeout(() => { if (!settled) resolve(fallback) }, 4000)
-    )
-
-    return await Promise.race([dbLookup, timeout])
-  } catch {
-    return fallback
-  }
 }
 
 export function useAuth() {
@@ -38,42 +11,32 @@ export function useAuth() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    let mounted = true
-
-    const safetyTimeout = setTimeout(() => {
-      if (mounted) setLoading(false)
-    }, 6000)
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (!mounted) return
-
-      if (event === 'SIGNED_OUT') {
-        setAppUser(null)
-        return
-      }
+    // onAuthStateChange fires INITIAL_SESSION on mount with the cached session
+    // (reads localStorage, no network). Single listener = no race condition.
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'TOKEN_REFRESHED') return
 
       if (session) {
-        const user = await resolveUserId(session)
-        if (mounted) setAppUser(user)
+        setAppUser({ id: session.user.id, email: session.user.email ?? '' })
       } else {
-        if (mounted) setAppUser(null)
+        setAppUser(null)
       }
-
-      if (event === 'INITIAL_SESSION' && mounted) {
-        setLoading(false)
-        clearTimeout(safetyTimeout)
-      }
+      setLoading(false)
     })
 
-    return () => {
-      mounted = false
-      clearTimeout(safetyTimeout)
-      subscription.unsubscribe()
-    }
+    return () => subscription.unsubscribe()
   }, [])
 
   const signIn = useCallback(async (email: string, password: string) => {
     const { error } = await supabase.auth.signInWithPassword({ email, password })
+    return error
+  }, [])
+
+  const signInWithGoogle = useCallback(async () => {
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: { redirectTo: window.location.origin },
+    })
     return error
   }, [])
 
@@ -83,11 +46,7 @@ export function useAuth() {
   }, [])
 
   const signOut = useCallback(async () => {
-    try {
-      await supabase.auth.signOut()
-    } catch {
-      setAppUser(null)
-    }
+    await supabase.auth.signOut()
   }, [])
 
   return {
@@ -95,6 +54,7 @@ export function useAuth() {
     loading,
     isAuthenticated: !!appUser,
     signIn,
+    signInWithGoogle,
     signUp,
     signOut,
   }

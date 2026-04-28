@@ -3,11 +3,8 @@ import { useOutletContext } from 'react-router-dom'
 import { StatCard } from '@/components/dashboard/StatCard'
 import { ApplicationRow } from '@/components/dashboard/ApplicationRow'
 import { ProgressWidget } from '@/components/dashboard/ProgressWidget'
-import { ActivityChart } from '@/components/dashboard/ActivityChart'
 import { TipBanner } from '@/components/dashboard/TipBanner'
 import { useDashboardStats } from '@/hooks/useDashboardStats'
-import { useActivityData } from '@/hooks/useActivityData'
-import { useAuth } from '@/hooks/useAuth'
 import { STATUS_COLORS } from '@/utils/statusLabels'
 import type { Application } from '@/lib/types'
 
@@ -65,15 +62,13 @@ const STAT_CARDS = [
 
 export function DashboardPage({ applications, loading, onOpenDetail }: DashboardPageProps) {
   const { onAddApplication } = useOutletContext<OutletCtx>()
-  const { user } = useAuth()
   const stats = useDashboardStats(applications)
-  const activityData = useActivityData(user?.id ?? null)
 
   const recent = [...applications]
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
     .slice(0, 6)
 
-  const sectors = [...new Set(applications.map((a) => a.company))].slice(0, 10)
+  const companies = [...new Set(applications.map((a) => a.company))].slice(0, 10)
 
   return (
     <div className="flex flex-col min-h-full">
@@ -113,7 +108,7 @@ export function DashboardPage({ applications, loading, onOpenDetail }: Dashboard
         </div>
 
         {/* Main grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-[1fr_340px] gap-5 items-start">
+        <div className="grid grid-cols-1 lg:grid-cols-[1fr_300px] gap-5 items-start">
 
           {/* Left — recent applications */}
           <div className="bg-[var(--color-surface)] rounded-[var(--radius)] shadow-[var(--shadow)] p-4 flex flex-col gap-3">
@@ -146,13 +141,13 @@ export function DashboardPage({ applications, loading, onOpenDetail }: Dashboard
               </div>
             )}
 
-            {!loading && sectors.length > 0 && (
+            {!loading && companies.length > 0 && (
               <div className="pt-3 flex flex-col gap-2" style={{ borderTop: '1px solid var(--color-border)' }}>
                 <span className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: 'var(--color-muted)' }}>
                   Entreprises
                 </span>
                 <div className="flex flex-wrap gap-1.5">
-                  {sectors.map((company) => (
+                  {companies.map((company) => (
                     <span
                       key={company}
                       className="px-2 py-0.5 rounded-[var(--radius-sm)] border"
@@ -166,11 +161,8 @@ export function DashboardPage({ applications, loading, onOpenDetail }: Dashboard
             )}
           </div>
 
-          {/* Right — progress + activity */}
-          <div className="flex flex-col gap-4">
-            <ProgressWidget stats={stats} />
-            <ActivityChart data={activityData} />
-          </div>
+          {/* Right — progression */}
+          <ProgressWidget stats={stats} />
         </div>
 
         {/* Tip banner */}

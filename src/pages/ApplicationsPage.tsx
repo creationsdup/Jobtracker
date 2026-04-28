@@ -71,7 +71,11 @@ export function ApplicationsPage({ applications, loading, onOpenDetail }: Applic
       ) : (
         <div className="flex flex-col gap-3">
           {filtered.map((app) => (
-            <ApplicationCard key={app.id} application={app} onClick={() => onOpenDetail(app)} />
+            <ApplicationCard
+              key={app.id}
+              application={app}
+              onClick={() => onOpenDetail(app)}
+            />
           ))}
         </div>
       )}

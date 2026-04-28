@@ -5,6 +5,7 @@ import {
 } from 'lucide-react'
 import { cn, getInitial } from '@/lib/utils'
 import { useUIStore } from '@/store/uiStore'
+import { JobTrackerLogo } from '@/components/ui/JobTrackerLogo'
 
 interface SidebarProps {
   userEmail: string
@@ -13,9 +14,9 @@ interface SidebarProps {
 }
 
 const MAIN_NAV = [
-  { to: '/',             label: 'Tableau de bord',  icon: LayoutDashboard },
-  { to: '/applications', label: 'Candidatures',      icon: Briefcase },
-  { to: '/library',      label: 'Expériences',       icon: BookOpen },
+  { to: '/',             label: 'Tableau de bord', icon: LayoutDashboard },
+  { to: '/applications', label: 'Candidatures',    icon: Briefcase },
+  { to: '/library',      label: 'Expériences',     icon: BookOpen },
 ]
 
 const DISABLED_NAV = [
@@ -51,7 +52,10 @@ export function Sidebar({ userEmail, applicationsCount, onLogout }: SidebarProps
         {/* Header */}
         <div className="px-5 pt-5 pb-4" style={{ borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
           <div className="flex items-center justify-between">
-            <span className="text-white font-bold text-base tracking-tight">JobTracker</span>
+            <div className="flex items-center gap-2.5">
+              <JobTrackerLogo size={44} />
+              <span className="text-white font-bold text-base tracking-tight">JobTracker</span>
+            </div>
             <button className="md:hidden p-1 text-white/50 hover:text-white" onClick={() => setSidebarOpen(false)}>
               <X size={16} />
             </button>

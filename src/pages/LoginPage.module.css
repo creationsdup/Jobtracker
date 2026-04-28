@@ -171,3 +171,50 @@
   padding: 0;
   text-decoration: underline;
 }
+
+/* ─── Google button ─── */
+.googleBtn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 10px 16px;
+  border-radius: 8px;
+  border: 1.5px solid var(--line, #e5e7eb);
+  background: #ffffff;
+  color: #3c4043;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s ease, box-shadow 0.15s ease;
+}
+
+.googleBtn:hover:not(:disabled) {
+  background: #f8f8f8;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
+}
+
+.googleBtn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* ─── Divider ─── */
+.divider {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 4px 0;
+}
+
+.dividerLine {
+  flex: 1;
+  height: 1px;
+  background: var(--line, #e5e7eb);
+}
+
+.dividerText {
+  font-size: 0.75rem;
+  color: var(--color-muted, #9ca3af);
+}

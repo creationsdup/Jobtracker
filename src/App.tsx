@@ -14,13 +14,14 @@ import { useSteps } from '@/hooks/useSteps'
 import type { Application } from '@/lib/types'
 
 export function App() {
-  const { user, loading: authLoading, isAuthenticated, signIn, signUp, signOut } = useAuth()
+  const { user, loading: authLoading, isAuthenticated, signIn, signInWithGoogle, signUp, signOut } = useAuth()
   const { applications, loading: appsLoading, addApplication, updateApplication, deleteApplication } = useApplications(user?.id ?? null)
   const { fetchStepsForApplication, addStep, deleteStepsForApplication, getStepsForApplication } = useSteps()
 
   const [formOpen, setFormOpen] = useState(false)
   const [editingApp, setEditingApp] = useState<Application | null>(null)
   const [detailApp, setDetailApp] = useState<Application | null>(null)
+  const [saveError, setSaveError] = useState<string | null>(null)
 
   if (authLoading) {
     return (
@@ -31,22 +32,23 @@ export function App() {
   }
 
   if (!isAuthenticated || !user) {
-    return <LoginPage onSignIn={signIn} onSignUp={signUp} />
+    return <LoginPage onSignIn={signIn} onSignUp={signUp} onSignInWithGoogle={signInWithGoogle} />
   }
 
-  function handleSave(data: Omit<Application, 'id' | 'createdAt' | 'updatedAt'>) {
-    if (editingApp) {
-      updateApplication(editingApp.id, data)
-    } else {
-      addApplication(data)
-    }
+  async function handleSave(data: Omit<Application, 'id' | 'createdAt' | 'updatedAt'>) {
+    setSaveError(null)
+    const err = editingApp
+      ? await updateApplication(editingApp.id, data)
+      : await addApplication(data)
+    if (err) { setSaveError(err); return }
     setFormOpen(false)
     setEditingApp(null)
   }
 
   async function handleDelete(app: Application) {
     if (!window.confirm('Supprimer cette candidature ?')) return
-    await deleteApplication(app.id)
+    const err = await deleteApplication(app.id)
+    if (err) return
     await deleteStepsForApplication(app.id)
     setDetailApp(null)
   }
@@ -83,7 +85,8 @@ export function App() {
           initial={editingApp}
           userId={user.id}
           onSave={handleSave}
-          onClose={() => { setFormOpen(false); setEditingApp(null) }}
+          externalError={saveError}
+          onClose={() => { setFormOpen(false); setEditingApp(null); setSaveError(null) }}
         />
       )}
 

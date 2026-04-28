@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { X, MapPin, FileText, Link as LinkIcon, Plus } from 'lucide-react'
 import { StatusBadge } from './StatusBadge'
 import { formatDate } from '@/lib/utils'
@@ -10,7 +10,7 @@ interface ApplicationDetailProps {
   onEdit: () => void
   onDelete: () => void
   onClose: () => void
-  onAddStep: (step: Omit<TimelineStep, 'id' | 'createdAt'>) => void
+  onAddStep: (step: Omit<TimelineStep, 'id' | 'createdAt'>) => Promise<string | null>
 }
 
 const DOT_STYLES: Record<StepStatus, string> = {
@@ -28,16 +28,22 @@ const DOT_CHARS: Record<StepStatus, string> = {
 }
 
 export function ApplicationDetail({ application, steps, onEdit, onDelete, onClose, onAddStep }: ApplicationDetailProps) {
+  const [addingStep, setAddingStep] = useState(false)
+  const [stepError, setStepError] = useState<string | null>(null)
+  const formRef = useRef<HTMLFormElement>(null)
+
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [onClose])
 
-  function handleAddStep(e: React.FormEvent<HTMLFormElement>) {
+  async function handleAddStep(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     const fd = new FormData(e.currentTarget)
-    onAddStep({
+    setAddingStep(true)
+    setStepError(null)
+    const err = await onAddStep({
       applicationId: application.id,
       title: (fd.get('title') as string).trim() || 'Étape',
       date: fd.get('date') as string,
@@ -46,7 +52,9 @@ export function ApplicationDetail({ application, steps, onEdit, onDelete, onClos
       notes: (fd.get('notes') as string).trim() || null,
       order: steps.length,
     })
-    e.currentTarget.reset()
+    setAddingStep(false)
+    if (err) { setStepError(err); return }
+    formRef.current?.reset()
   }
 
   return (
@@ -127,7 +135,7 @@ export function ApplicationDetail({ application, steps, onEdit, onDelete, onClos
             )}
 
             {/* Add step */}
-            <form onSubmit={handleAddStep} className="mt-4 p-4 bg-[var(--color-bg)] rounded-[var(--radius-sm)] flex flex-col gap-3">
+            <form ref={formRef} onSubmit={handleAddStep} className="mt-4 p-4 bg-[var(--color-bg)] rounded-[var(--radius-sm)] flex flex-col gap-3">
               <div className="flex items-center gap-2 text-xs font-semibold text-[var(--color-muted)]">
                 <Plus size={12} /> Ajouter une étape
               </div>
@@ -145,8 +153,11 @@ export function ApplicationDetail({ application, steps, onEdit, onDelete, onClos
                 <input className="input text-xs" name="time" type="time" />
               </div>
               <textarea className="input text-xs resize-y" name="notes" rows={2} placeholder="Notes..." />
+              {stepError && <p className="text-xs text-[var(--color-danger)]">{stepError}</p>}
               <div className="flex justify-end">
-                <button type="submit" className="btn btn-primary btn-sm">Ajouter</button>
+                <button type="submit" className="btn btn-primary btn-sm" disabled={addingStep}>
+                  {addingStep ? 'Ajout…' : 'Ajouter'}
+                </button>
               </div>
             </form>
           </div>

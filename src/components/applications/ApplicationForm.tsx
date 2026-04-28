@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { X } from 'lucide-react'
 import type { Application, ApplicationStatus } from '@/lib/types'
 
@@ -17,21 +17,25 @@ const STATUS_OPTIONS: { value: ApplicationStatus; label: string }[] = [
 interface ApplicationFormProps {
   initial?: Application | null
   userId: string
-  onSave: (data: Omit<Application, 'id' | 'createdAt' | 'updatedAt'>) => void
+  onSave: (data: Omit<Application, 'id' | 'createdAt' | 'updatedAt'>) => Promise<void>
+  externalError?: string | null
   onClose: () => void
 }
 
-export function ApplicationForm({ initial, userId, onSave, onClose }: ApplicationFormProps) {
+export function ApplicationForm({ initial, userId, onSave, externalError, onClose }: ApplicationFormProps) {
+  const [saving, setSaving] = useState(false)
+
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [onClose])
 
-  function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     const fd = new FormData(e.currentTarget)
-    onSave({
+    setSaving(true)
+    await onSave({
       userId,
       company: (fd.get('company') as string).trim(),
       position: (fd.get('position') as string).trim(),
@@ -43,6 +47,7 @@ export function ApplicationForm({ initial, userId, onSave, onClose }: Applicatio
       appliedAt: null,
       resumeId: null,
     })
+    setSaving(false)
   }
 
   return (
@@ -99,9 +104,15 @@ export function ApplicationForm({ initial, userId, onSave, onClose }: Applicatio
             <textarea className="input resize-y" name="notes" rows={3} defaultValue={initial?.notes ?? ''} placeholder="Notes sur la candidature..." />
           </div>
 
+          {externalError && (
+            <p className="text-xs text-[var(--color-danger)]">{externalError}</p>
+          )}
+
           <div className="flex justify-end gap-2.5 mt-2">
-            <button type="button" className="btn btn-secondary" onClick={onClose}>Annuler</button>
-            <button type="submit" className="btn btn-primary">Enregistrer</button>
+            <button type="button" className="btn btn-secondary" onClick={onClose} disabled={saving}>Annuler</button>
+            <button type="submit" className="btn btn-primary" disabled={saving}>
+              {saving ? 'Enregistrement…' : 'Enregistrer'}
+            </button>
           </div>
         </form>
       </div>

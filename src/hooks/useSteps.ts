@@ -14,14 +14,15 @@ export function useSteps() {
     if (!error) setSteps(data ?? [])
   }, [])
 
-  const addStep = useCallback(async (data: Omit<TimelineStep, 'id' | 'createdAt'>) => {
+  const addStep = useCallback(async (data: Omit<TimelineStep, 'id' | 'createdAt'>): Promise<string | null> => {
     const { data: inserted, error } = await supabase
       .from('TimelineStep')
       .insert(data)
       .select()
       .single()
-    if (!error) setSteps((prev) => [...prev, inserted].sort((a, b) => a.date.localeCompare(b.date)))
-    return error
+    if (error) return error.message
+    setSteps((prev) => [...prev, inserted].sort((a, b) => a.date.localeCompare(b.date)))
+    return null
   }, [])
 
   const deleteStepsForApplication = useCallback(async (applicationId: string) => {
