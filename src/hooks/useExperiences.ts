@@ -1,6 +1,21 @@
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
-import type { Experience } from '@/lib/types'
+import type { Experience, ExperienceType } from '@/lib/types'
+
+export interface NewExperience {
+  id: string
+  userId: string
+  type: ExperienceType
+  title: string
+  organization: string
+  location: string | null
+  startDate: string
+  endDate: string | null
+  current: boolean
+  description: string | null
+  skills: string[]
+  subsection: string | null
+}
 
 export function useExperiences(userId: string | null) {
   const [experiences, setExperiences] = useState<Experience[]>([])
@@ -20,5 +35,12 @@ export function useExperiences(userId: string | null) {
 
   useEffect(() => { fetch() }, [fetch])
 
-  return { experiences, loading }
+  async function bulkAddExperiences(items: NewExperience[]): Promise<string | null> {
+    const { error } = await supabase.from('Experience').insert(items)
+    if (error) return error.message
+    await fetch()
+    return null
+  }
+
+  return { experiences, loading, bulkAddExperiences }
 }

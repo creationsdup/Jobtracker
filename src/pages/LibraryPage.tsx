@@ -1,7 +1,8 @@
 import { useState } from 'react'
-import { Briefcase, Heart, GraduationCap, Lightbulb } from 'lucide-react'
+import { Briefcase, Heart, GraduationCap, Lightbulb, FileUp } from 'lucide-react'
 import { formatDate } from '@/lib/utils'
 import { useExperiences } from '@/hooks/useExperiences'
+import { CVImporter } from '@/components/library/CVImporter'
 import type { ExperienceType } from '@/lib/types'
 
 const TYPE_CONFIG: Record<ExperienceType, { label: string; icon: React.ReactNode; color: string }> = {
@@ -17,9 +18,10 @@ interface LibraryPageProps {
 }
 
 export function LibraryPage({ userId }: LibraryPageProps) {
-  const { experiences, loading } = useExperiences(userId)
+  const { experiences, loading, bulkAddExperiences } = useExperiences(userId)
   const [typeFilter, setTypeFilter] = useState<ExperienceType | ''>('')
   const [search, setSearch] = useState('')
+  const [importerOpen, setImporterOpen] = useState(false)
 
   const filtered = experiences
     .filter((e) => !typeFilter || e.type === typeFilter)
@@ -30,6 +32,16 @@ export function LibraryPage({ userId }: LibraryPageProps) {
 
   return (
     <div>
+      <div className="flex items-center justify-between mb-5">
+        <button
+          className="btn btn-primary flex items-center gap-2 text-sm"
+          onClick={() => setImporterOpen(true)}
+        >
+          <FileUp size={15} />
+          Importer un CV
+        </button>
+      </div>
+
       <div className="flex gap-3 mb-5 flex-col sm:flex-row">
         <input
           className="input flex-1"
@@ -94,6 +106,14 @@ export function LibraryPage({ userId }: LibraryPageProps) {
             )
           })}
         </div>
+      )}
+
+      {importerOpen && (
+        <CVImporter
+          userId={userId}
+          onImport={bulkAddExperiences}
+          onClose={() => setImporterOpen(false)}
+        />
       )}
     </div>
   )
