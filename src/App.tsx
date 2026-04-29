@@ -92,7 +92,7 @@ export function App() {
               onAdd={() => { setEditingApp(null); setFormOpen(true) }}
             />
           } />
-          <Route path="library" element={<LibraryPage userId={user.id} />} />
+          <Route path="library" element={<LibraryPage userId={user.id} userEmail={user.email} />} />
           <Route path="resumes" element={<ResumeBuilderPage userId={user.id} userEmail={user.email} />} />
           <Route path="profile" element={<ProfilePage userId={user.id} userEmail={user.email} />} />
           <Route path="*" element={<Navigate to="/" replace />} />

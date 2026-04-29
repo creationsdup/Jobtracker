@@ -1,6 +1,3 @@
--- ============================================================
--- Profile : données personnelles de l'utilisateur
--- ============================================================
 CREATE TABLE IF NOT EXISTS "Profile" (
   "id"        UUID        PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
   "fullName"  TEXT        NOT NULL DEFAULT '',
@@ -13,21 +10,11 @@ CREATE TABLE IF NOT EXISTS "Profile" (
   "linkedin"  TEXT,
   "github"    TEXT,
   "avatarUrl" TEXT,
+  "skills"    TEXT[]      NOT NULL DEFAULT '{}',
+  "interests" TEXT[]      NOT NULL DEFAULT '{}',
   "createdAt" TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-ALTER TABLE "Profile" ENABLE ROW LEVEL SECURITY;
-
-CREATE POLICY "Users can manage own profile"
-  ON "Profile" FOR ALL
-  USING (auth.uid() = "id")
-  WITH CHECK (auth.uid() = "id");
-
-GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE "Profile" TO authenticated, service_role;
-
--- ============================================================
--- Resume : CV générés par l'utilisateur
--- ============================================================
 CREATE TABLE IF NOT EXISTS "Resume" (
   "id"             UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
   "userId"         UUID        NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
@@ -38,15 +25,25 @@ CREATE TABLE IF NOT EXISTS "Resume" (
   "createdAt"      TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+ALTER TABLE "Profile" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE "Resume" ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Users can manage own profile" ON "Profile";
+CREATE POLICY "Users can manage own profile"
+  ON "Profile" FOR ALL
+  USING (auth.uid() = "id")
+  WITH CHECK (auth.uid() = "id");
+
+DROP POLICY IF EXISTS "Users can manage own resumes" ON "Resume";
 CREATE POLICY "Users can manage own resumes"
   ON "Resume" FOR ALL
   USING (auth.uid() = "userId")
   WITH CHECK (auth.uid() = "userId");
 
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE "Profile" TO authenticated, service_role;
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE "Resume" TO authenticated, service_role;
 
--- Index pour les requêtes userId + tri par date
 CREATE INDEX IF NOT EXISTS "Resume_userId_createdAt_idx"
   ON "Resume" ("userId", "createdAt" DESC);
+
+NOTIFY pgrst, 'reload schema';

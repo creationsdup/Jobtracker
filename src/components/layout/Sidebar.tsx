@@ -21,7 +21,7 @@ const MAIN_NAV = [
 ]
 
 export function Sidebar({ userEmail, applicationsCount, onLogout }: SidebarProps) {
-  const { sidebarOpen, setSidebarOpen } = useUIStore()
+  const { sidebarOpen, sidebarCollapsed, setSidebarOpen, toggleSidebarCollapsed } = useUIStore()
 
   return (
     <>
@@ -35,8 +35,9 @@ export function Sidebar({ userEmail, applicationsCount, onLogout }: SidebarProps
       <aside
         className={cn(
           'fixed top-0 left-0 h-screen w-[var(--sidebar-w)] flex flex-col z-50 overflow-hidden',
-          'transition-transform duration-250 ease-in-out md:translate-x-0',
+          'transition-transform duration-250 ease-in-out',
           sidebarOpen ? 'translate-x-0' : '-translate-x-full',
+          sidebarCollapsed ? 'md:-translate-x-full' : 'md:translate-x-0',
         )}
         style={{ background: 'linear-gradient(160deg, #6c3de0 0%, #4f46e5 50%, #312e81 100%)' }}
       >
@@ -142,6 +143,20 @@ export function Sidebar({ userEmail, applicationsCount, onLogout }: SidebarProps
           </button>
         </div>
       </aside>
+
+      <button
+        className="hidden md:flex fixed top-1/2 -translate-y-1/2 z-[60] h-24 w-4 items-center justify-center rounded-r-2xl border-l-0 text-white transition-[left,background-color,box-shadow] duration-250 ease-in-out"
+        style={{
+          left: sidebarCollapsed ? 0 : 'var(--sidebar-w)',
+          background: sidebarCollapsed ? 'rgba(79,70,229,0.88)' : 'rgba(49,46,129,0.88)',
+          borderColor: 'rgba(255,255,255,0.14)',
+          boxShadow: '0 10px 24px rgba(30,25,102,0.16)',
+        }}
+        onClick={toggleSidebarCollapsed}
+        aria-label={sidebarCollapsed ? 'Afficher la colonne de gauche' : 'Masquer la colonne de gauche'}
+      >
+        <span className="h-9 w-px bg-white/40" />
+      </button>
 
       {/* Mobile bottom nav */}
       <nav

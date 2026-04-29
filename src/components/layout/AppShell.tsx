@@ -19,7 +19,7 @@ const PAGE_TITLES: Record<string, string> = {
 }
 
 export function AppShell({ userEmail, applicationsCount, onLogout, onAddApplication }: AppShellProps) {
-  const { toggleSidebar } = useUIStore()
+  const { sidebarCollapsed, toggleSidebar } = useUIStore()
   const location = useLocation()
   const isDashboard = location.pathname === '/'
   const title = PAGE_TITLES[location.pathname]
@@ -38,7 +38,8 @@ export function AppShell({ userEmail, applicationsCount, onLogout, onAddApplicat
       />
 
       <div
-        className="md:ml-[var(--sidebar-w)] min-h-screen flex flex-col pb-14 md:pb-0 relative"
+        className="min-h-screen flex flex-col pb-14 md:pb-0 relative transition-[margin] duration-250 ease-in-out"
+        style={{ marginLeft: sidebarCollapsed ? 0 : 'var(--sidebar-w)' }}
       >
         {!isDashboard && (
           <header
