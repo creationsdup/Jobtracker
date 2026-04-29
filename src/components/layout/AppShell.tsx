@@ -4,6 +4,7 @@ import { Sidebar } from './Sidebar'
 import { useUIStore } from '@/store/uiStore'
 
 interface AppShellProps {
+  userId: string
   userEmail: string
   applicationsCount: number
   onLogout: () => void
@@ -18,7 +19,7 @@ const PAGE_TITLES: Record<string, string> = {
   '/resumes': 'CV Builder',
 }
 
-export function AppShell({ userEmail, applicationsCount, onLogout, onAddApplication }: AppShellProps) {
+export function AppShell({ userId, userEmail, applicationsCount, onLogout, onAddApplication }: AppShellProps) {
   const { sidebarCollapsed, toggleSidebar } = useUIStore()
   const location = useLocation()
   const isDashboard = location.pathname === '/'
@@ -32,6 +33,7 @@ export function AppShell({ userEmail, applicationsCount, onLogout, onAddApplicat
       </div>
 
       <Sidebar
+        userId={userId}
         userEmail={userEmail}
         applicationsCount={applicationsCount}
         onLogout={onLogout}

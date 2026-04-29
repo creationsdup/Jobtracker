@@ -6,8 +6,10 @@ import {
 import { cn, getInitial } from '@/lib/utils'
 import { useUIStore } from '@/store/uiStore'
 import { JobTrackerLogo } from '@/components/ui/JobTrackerLogo'
+import { useProfile } from '@/hooks/useProfile'
 
 interface SidebarProps {
+  userId: string
   userEmail: string
   applicationsCount: number
   onLogout: () => void
@@ -20,8 +22,11 @@ const MAIN_NAV = [
   { to: '/resumes',      label: 'CV Builder',      icon: FileText },
 ]
 
-export function Sidebar({ userEmail, applicationsCount, onLogout }: SidebarProps) {
+export function Sidebar({ userId, userEmail, applicationsCount, onLogout }: SidebarProps) {
   const { sidebarOpen, sidebarCollapsed, setSidebarOpen, toggleSidebarCollapsed } = useUIStore()
+  const { profile } = useProfile(userId, userEmail)
+  const displayName = profile?.fullName?.trim() || userEmail.split('@')[0]
+  const avatarLabel = profile?.fullName?.trim() || userEmail
 
   return (
     <>
@@ -123,14 +128,22 @@ export function Sidebar({ userEmail, applicationsCount, onLogout }: SidebarProps
               boxShadow: isActive ? 'inset 0 0 0 1px rgba(255,255,255,0.12)' : 'inset 0 0 0 1px rgba(255,255,255,0.06)',
             })}
           >
-            <div
-              className="w-9 h-9 rounded-full flex items-center justify-center font-bold text-sm flex-shrink-0 text-white"
-              style={{ background: 'rgba(255,255,255,0.18)' }}
-            >
-              {getInitial(userEmail)}
-            </div>
+            {profile?.avatarUrl ? (
+              <img
+                src={profile.avatarUrl}
+                alt={avatarLabel}
+                className="w-9 h-9 rounded-full object-cover flex-shrink-0 border border-white/20"
+              />
+            ) : (
+              <div
+                className="w-9 h-9 rounded-full flex items-center justify-center font-bold text-sm flex-shrink-0 text-white"
+                style={{ background: 'rgba(255,255,255,0.18)' }}
+              >
+                {getInitial(displayName)}
+              </div>
+            )}
             <div className="flex-1 min-w-0">
-              <p className="text-xs font-medium truncate">{userEmail.split('@')[0]}</p>
+              <p className="text-xs font-medium truncate">{displayName}</p>
               <p className="text-[10px] truncate" style={{ color: 'rgba(255,255,255,0.4)' }}>{userEmail}</p>
             </div>
           </NavLink>
@@ -181,12 +194,20 @@ export function Sidebar({ userEmail, applicationsCount, onLogout }: SidebarProps
           className="flex-1 flex flex-col items-center justify-center py-2 gap-0.5 no-underline"
           style={({ isActive }) => ({ color: isActive ? 'white' : 'rgba(255,255,255,0.45)' })}
         >
-          <div
-            className="w-[18px] h-[18px] rounded-full flex items-center justify-center text-[10px] font-bold text-white"
-            style={{ background: 'var(--color-violet-accent)' }}
-          >
-            {getInitial(userEmail)}
-          </div>
+          {profile?.avatarUrl ? (
+            <img
+              src={profile.avatarUrl}
+              alt={avatarLabel}
+              className="w-[18px] h-[18px] rounded-full object-cover border border-white/20"
+            />
+          ) : (
+            <div
+              className="w-[18px] h-[18px] rounded-full flex items-center justify-center text-[10px] font-bold text-white"
+              style={{ background: 'var(--color-violet-accent)' }}
+            >
+              {getInitial(displayName)}
+            </div>
+          )}
           <span style={{ fontSize: 9 }}>Profil</span>
         </NavLink>
       </nav>

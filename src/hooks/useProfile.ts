@@ -46,6 +46,31 @@ function buildDefaultProfile(userId: string, fallbackEmail?: string | null): Pro
   }
 }
 
+async function ensureRemoteProfile(userId: string, fallbackEmail?: string | null) {
+  const base = buildDefaultProfile(userId, fallbackEmail)
+  const { data, error } = await supabase
+    .from('Profile')
+    .upsert({
+      id: base.id,
+      email: base.email,
+      fullName: base.fullName,
+      phone: base.phone,
+      location: base.location,
+      title: base.title,
+      summary: base.summary,
+      website: base.website,
+      linkedin: base.linkedin,
+      github: base.github,
+      avatarUrl: base.avatarUrl,
+      skills: base.skills,
+      interests: base.interests,
+    })
+    .select()
+    .single()
+
+  return { data, error }
+}
+
 function readFallbackProfile(userId: string, fallbackEmail?: string | null): Profile {
   const base = buildDefaultProfile(userId, fallbackEmail)
   try {
@@ -65,6 +90,15 @@ function readFallbackProfile(userId: string, fallbackEmail?: string | null): Pro
 
 function writeFallbackProfile(profile: Profile) {
   window.localStorage.setItem(storageKey(profile.id), JSON.stringify(profile))
+}
+
+async function fileToDataUrl(file: File): Promise<string> {
+  return await new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(String(reader.result ?? ''))
+    reader.onerror = () => reject(new Error('Impossible de lire le fichier image'))
+    reader.readAsDataURL(file)
+  })
 }
 
 export function useProfile(userId: string | null, fallbackEmail?: string | null) {
@@ -89,8 +123,32 @@ export function useProfile(userId: string | null, fallbackEmail?: string | null)
       setLoading(false)
       return
     }
-    if (error && error.code !== 'PGRST116') setError(error.message)
-    else setProfile(data ?? buildDefaultProfile(userId, fallbackEmail))
+    if (error && error.code !== 'PGRST116') {
+      setError(error.message)
+      setLoading(false)
+      return
+    }
+
+    if (data) {
+      setProfile(data)
+      setError(null)
+      setLoading(false)
+      return
+    }
+
+    const ensured = await ensureRemoteProfile(userId, fallbackEmail)
+    if (ensured.error?.code === MISSING_PROFILE_TABLE) {
+      setUseLocalFallback(true)
+      setProfile(readFallbackProfile(userId, fallbackEmail))
+      setError(null)
+      setLoading(false)
+      return
+    }
+    if (ensured.error) setError(ensured.error.message)
+    else {
+      setProfile(ensured.data ?? buildDefaultProfile(userId, fallbackEmail))
+      setError(null)
+    }
     setLoading(false)
   }, [fallbackEmail, userId])
 
@@ -134,15 +192,34 @@ export function useProfile(userId: string | null, fallbackEmail?: string | null)
 
   const uploadAvatar = useCallback(async (file: File): Promise<string | null> => {
     if (!userId) return 'Non authentifié'
-    const ext = file.name.split('.').pop()
+    const localDataUrl = await fileToDataUrl(file)
+
+    if (useLocalFallback) {
+      const next = {
+        ...(profile ?? buildDefaultProfile(userId, fallbackEmail)),
+        avatarUrl: localDataUrl,
+        email: fallbackEmail ?? profile?.email ?? '',
+      } as Profile
+      writeFallbackProfile(next)
+      setProfile(next)
+      return null
+    }
+
+    const ext = file.name.split('.').pop() || 'png'
     const path = `${userId}/avatar.${ext}`
     const { error: uploadError } = await supabase.storage
       .from('avatars')
       .upload(path, file, { upsert: true })
-    if (uploadError) return uploadError.message
+
+    if (uploadError) {
+      const fallbackError = await updateProfile({ avatarUrl: localDataUrl })
+      if (fallbackError) return `${uploadError.message}. Fallback local impossible: ${fallbackError}`
+      return null
+    }
+
     const { data } = supabase.storage.from('avatars').getPublicUrl(path)
     return updateProfile({ avatarUrl: data.publicUrl })
-  }, [userId, updateProfile])
+  }, [fallbackEmail, profile, updateProfile, useLocalFallback, userId])
 
   return { profile, loading, saving, error, updateProfile, uploadAvatar, refetch: fetchProfile, useLocalFallback }
 }

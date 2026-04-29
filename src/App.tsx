@@ -67,6 +67,7 @@ export function App() {
         <Route
           element={
             <AppShell
+              userId={user.id}
               userEmail={user.email}
               applicationsCount={applications.filter((a) => !['REJECTED', 'WITHDRAWN', 'ACCEPTED'].includes(a.status)).length}
               onLogout={signOut}

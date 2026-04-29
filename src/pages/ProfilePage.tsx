@@ -10,7 +10,7 @@ interface ProfilePageProps {
 }
 
 export function ProfilePage({ userId, userEmail }: ProfilePageProps) {
-  const { profile, loading, saving, updateProfile, uploadAvatar } = useProfile(userId, userEmail)
+  const { profile, loading, saving, error, updateProfile, uploadAvatar } = useProfile(userId, userEmail)
   const [form, setForm] = useState({
     fullName: '', title: '', phone: '',
     location: '', summary: '', website: '', linkedin: '', github: '',
@@ -53,6 +53,11 @@ export function ProfilePage({ userId, userEmail }: ProfilePageProps) {
 
   return (
     <form onSubmit={handleSubmit} className="max-w-xl flex flex-col gap-5">
+      {error && (
+        <div className="card px-4 py-3 text-sm text-[var(--color-danger)]">
+          {error}
+        </div>
+      )}
       <div className="flex items-center gap-3 mb-2">
         {profile?.avatarUrl ? (
           <img src={profile.avatarUrl} alt={form.fullName || userEmail} className="w-12 h-12 rounded-full object-cover" />
