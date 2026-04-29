@@ -75,6 +75,20 @@ export interface Resume {
   createdAt: string
 }
 
+// ─── User Goals ──────────────────────────────────────────────────────────────
+
+export interface UserGoal {
+  id: string
+  user_id: string
+  type: string | null
+  contract_types: string[]
+  target_date: string | null
+  personal_target: number | null
+  zones: string[]
+  created_at: string
+  updated_at: string
+}
+
 // ─── JobOffer ────────────────────────────────────────────────────────────────
 
 export interface JobOffer {

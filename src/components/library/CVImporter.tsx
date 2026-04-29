@@ -2,6 +2,7 @@ import { useRef, useState } from 'react'
 import { Upload, X, Check, Loader2, AlertCircle } from 'lucide-react'
 import type { ExperienceType } from '@/lib/types'
 import type { NewExperience } from '@/hooks/useExperiences'
+import { generateStructuredData } from '@/lib/ai'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -91,35 +92,11 @@ async function extractTextFromDOCX(file: File): Promise<string> {
 }
 
 async function callOpenAI(text: string): Promise<ParsedExperience[]> {
-  const key = import.meta.env.VITE_OPENAI_API_KEY
-  if (!key) throw new Error('VITE_OPENAI_API_KEY manquant dans .env.local')
-
-  const res = await fetch('https://api.openai.com/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${key}`,
-    },
-    body: JSON.stringify({
-      model: 'gpt-4o',
-      response_format: { type: 'json_object' },
-      messages: [
-        { role: 'system', content: SYSTEM_PROMPT },
-        { role: 'user', content: text.slice(0, 12000) }, // guard against huge CVs
-      ],
-      max_tokens: 4000,
-    }),
-    signal: AbortSignal.timeout(30_000),
-  })
-
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({}))
-    const msg = (body as { error?: { message?: string } }).error?.message ?? res.statusText
-    throw new Error(`OpenAI : ${msg}`)
-  }
-
-  const json = await res.json()
-  const raw = JSON.parse(json.choices[0].message.content) as { experiences: ParsedExperience[] }
+  const raw = await generateStructuredData<{ experiences: ParsedExperience[] }>(
+    SYSTEM_PROMPT,
+    text.slice(0, 12000),
+    2200,
+  )
   if (!Array.isArray(raw.experiences)) throw new Error('Réponse OpenAI inattendue')
   return raw.experiences
 }

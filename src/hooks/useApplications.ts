@@ -1,6 +1,70 @@
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import type { Application, ApplicationStatus } from '@/lib/types'
+import { getDbStatusCandidates, isEnumStatusError, normalizeApplicationFromDb } from '@/lib/applicationStatus'
+
+async function insertWithStatusFallback(data: Omit<Application, 'id' | 'createdAt' | 'updatedAt'>) {
+  const candidates = getDbStatusCandidates(data.status)
+  let lastError: { message: string } | null = null
+  const now = new Date().toISOString()
+  const baseInsert = {
+    id: crypto.randomUUID(),
+    createdAt: now,
+    updatedAt: now,
+    ...data,
+  }
+
+  for (const candidate of candidates) {
+    const response = await supabase
+      .from('Application')
+      .insert({ ...baseInsert, status: candidate })
+      .select()
+      .single()
+
+    if (!response.error) return response
+    lastError = response.error
+    if (!isEnumStatusError(response.error.message)) return response
+  }
+
+  return { data: null, error: lastError }
+}
+
+async function updateWithStatusFallback(
+  id: string,
+  data: Partial<Omit<Application, 'id' | 'createdAt'>>,
+) {
+  const basePayload = {
+    ...data,
+    updatedAt: new Date().toISOString(),
+  }
+
+  if (!data.status) {
+    return supabase
+      .from('Application')
+      .update(basePayload)
+      .eq('id', id)
+      .select()
+      .single()
+  }
+
+  const candidates = getDbStatusCandidates(data.status)
+  let lastError: { message: string } | null = null
+
+  for (const candidate of candidates) {
+    const response = await supabase
+      .from('Application')
+      .update({ ...basePayload, status: candidate })
+      .eq('id', id)
+      .select()
+      .single()
+
+    if (!response.error) return response
+    lastError = response.error
+    if (!isEnumStatusError(response.error.message)) return response
+  }
+
+  return { data: null, error: lastError }
+}
 
 export function useApplications(userId: string | null) {
   const [applications, setApplications] = useState<Application[]>([])
@@ -16,7 +80,7 @@ export function useApplications(userId: string | null) {
       .eq('userId', userId)
       .order('createdAt', { ascending: false })
     if (error) setError(error.message)
-    else setApplications(data ?? [])
+    else setApplications((data ?? []).map(normalizeApplicationFromDb))
     setLoading(false)
   }, [userId])
 
@@ -24,13 +88,9 @@ export function useApplications(userId: string | null) {
 
   const addApplication = useCallback(
     async (data: Omit<Application, 'id' | 'createdAt' | 'updatedAt'>): Promise<string | null> => {
-      const { data: inserted, error } = await supabase
-        .from('Application')
-        .insert(data)
-        .select()
-        .single()
+      const { data: inserted, error } = await insertWithStatusFallback(data)
       if (error) { setError(error.message); return error.message }
-      setApplications((prev) => [inserted, ...prev])
+      setApplications((prev) => [normalizeApplicationFromDb(inserted), ...prev])
       return null
     },
     [],
@@ -38,14 +98,9 @@ export function useApplications(userId: string | null) {
 
   const updateApplication = useCallback(
     async (id: string, data: Partial<Omit<Application, 'id' | 'createdAt'>>): Promise<string | null> => {
-      const { data: updated, error } = await supabase
-        .from('Application')
-        .update({ ...data, updatedAt: new Date().toISOString() })
-        .eq('id', id)
-        .select()
-        .single()
+      const { data: updated, error } = await updateWithStatusFallback(id, data)
       if (error) { setError(error.message); return error.message }
-      setApplications((prev) => prev.map((a) => (a.id === id ? updated : a)))
+      setApplications((prev) => prev.map((a) => (a.id === id ? normalizeApplicationFromDb(updated) : a)))
       return null
     },
     [],

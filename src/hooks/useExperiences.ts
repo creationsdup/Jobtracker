@@ -42,5 +42,35 @@ export function useExperiences(userId: string | null) {
     return null
   }
 
-  return { experiences, loading, bulkAddExperiences }
+  async function addExperience(item: NewExperience): Promise<string | null> {
+    const { data, error } = await supabase
+      .from('Experience')
+      .insert(item)
+      .select()
+      .single()
+    if (error) return error.message
+    setExperiences((prev) => [data, ...prev].sort((a, b) => b.startDate.localeCompare(a.startDate)))
+    return null
+  }
+
+  async function updateExperience(id: string, updates: Partial<NewExperience>): Promise<string | null> {
+    const { data, error } = await supabase
+      .from('Experience')
+      .update(updates)
+      .eq('id', id)
+      .select()
+      .single()
+    if (error) return error.message
+    setExperiences((prev) => prev.map((exp) => (exp.id === id ? data : exp)))
+    return null
+  }
+
+  async function deleteExperience(id: string): Promise<string | null> {
+    const { error } = await supabase.from('Experience').delete().eq('id', id)
+    if (error) return error.message
+    setExperiences((prev) => prev.filter((exp) => exp.id !== id))
+    return null
+  }
+
+  return { experiences, loading, bulkAddExperiences, addExperience, updateExperience, deleteExperience, refetch: fetch }
 }

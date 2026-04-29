@@ -1,11 +1,15 @@
 import { useEffect, useRef, useState } from 'react'
-import { X, MapPin, FileText, Link as LinkIcon, Plus } from 'lucide-react'
+import { X, MapPin, FileText, Link as LinkIcon, Plus, Mail } from 'lucide-react'
 import { StatusBadge } from './StatusBadge'
 import { formatDate } from '@/lib/utils'
 import type { Application, TimelineStep, StepStatus } from '@/lib/types'
+import { CoverLetterGenerator } from './CoverLetterGenerator'
+import { useProfile } from '@/hooks/useProfile'
+import { useExperiences } from '@/hooks/useExperiences'
 
 interface ApplicationDetailProps {
   application: Application
+  userEmail: string
   steps: TimelineStep[]
   onEdit: () => void
   onDelete: () => void
@@ -27,10 +31,13 @@ const DOT_CHARS: Record<StepStatus, string> = {
   CANCELLED: '✕',
 }
 
-export function ApplicationDetail({ application, steps, onEdit, onDelete, onClose, onAddStep }: ApplicationDetailProps) {
+export function ApplicationDetail({ application, userEmail, steps, onEdit, onDelete, onClose, onAddStep }: ApplicationDetailProps) {
   const [addingStep, setAddingStep] = useState(false)
   const [stepError, setStepError] = useState<string | null>(null)
+  const [coverLetterOpen, setCoverLetterOpen] = useState(false)
   const formRef = useRef<HTMLFormElement>(null)
+  const { profile } = useProfile(application.userId, userEmail)
+  const { experiences } = useExperiences(application.userId)
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
@@ -98,6 +105,10 @@ export function ApplicationDetail({ application, steps, onEdit, onDelete, onClos
               )}
             </div>
             <div className="flex gap-2 flex-shrink-0">
+              <button className="btn btn-secondary btn-sm" onClick={() => setCoverLetterOpen(true)}>
+                <Mail size={13} />
+                Lettre IA
+              </button>
               <button className="btn btn-secondary btn-sm" onClick={onEdit}>Modifier</button>
               <button className="btn btn-danger btn-sm" onClick={onDelete}>Supprimer</button>
             </div>
@@ -163,6 +174,15 @@ export function ApplicationDetail({ application, steps, onEdit, onDelete, onClos
           </div>
         </div>
       </div>
+
+      {coverLetterOpen && (
+        <CoverLetterGenerator
+          application={application}
+          profile={profile ? { ...profile, email: profile.email || userEmail } : null}
+          experiences={experiences}
+          onClose={() => setCoverLetterOpen(false)}
+        />
+      )}
     </div>
   )
 }

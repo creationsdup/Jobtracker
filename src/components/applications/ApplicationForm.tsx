@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
-import { X } from 'lucide-react'
+import { X, Sparkles } from 'lucide-react'
 import type { Application, ApplicationStatus } from '@/lib/types'
+import { JobOfferImporter } from './JobOfferImporter'
 
 const STATUS_OPTIONS: { value: ApplicationStatus; label: string }[] = [
   { value: 'WISHLIST', label: 'À postuler' },
@@ -24,6 +25,9 @@ interface ApplicationFormProps {
 
 export function ApplicationForm({ initial, userId, onSave, externalError, onClose }: ApplicationFormProps) {
   const [saving, setSaving] = useState(false)
+  const [importerOpen, setImporterOpen] = useState(false)
+  const [importedData, setImportedData] = useState<Partial<Omit<Application, 'id' | 'createdAt' | 'updatedAt'>> | null>(null)
+  const formSeed = JSON.stringify(importedData ?? initial ?? {})
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
@@ -44,8 +48,8 @@ export function ApplicationForm({ initial, userId, onSave, externalError, onClos
       jobUrl: (fd.get('jobUrl') as string).trim() || null,
       status: fd.get('status') as ApplicationStatus,
       notes: (fd.get('notes') as string).trim() || null,
-      appliedAt: null,
-      resumeId: null,
+      appliedAt: (fd.get('appliedAt') as string) || null,
+      resumeId: initial?.resumeId ?? null,
     })
     setSaving(false)
   }
@@ -58,36 +62,44 @@ export function ApplicationForm({ initial, userId, onSave, externalError, onClos
       <div className="bg-[var(--color-surface)] rounded-[var(--radius)] w-full max-w-lg max-h-[90vh] overflow-y-auto shadow-[var(--shadow-lg)]">
         <div className="flex items-center justify-between px-6 pt-5">
           <h3 className="text-lg font-bold">{initial ? 'Modifier la candidature' : 'Nouvelle candidature'}</h3>
-          <button className="btn btn-ghost p-1" onClick={onClose}><X size={18} /></button>
+          <div className="flex items-center gap-2">
+            {!initial && (
+              <button type="button" className="btn btn-secondary btn-sm" onClick={() => setImporterOpen(true)}>
+                <Sparkles size={13} />
+                Import IA
+              </button>
+            )}
+            <button className="btn btn-ghost p-1" onClick={onClose}><X size={18} /></button>
+          </div>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-6 flex flex-col gap-4">
+        <form key={formSeed} onSubmit={handleSubmit} className="p-6 flex flex-col gap-4">
           <div className="grid grid-cols-2 gap-4">
             <div className="flex flex-col gap-1.5">
               <label className="text-xs font-medium">Entreprise *</label>
-              <input className="input" name="company" defaultValue={initial?.company ?? ''} placeholder="Google" required />
+              <input className="input" name="company" defaultValue={importedData?.company ?? initial?.company ?? ''} placeholder="Google" required />
             </div>
             <div className="flex flex-col gap-1.5">
               <label className="text-xs font-medium">Poste *</label>
-              <input className="input" name="position" defaultValue={initial?.position ?? ''} placeholder="Développeur Frontend" required />
+              <input className="input" name="position" defaultValue={importedData?.position ?? initial?.position ?? ''} placeholder="Développeur Frontend" required />
             </div>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div className="flex flex-col gap-1.5">
               <label className="text-xs font-medium">Lieu</label>
-              <input className="input" name="location" defaultValue={initial?.location ?? ''} placeholder="Paris, France" />
+              <input className="input" name="location" defaultValue={importedData?.location ?? initial?.location ?? ''} placeholder="Paris, France" />
             </div>
             <div className="flex flex-col gap-1.5">
               <label className="text-xs font-medium">Contrat</label>
-              <input className="input" name="contractType" defaultValue={initial?.contractType ?? ''} placeholder="CDI, CDD, Stage..." />
+              <input className="input" name="contractType" defaultValue={importedData?.contractType ?? initial?.contractType ?? ''} placeholder="CDI, CDD, Stage..." />
             </div>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div className="flex flex-col gap-1.5">
               <label className="text-xs font-medium">Statut</label>
-              <select className="input" name="status" defaultValue={initial?.status ?? 'WISHLIST'}>
+              <select className="input" name="status" defaultValue={importedData?.status ?? initial?.status ?? 'WISHLIST'}>
                 {STATUS_OPTIONS.map((o) => (
                   <option key={o.value} value={o.value}>{o.label}</option>
                 ))}
@@ -95,13 +107,18 @@ export function ApplicationForm({ initial, userId, onSave, externalError, onClos
             </div>
             <div className="flex flex-col gap-1.5">
               <label className="text-xs font-medium">URL de l'offre</label>
-              <input className="input" name="jobUrl" type="url" defaultValue={initial?.jobUrl ?? ''} placeholder="https://..." />
+              <input className="input" name="jobUrl" type="url" defaultValue={importedData?.jobUrl ?? initial?.jobUrl ?? ''} placeholder="https://..." />
             </div>
           </div>
 
           <div className="flex flex-col gap-1.5">
+            <label className="text-xs font-medium">Date de candidature</label>
+            <input className="input" name="appliedAt" type="date" defaultValue={importedData?.appliedAt ?? initial?.appliedAt ?? ''} />
+          </div>
+
+          <div className="flex flex-col gap-1.5">
             <label className="text-xs font-medium">Notes</label>
-            <textarea className="input resize-y" name="notes" rows={3} defaultValue={initial?.notes ?? ''} placeholder="Notes sur la candidature..." />
+            <textarea className="input resize-y" name="notes" rows={3} defaultValue={importedData?.notes ?? initial?.notes ?? ''} placeholder="Notes sur la candidature..." />
           </div>
 
           {externalError && (
@@ -116,6 +133,16 @@ export function ApplicationForm({ initial, userId, onSave, externalError, onClos
           </div>
         </form>
       </div>
+
+      {importerOpen && (
+        <JobOfferImporter
+          onImport={(data) => {
+            setImportedData(data)
+            setImporterOpen(false)
+          }}
+          onClose={() => setImporterOpen(false)}
+        />
+      )}
     </div>
   )
 }

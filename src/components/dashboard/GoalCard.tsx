@@ -1,5 +1,6 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { Application } from '@/lib/types'
+import { useGoals } from '@/hooks/useGoals'
 
 const GOAL_TARGET = 10
 
@@ -39,13 +40,22 @@ function DonutChart({ pct }: { pct: number }) {
 }
 
 interface GoalCardProps {
+  userId: string
   applications: Application[]
 }
 
-export function GoalCard({ applications }: GoalCardProps) {
+export function GoalCard({ userId, applications }: GoalCardProps) {
+  const { goal, loading, saving, saveGoal } = useGoals(userId)
   const [target, setTarget] = useState(GOAL_TARGET)
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(String(target))
+
+  useEffect(() => {
+    if (goal?.personal_target) {
+      setTarget(goal.personal_target)
+      setDraft(String(goal.personal_target))
+    }
+  }, [goal?.personal_target])
 
   const now = new Date()
   const monthLabel = now.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })
@@ -81,7 +91,10 @@ export function GoalCard({ applications }: GoalCardProps) {
               onSubmit={(e) => {
                 e.preventDefault()
                 const v = parseInt(draft, 10)
-                if (v > 0) setTarget(v)
+                if (v > 0) {
+                  setTarget(v)
+                  void saveGoal({ personal_target: v })
+                }
                 setEditing(false)
               }}
               className="flex gap-1"
@@ -94,7 +107,7 @@ export function GoalCard({ applications }: GoalCardProps) {
                 min="1"
                 autoFocus
               />
-              <button type="submit" className="btn btn-primary btn-sm text-[11px]">OK</button>
+              <button type="submit" className="btn btn-primary btn-sm text-[11px]" disabled={saving}>OK</button>
             </form>
           ) : (
             <p className="text-[13px] font-medium leading-tight">
@@ -102,7 +115,7 @@ export function GoalCard({ applications }: GoalCardProps) {
             </p>
           )}
           <p className="text-[11px] text-[var(--color-muted)] mt-0.5">
-            {monthLabel} · avant le {endOfMonth}
+            {loading ? 'Chargement…' : `${monthLabel} · avant le ${endOfMonth}`}
           </p>
         </div>
       </div>

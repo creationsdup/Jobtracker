@@ -11,6 +11,13 @@
 
   /* ── Content area ── */
   --color-content-bg: #F2EDE3;
+  --color-shell-gradient-start: #f6f2ea;
+  --color-shell-gradient-end: #ebe6fb;
+  --color-shell-orb-primary: rgba(108, 61, 224, 0.14);
+  --color-shell-orb-secondary: rgba(79, 70, 229, 0.12);
+  --color-shell-line: rgba(60, 52, 137, 0.08);
+  --color-shell-glass: rgba(255, 255, 255, 0.88);
+  --color-shell-glass-strong: rgba(255, 255, 255, 0.96);
 
   /* ── Violet palette ── */
   --color-violet-light: #EEEDFE;

@@ -6,6 +6,8 @@ import { DashboardPage } from '@/pages/DashboardPage'
 import { ApplicationsPage } from '@/pages/ApplicationsPage'
 import { KanbanPage } from '@/pages/KanbanPage'
 import { LibraryPage } from '@/pages/LibraryPage'
+import { ProfilePage } from '@/pages/ProfilePage'
+import { ResumeBuilderPage } from '@/pages/ResumeBuilderPage'
 import { ApplicationForm } from '@/components/applications/ApplicationForm'
 import { ApplicationDetail } from '@/components/applications/ApplicationDetail'
 import { useAuth } from '@/hooks/useAuth'
@@ -15,7 +17,7 @@ import type { Application } from '@/lib/types'
 
 export function App() {
   const { user, loading: authLoading, isAuthenticated, signIn, signInWithGoogle, signUp, signOut } = useAuth()
-  const { applications, loading: appsLoading, addApplication, updateApplication, deleteApplication } = useApplications(user?.id ?? null)
+  const { applications, loading: appsLoading, addApplication, updateApplication, updateStatus, deleteApplication } = useApplications(user?.id ?? null)
   const { fetchStepsForApplication, addStep, deleteStepsForApplication, getStepsForApplication } = useSteps()
 
   const [formOpen, setFormOpen] = useState(false)
@@ -72,10 +74,27 @@ export function App() {
             />
           }
         >
-          <Route index element={<DashboardPage applications={applications} loading={appsLoading} onOpenDetail={handleOpenDetail} />} />
-          <Route path="applications" element={<ApplicationsPage applications={applications} loading={appsLoading} onOpenDetail={handleOpenDetail} />} />
-          <Route path="kanban" element={<KanbanPage applications={applications} loading={appsLoading} onOpenDetail={handleOpenDetail} />} />
+          <Route index element={<DashboardPage userId={user.id} applications={applications} loading={appsLoading} onOpenDetail={handleOpenDetail} />} />
+          <Route path="applications" element={
+            <ApplicationsPage
+              applications={applications}
+              loading={appsLoading}
+              onOpenDetail={handleOpenDetail}
+              onStatusChange={updateStatus}
+              onAdd={() => { setEditingApp(null); setFormOpen(true) }}
+            />
+          } />
+          <Route path="kanban" element={
+            <KanbanPage
+              applications={applications}
+              onStatusChange={updateStatus}
+              onOpenDetail={handleOpenDetail}
+              onAdd={() => { setEditingApp(null); setFormOpen(true) }}
+            />
+          } />
           <Route path="library" element={<LibraryPage userId={user.id} />} />
+          <Route path="resumes" element={<ResumeBuilderPage userId={user.id} userEmail={user.email} />} />
+          <Route path="profile" element={<ProfilePage userId={user.id} userEmail={user.email} />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
       </Routes>
@@ -93,6 +112,7 @@ export function App() {
       {detailApp && (
         <ApplicationDetail
           application={applications.find((a) => a.id === detailApp.id) ?? detailApp}
+          userEmail={user.email}
           steps={getStepsForApplication(detailApp.id)}
           onEdit={() => { setEditingApp(detailApp); setDetailApp(null); setFormOpen(true) }}
           onDelete={() => handleDelete(detailApp)}
