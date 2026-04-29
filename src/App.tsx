@@ -18,7 +18,7 @@ import type { Application } from '@/lib/types'
 export function App() {
   const { user, loading: authLoading, isAuthenticated, signIn, signInWithGoogle, signUp, signOut } = useAuth()
   const { applications, loading: appsLoading, addApplication, updateApplication, updateStatus, deleteApplication } = useApplications(user?.id ?? null)
-  const { fetchStepsForApplication, addStep, deleteStepsForApplication, getStepsForApplication } = useSteps()
+  const { fetchStepsForApplication, addStep, updateStep, deleteStep, deleteStepsForApplication, getStepsForApplication } = useSteps()
 
   const [formOpen, setFormOpen] = useState(false)
   const [editingApp, setEditingApp] = useState<Application | null>(null)
@@ -118,6 +118,9 @@ export function App() {
           onDelete={() => handleDelete(detailApp)}
           onClose={() => setDetailApp(null)}
           onAddStep={(step) => addStep(step)}
+          onUpdateStep={(stepId, data) => updateStep(stepId, data)}
+          onDeleteStep={(stepId) => deleteStep(stepId)}
+          onStatusChange={(status) => updateStatus(detailApp.id, status)}
         />
       )}
     </BrowserRouter>

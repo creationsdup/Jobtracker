@@ -145,17 +145,18 @@ export function Sidebar({ userEmail, applicationsCount, onLogout }: SidebarProps
       </aside>
 
       <button
-        className="hidden md:flex fixed top-1/2 -translate-y-1/2 z-[60] h-24 w-4 items-center justify-center rounded-r-2xl border-l-0 text-white transition-[left,background-color,box-shadow] duration-250 ease-in-out"
+        className="hidden md:flex fixed top-6 z-[60] h-10 w-3 items-center justify-center rounded-r-full border-l-0 text-white transition-[left,background-color,box-shadow,transform] duration-250 ease-in-out hover:translate-x-[1px]"
         style={{
           left: sidebarCollapsed ? 0 : 'var(--sidebar-w)',
-          background: sidebarCollapsed ? 'rgba(79,70,229,0.88)' : 'rgba(49,46,129,0.88)',
-          borderColor: 'rgba(255,255,255,0.14)',
-          boxShadow: '0 10px 24px rgba(30,25,102,0.16)',
+          background: sidebarCollapsed ? 'rgba(79,70,229,0.72)' : 'rgba(49,46,129,0.72)',
+          borderColor: 'rgba(255,255,255,0.18)',
+          boxShadow: '0 8px 18px rgba(30,25,102,0.14)',
+          backdropFilter: 'blur(10px)',
         }}
         onClick={toggleSidebarCollapsed}
         aria-label={sidebarCollapsed ? 'Afficher la colonne de gauche' : 'Masquer la colonne de gauche'}
       >
-        <span className="h-9 w-px bg-white/40" />
+        <span className="h-6 w-px bg-white/50" />
       </button>
 
       {/* Mobile bottom nav */}

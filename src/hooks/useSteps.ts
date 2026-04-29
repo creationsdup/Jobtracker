@@ -2,6 +2,8 @@ import { useState, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import type { TimelineStep } from '@/lib/types'
 
+type StepUpdate = Partial<Omit<TimelineStep, 'id' | 'applicationId' | 'createdAt'>>
+
 export function useSteps() {
   const [steps, setSteps] = useState<TimelineStep[]>([])
 
@@ -15,13 +17,41 @@ export function useSteps() {
   }, [])
 
   const addStep = useCallback(async (data: Omit<TimelineStep, 'id' | 'createdAt'>): Promise<string | null> => {
+    const payload = {
+      id: crypto.randomUUID(),
+      createdAt: new Date().toISOString(),
+      ...data,
+    }
+
     const { data: inserted, error } = await supabase
       .from('TimelineStep')
-      .insert(data)
+      .insert(payload)
       .select()
       .single()
     if (error) return error.message
     setSteps((prev) => [...prev, inserted].sort((a, b) => a.date.localeCompare(b.date)))
+    return null
+  }, [])
+
+  const updateStep = useCallback(async (id: string, data: StepUpdate): Promise<string | null> => {
+    const { data: updated, error } = await supabase
+      .from('TimelineStep')
+      .update(data)
+      .eq('id', id)
+      .select()
+      .single()
+    if (error) return error.message
+    setSteps((prev) => prev.map((step) => (step.id === id ? updated : step)).sort((a, b) => a.date.localeCompare(b.date)))
+    return null
+  }, [])
+
+  const deleteStep = useCallback(async (id: string): Promise<string | null> => {
+    const { error } = await supabase
+      .from('TimelineStep')
+      .delete()
+      .eq('id', id)
+    if (error) return error.message
+    setSteps((prev) => prev.filter((step) => step.id !== id))
     return null
   }, [])
 
@@ -35,5 +65,5 @@ export function useSteps() {
     [steps],
   )
 
-  return { steps, fetchStepsForApplication, addStep, deleteStepsForApplication, getStepsForApplication }
+  return { steps, fetchStepsForApplication, addStep, updateStep, deleteStep, deleteStepsForApplication, getStepsForApplication }
 }

@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
-import { X, MapPin, FileText, Link as LinkIcon, Plus, Mail } from 'lucide-react'
+import { X, MapPin, FileText, Link as LinkIcon, Plus, Mail, Pencil, Trash2 } from 'lucide-react'
 import { StatusBadge } from './StatusBadge'
 import { formatDate } from '@/lib/utils'
-import type { Application, TimelineStep, StepStatus } from '@/lib/types'
+import type { Application, TimelineStep, StepStatus, ApplicationStatus } from '@/lib/types'
 import { CoverLetterGenerator } from './CoverLetterGenerator'
 import { useProfile } from '@/hooks/useProfile'
 import { useExperiences } from '@/hooks/useExperiences'
+import { deriveApplicationStatusFromSteps, TIMELINE_PRESETS } from '@/lib/timelineStatus'
 
 interface ApplicationDetailProps {
   application: Application
@@ -15,6 +16,9 @@ interface ApplicationDetailProps {
   onDelete: () => void
   onClose: () => void
   onAddStep: (step: Omit<TimelineStep, 'id' | 'createdAt'>) => Promise<string | null>
+  onUpdateStep: (stepId: string, data: Partial<Omit<TimelineStep, 'id' | 'applicationId' | 'createdAt'>>) => Promise<string | null>
+  onDeleteStep: (stepId: string) => Promise<string | null>
+  onStatusChange: (status: ApplicationStatus) => Promise<string | null>
 }
 
 const DOT_STYLES: Record<StepStatus, string> = {
@@ -31,11 +35,28 @@ const DOT_CHARS: Record<StepStatus, string> = {
   CANCELLED: '✕',
 }
 
-export function ApplicationDetail({ application, userEmail, steps, onEdit, onDelete, onClose, onAddStep }: ApplicationDetailProps) {
+export function ApplicationDetail({
+  application,
+  userEmail,
+  steps,
+  onEdit,
+  onDelete,
+  onClose,
+  onAddStep,
+  onUpdateStep,
+  onDeleteStep,
+  onStatusChange,
+}: ApplicationDetailProps) {
   const [addingStep, setAddingStep] = useState(false)
+  const [editingStepId, setEditingStepId] = useState<string | null>(null)
+  const [savingStepId, setSavingStepId] = useState<string | null>(null)
+  const [deletingStepId, setDeletingStepId] = useState<string | null>(null)
   const [stepError, setStepError] = useState<string | null>(null)
   const [coverLetterOpen, setCoverLetterOpen] = useState(false)
+  const [pickerOpen, setPickerOpen] = useState(false)
+  const [customStepOpen, setCustomStepOpen] = useState(false)
   const formRef = useRef<HTMLFormElement>(null)
+  const editFormRef = useRef<HTMLFormElement>(null)
   const { profile } = useProfile(application.userId, userEmail)
   const { experiences } = useExperiences(application.userId)
 
@@ -45,23 +66,163 @@ export function ApplicationDetail({ application, userEmail, steps, onEdit, onDel
     return () => window.removeEventListener('keydown', onKey)
   }, [onClose])
 
+  async function syncApplicationStatus(nextSteps: TimelineStep[], explicitStatus?: ApplicationStatus | '') {
+    const targetStatus = explicitStatus || deriveApplicationStatusFromSteps(nextSteps) || (nextSteps.length === 0 ? 'WISHLIST' : null)
+    if (!targetStatus || targetStatus === application.status) return null
+    return onStatusChange(targetStatus)
+  }
+
   async function handleAddStep(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     const fd = new FormData(e.currentTarget)
-    setAddingStep(true)
-    setStepError(null)
-    const err = await onAddStep({
-      applicationId: application.id,
+    const err = await submitStep({
       title: (fd.get('title') as string).trim() || 'Étape',
       date: fd.get('date') as string,
       time: (fd.get('time') as string) || null,
       status: fd.get('status') as StepStatus,
       notes: (fd.get('notes') as string).trim() || null,
+      nextStatus: ((fd.get('nextStatus') as string) || '') as ApplicationStatus | '',
+    })
+    if (err) return
+    formRef.current?.reset()
+    setCustomStepOpen(false)
+    setPickerOpen(false)
+  }
+
+  async function submitStep({
+    title,
+    date,
+    time,
+    status,
+    notes,
+    nextStatus,
+  }: {
+    title: string
+    date: string
+    time: string | null
+    status: StepStatus
+    notes: string | null
+    nextStatus?: ApplicationStatus | ''
+  }) {
+    setAddingStep(true)
+    setStepError(null)
+    const nextStep: TimelineStep = {
+      id: crypto.randomUUID(),
+      applicationId: application.id,
+      title,
+      date,
+      time,
+      notes,
+      status,
+      order: steps.length,
+      createdAt: new Date().toISOString(),
+    }
+
+    const err = await onAddStep({
+      applicationId: application.id,
+      title,
+      date,
+      time,
+      status,
+      notes,
       order: steps.length,
     })
+    if (err) {
+      setAddingStep(false)
+      setStepError(err)
+      return err
+    }
+
+    const statusError = await syncApplicationStatus([...steps, nextStep], nextStatus)
+    if (statusError) {
+      setAddingStep(false)
+      setStepError(statusError)
+      return statusError
+    }
+
     setAddingStep(false)
-    if (err) { setStepError(err); return }
-    formRef.current?.reset()
+    return null
+  }
+
+  async function handlePresetSelect(preset: (typeof TIMELINE_PRESETS)[number]) {
+    setStepError(null)
+    if (preset.title === 'Étape libre') {
+      setPickerOpen(true)
+      setCustomStepOpen(true)
+      return
+    }
+
+    const today = new Date().toISOString().split('T')[0]
+    const err = await submitStep({
+      title: preset.title,
+      date: today,
+      time: null,
+      status: preset.stepStatus,
+      notes: null,
+      nextStatus: preset.nextStatus,
+    })
+    if (!err) {
+      setPickerOpen(false)
+      setCustomStepOpen(false)
+    }
+  }
+
+  async function handleUpdateStep(e: React.FormEvent<HTMLFormElement>, step: TimelineStep) {
+    e.preventDefault()
+    const fd = new FormData(e.currentTarget)
+    const nextStatus = ((fd.get('nextStatus') as string) || '') as ApplicationStatus | ''
+    const nextStepData = {
+      title: (fd.get('title') as string).trim() || 'Étape',
+      date: fd.get('date') as string,
+      time: (fd.get('time') as string) || null,
+      status: fd.get('status') as StepStatus,
+      notes: (fd.get('notes') as string).trim() || null,
+    }
+    setSavingStepId(step.id)
+    setStepError(null)
+
+    const err = await onUpdateStep(step.id, nextStepData)
+
+    if (err) {
+      setSavingStepId(null)
+      setStepError(err)
+      return
+    }
+
+    const nextTimelineSteps = steps.map((currentStep) =>
+      currentStep.id === step.id ? { ...currentStep, ...nextStepData } : currentStep,
+    )
+    const statusError = await syncApplicationStatus(nextTimelineSteps, nextStatus)
+    if (statusError) {
+      setSavingStepId(null)
+      setStepError(statusError)
+      return
+    }
+
+    setSavingStepId(null)
+    setEditingStepId(null)
+  }
+
+  async function handleDeleteStep(stepId: string) {
+    if (!window.confirm('Supprimer cette étape ?')) return
+    setDeletingStepId(stepId)
+    setStepError(null)
+    const err = await onDeleteStep(stepId)
+    if (err) {
+      setDeletingStepId(null)
+      setStepError(err)
+      return
+    }
+
+    const statusError = await syncApplicationStatus(steps.filter((step) => step.id !== stepId))
+    if (statusError) {
+      setDeletingStepId(null)
+      setStepError(statusError)
+      return
+    }
+
+    if (editingStepId === stepId) setEditingStepId(null)
+    setDeletingStepId(null)
   }
 
   return (
@@ -69,7 +230,7 @@ export function ApplicationDetail({ application, userEmail, steps, onEdit, onDel
       className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4"
       onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
     >
-      <div className="bg-[var(--color-surface)] rounded-[var(--radius)] w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-[var(--shadow-lg)]">
+      <div className="bg-[var(--color-surface)] rounded-[var(--radius)] w-full max-w-4xl max-h-[90vh] overflow-y-auto shadow-[var(--shadow-lg)]">
         <div className="flex items-start justify-between px-6 pt-5">
           <div>
             <h3 className="text-lg font-bold">{application.position}</h3>
@@ -120,7 +281,97 @@ export function ApplicationDetail({ application, userEmail, steps, onEdit, onDel
 
           {/* Timeline */}
           <div className="border-t border-[var(--color-border)] pt-4">
-            <h4 className="text-sm font-semibold mb-4">Timeline</h4>
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+              <div className="flex items-center gap-2">
+                <h4 className="text-sm font-semibold">Timeline</h4>
+                <span className="inline-flex items-center rounded-full bg-white/80 px-2.5 py-1 text-[11px] font-semibold text-[var(--color-muted)] border border-[rgba(60,52,137,0.12)]">
+                  {steps.length} étape{steps.length > 1 ? 's' : ''}
+                </span>
+              </div>
+              <button
+                type="button"
+                className="inline-flex items-center gap-2 rounded-[var(--radius-sm)] bg-[var(--color-primary)] px-3 py-2 text-xs font-semibold text-white shadow-[0_12px_24px_rgba(59,130,246,0.22)] transition hover:bg-[var(--color-primary-dark)]"
+                onClick={() => {
+                  setPickerOpen((current) => !current)
+                  setCustomStepOpen(false)
+                  setStepError(null)
+                }}
+              >
+                <Plus size={13} />
+                Ajouter
+              </button>
+            </div>
+
+            {pickerOpen && (
+              <div className="mb-5 rounded-[var(--radius)] border border-[rgba(60,52,137,0.12)] bg-white/85 p-4 shadow-[0_16px_36px_rgba(31,27,77,0.08)] backdrop-blur-sm">
+                <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+                  {TIMELINE_PRESETS.map((preset) => (
+                    <button
+                      key={preset.title}
+                      type="button"
+                      className="flex min-h-[118px] flex-col items-start justify-between rounded-[var(--radius-sm)] border border-[rgba(60,52,137,0.12)] bg-[rgba(255,255,255,0.92)] p-3 text-left transition hover:-translate-y-0.5 hover:border-[rgba(59,130,246,0.36)] hover:shadow-[0_14px_28px_rgba(59,130,246,0.12)]"
+                      onClick={() => void handlePresetSelect(preset)}
+                      disabled={addingStep}
+                    >
+                      <div className="text-2xl leading-none">{preset.icon}</div>
+                      <div>
+                        <div className="text-sm font-semibold text-[var(--color-ink)]">{preset.title}</div>
+                        <div className="mt-1 text-[11px] leading-4 text-[var(--color-muted)]">{preset.subtitle}</div>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+
+                {customStepOpen && (
+                  <form ref={formRef} onSubmit={handleAddStep} className="mt-4 flex flex-col gap-3 rounded-[var(--radius-sm)] border border-[rgba(60,52,137,0.12)] bg-[var(--color-bg)]/85 p-4">
+                    <div className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--color-muted)]">
+                      Étape libre
+                    </div>
+                    <div className="grid gap-3 md:grid-cols-2">
+                      <input className="input text-xs" name="title" placeholder="Nom de l'étape" required />
+                      <select className="input text-xs" name="status" defaultValue="UPCOMING">
+                        <option value="UPCOMING">À venir</option>
+                        <option value="IN_PROGRESS">En cours</option>
+                        <option value="COMPLETED">Terminée</option>
+                        <option value="CANCELLED">Annulée</option>
+                      </select>
+                    </div>
+                    <div className="grid gap-3 md:grid-cols-3">
+                      <input className="input text-xs" name="date" type="date" defaultValue={new Date().toISOString().split('T')[0]} required />
+                      <input className="input text-xs" name="time" type="time" />
+                      <select className="input text-xs" name="nextStatus" defaultValue="">
+                        <option value="">Statut inchangé</option>
+                        <option value="APPLIED">Postulée</option>
+                        <option value="PHONE_SCREEN">Pré-sélection</option>
+                        <option value="INTERVIEW">Entretien</option>
+                        <option value="OFFER">Offre</option>
+                        <option value="REJECTED">Refusée</option>
+                        <option value="WITHDRAWN">Abandonnée</option>
+                      </select>
+                    </div>
+                    <textarea className="input text-xs resize-y" name="notes" rows={2} placeholder="Notes..." />
+                    <div className="flex justify-end gap-2">
+                      <button
+                        type="button"
+                        className="btn btn-ghost btn-sm"
+                        onClick={() => {
+                          setCustomStepOpen(false)
+                          setStepError(null)
+                        }}
+                      >
+                        Annuler
+                      </button>
+                      <button type="submit" className="btn btn-primary btn-sm" disabled={addingStep}>
+                        {addingStep ? 'Ajout…' : 'Créer l’étape'}
+                      </button>
+                    </div>
+                  </form>
+                )}
+
+                {stepError && <p className="mt-3 text-xs text-[var(--color-danger)]">{stepError}</p>}
+              </div>
+            )}
+
             {steps.length === 0 ? (
               <p className="text-xs text-[var(--color-muted)] py-2">Aucune étape. Ajoutez la première !</p>
             ) : (
@@ -134,43 +385,90 @@ export function ApplicationDetail({ application, userEmail, steps, onEdit, onDel
                       {DOT_CHARS[step.status]}
                     </div>
                     <div className="flex-1">
-                      <div className="font-semibold text-sm">{step.title}</div>
-                      <div className="text-xs text-[var(--color-muted)] mt-0.5">
-                        {formatDate(step.date)}{step.time ? ` à ${step.time}` : ''}
-                      </div>
-                      {step.notes && <div className="text-xs text-[var(--color-muted)] mt-1 italic">{step.notes}</div>}
+                      {editingStepId === step.id ? (
+                        <form
+                          ref={editFormRef}
+                          onSubmit={(e) => void handleUpdateStep(e, step)}
+                          className="flex flex-col gap-3 rounded-[var(--radius-sm)] border border-[rgba(60,52,137,0.12)] bg-[var(--color-bg)]/85 p-4"
+                        >
+                          <div className="grid gap-3 md:grid-cols-2">
+                            <input className="input text-xs" name="title" defaultValue={step.title} required />
+                            <select className="input text-xs" name="status" defaultValue={step.status}>
+                              <option value="UPCOMING">À venir</option>
+                              <option value="IN_PROGRESS">En cours</option>
+                              <option value="COMPLETED">Terminée</option>
+                              <option value="CANCELLED">Annulée</option>
+                            </select>
+                          </div>
+                          <div className="grid gap-3 md:grid-cols-3">
+                            <input className="input text-xs" name="date" type="date" defaultValue={step.date} required />
+                            <input className="input text-xs" name="time" type="time" defaultValue={step.time ?? ''} />
+                            <select className="input text-xs" name="nextStatus" defaultValue="">
+                              <option value="">Statut inchangé</option>
+                              <option value="APPLIED">Postulée</option>
+                              <option value="PHONE_SCREEN">Pré-sélection</option>
+                              <option value="INTERVIEW">Entretien</option>
+                              <option value="OFFER">Offre</option>
+                              <option value="REJECTED">Refusée</option>
+                              <option value="WITHDRAWN">Abandonnée</option>
+                            </select>
+                          </div>
+                          <textarea className="input text-xs resize-y" name="notes" rows={2} defaultValue={step.notes ?? ''} />
+                          <div className="flex justify-end gap-2">
+                            <button
+                              type="button"
+                              className="btn btn-ghost btn-sm"
+                              onClick={() => {
+                                setEditingStepId(null)
+                                setStepError(null)
+                              }}
+                            >
+                              Annuler
+                            </button>
+                            <button type="submit" className="btn btn-primary btn-sm" disabled={savingStepId === step.id}>
+                              {savingStepId === step.id ? 'Enregistrement…' : 'Enregistrer'}
+                            </button>
+                          </div>
+                        </form>
+                      ) : (
+                        <>
+                          <div className="flex items-start justify-between gap-3">
+                            <div>
+                              <div className="font-semibold text-sm">{step.title}</div>
+                              <div className="text-xs text-[var(--color-muted)] mt-0.5">
+                                {formatDate(step.date)}{step.time ? ` à ${step.time}` : ''}
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <button
+                                type="button"
+                                className="btn btn-ghost btn-sm px-2"
+                                onClick={() => {
+                                  setEditingStepId(step.id)
+                                  setStepError(null)
+                                }}
+                              >
+                                <Pencil size={12} />
+                              </button>
+                              <button
+                                type="button"
+                                className="btn btn-ghost btn-sm px-2 text-[var(--color-danger)] hover:text-[var(--color-danger-dark)]"
+                                onClick={() => void handleDeleteStep(step.id)}
+                                disabled={deletingStepId === step.id}
+                              >
+                                <Trash2 size={12} />
+                              </button>
+                            </div>
+                          </div>
+                          {step.notes && <div className="text-xs text-[var(--color-muted)] mt-1 italic">{step.notes}</div>}
+                        </>
+                      )}
                     </div>
                   </div>
                 ))}
               </div>
             )}
-
-            {/* Add step */}
-            <form ref={formRef} onSubmit={handleAddStep} className="mt-4 p-4 bg-[var(--color-bg)] rounded-[var(--radius-sm)] flex flex-col gap-3">
-              <div className="flex items-center gap-2 text-xs font-semibold text-[var(--color-muted)]">
-                <Plus size={12} /> Ajouter une étape
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <input className="input text-xs" name="title" placeholder="Entretien RH, Test technique..." required />
-                <select className="input text-xs" name="status">
-                  <option value="UPCOMING">À venir</option>
-                  <option value="IN_PROGRESS">En cours</option>
-                  <option value="COMPLETED">Terminé</option>
-                  <option value="CANCELLED">Annulé</option>
-                </select>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <input className="input text-xs" name="date" type="date" defaultValue={new Date().toISOString().split('T')[0]} required />
-                <input className="input text-xs" name="time" type="time" />
-              </div>
-              <textarea className="input text-xs resize-y" name="notes" rows={2} placeholder="Notes..." />
-              {stepError && <p className="text-xs text-[var(--color-danger)]">{stepError}</p>}
-              <div className="flex justify-end">
-                <button type="submit" className="btn btn-primary btn-sm" disabled={addingStep}>
-                  {addingStep ? 'Ajout…' : 'Ajouter'}
-                </button>
-              </div>
-            </form>
+            {stepError && !pickerOpen && <p className="mt-3 text-xs text-[var(--color-danger)]">{stepError}</p>}
           </div>
         </div>
       </div>
