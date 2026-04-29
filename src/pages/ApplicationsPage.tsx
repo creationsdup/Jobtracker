@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Search, LayoutList, LayoutGrid, Columns } from 'lucide-react'
 import { ApplicationCard } from '@/components/applications/ApplicationCard'
 import { StatusBadge } from '@/components/applications/StatusBadge'
+import { JobTrackerLogo } from '@/components/ui/JobTrackerLogo'
 import { KanbanPage } from '@/pages/KanbanPage'
 import { formatDate, getInitial } from '@/lib/utils'
 import type { Application, ApplicationStatus } from '@/lib/types'
@@ -111,9 +112,13 @@ export function ApplicationsPage({ applications, loading, onOpenDetail, onStatus
       {/* Toolbar */}
       <div className="flex gap-3 flex-col sm:flex-row">
         <div className="relative flex-1">
-          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-muted)]" />
+          <div className="pointer-events-none absolute left-2 top-1/2 flex -translate-y-1/2 items-center gap-2 rounded-[10px] border border-[rgba(60,52,137,0.12)] bg-white/82 px-2 py-1 shadow-[0_8px_18px_rgba(31,27,77,0.06)]">
+            <JobTrackerLogo size={20} />
+            <span className="text-[11px] font-bold tracking-[0.08em] text-[var(--color-violet-deep)]">JT.</span>
+          </div>
+          <Search size={14} className="absolute left-[86px] top-1/2 -translate-y-1/2 text-[var(--color-muted)]" />
           <input
-            className="input pl-8"
+            className="input pl-[110px]"
             placeholder="Rechercher..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
