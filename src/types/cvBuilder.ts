@@ -98,6 +98,8 @@ export type TemplateType =
   | 'tech' | 'developer' | 'engineer' | 'data' | 'hacker'
   // Academic
   | 'academic' | 'researcher' | 'scientist' | 'professor' | 'scholar'
+  // Photo
+  | 'portrait' | 'avatar' | 'headshot' | 'vcard' | 'passport'
 
 export type FontFamily = 'inter' | 'georgia' | 'roboto' | 'playfair'
 

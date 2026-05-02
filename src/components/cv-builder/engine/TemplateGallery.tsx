@@ -89,22 +89,67 @@ function LayoutThumb({ config, color, selected }: { config: TemplateConfig; colo
     )
   }
 
-  // single — default
-  const hasBand = config.headerStyle === 'band' || config.headerStyle === 'gradient-band'
+  // single — default (including photo variants)
+  const hasBand = config.headerStyle === 'band' || config.headerStyle === 'gradient-band' || config.headerStyle === 'photo-band'
+  const photoLeft = config.headerStyle === 'photo-left'
+  const photoRight = config.headerStyle === 'photo-right'
+  const photoCentered = config.headerStyle === 'photo-centered'
+  const photoCircleR = 10
+  const bodyStart = hasBand ? 32 : (photoCentered ? 46 : 38)
+
   return (
     <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} xmlns="http://www.w3.org/2000/svg">
       <rect width={W} height={H} rx={4} fill={bg} stroke={selected ? color : '#e5e7eb'} strokeWidth={selected ? 1.5 : 1} />
-      {hasBand ? (
-        <rect x={0} y={0} width={W} height={24} rx={4} fill={fill} opacity={0.8} />
-      ) : (
+
+      {/* Band header */}
+      {hasBand && <rect x={0} y={0} width={W} height={26} rx={4} fill={fill} opacity={0.85} />}
+      {hasBand && (
+        <circle cx={W - 18} cy={13} r={9} fill="rgba(255,255,255,0.25)" stroke="rgba(255,255,255,0.4)" strokeWidth={0.8} />
+      )}
+
+      {/* Photo-left header */}
+      {photoLeft && (
+        <>
+          <circle cx={8 + photoCircleR} cy={15} r={photoCircleR} fill={fill} opacity={0.7} />
+          <rect x={28} y={10} width={52} height={5} rx={2} fill={accent} opacity={0.55} />
+          <rect x={28} y={18} width={36} height={2.5} rx={1} fill="#d1d5db" />
+          <line x1={8} y1={30} x2={88} y2={30} stroke="#e5e7eb" strokeWidth={0.8} />
+        </>
+      )}
+
+      {/* Photo-right header */}
+      {photoRight && (
+        <>
+          <rect x={8} y={9} width={52} height={6} rx={2} fill={accent} opacity={0.55} />
+          <rect x={8} y={18} width={36} height={2.5} rx={1} fill="#d1d5db" />
+          <rect x={8} y={23} width={26} height={2} rx={1} fill="#e5e7eb" />
+          <rect x={W - 8 - photoCircleR * 2} y={8} width={photoCircleR * 2} height={photoCircleR * 2} rx={3} fill={fill} opacity={0.7} />
+          <line x1={8} y1={32} x2={88} y2={32} stroke="#e5e7eb" strokeWidth={0.8} />
+        </>
+      )}
+
+      {/* Photo-centered header */}
+      {photoCentered && (
+        <>
+          <circle cx={W / 2} cy={12} r={photoCircleR} fill={fill} opacity={0.7} />
+          <rect x={22} y={26} width={52} height={5} rx={2} fill={accent} opacity={0.55} />
+          <rect x={28} y={34} width={40} height={2.5} rx={1} fill="#d1d5db" />
+          <line x1={8} y1={42} x2={88} y2={42} stroke="#e5e7eb" strokeWidth={0.8} />
+        </>
+      )}
+
+      {/* Standard header (non-photo, non-band) */}
+      {!hasBand && !photoLeft && !photoRight && !photoCentered && (
         <>
           <rect x={8} y={10} width={60} height={8} rx={2} fill={accent} opacity={0.5} />
           <rect x={8} y={22} width={40} height={3} rx={1} fill="#d1d5db" />
           <line x1={8} y1={30} x2={88} y2={30} stroke="#e5e7eb" strokeWidth={1} />
         </>
       )}
-      {[hasBand ? 32 : 38, hasBand ? 40 : 46, hasBand ? 52 : 58, hasBand ? 62 : 68, hasBand ? 72 : 78, hasBand ? 82 : 88, hasBand ? 94 : 100, hasBand ? 104 : 110].map((y, i) => (
-        <rect key={i} x={8} y={y} width={i % 3 === 0 ? 72 : i % 3 === 1 ? 56 : 64} height={2} rx={1} fill="#e5e7eb" />
+
+      {/* Content lines */}
+      {[bodyStart, bodyStart + 8, bodyStart + 18, bodyStart + 28, bodyStart + 38, bodyStart + 48, bodyStart + 60, bodyStart + 70].map((y, i) => (
+        y < H - 4 ? <rect key={i} x={8} y={y} width={i % 3 === 0 ? 72 : i % 3 === 1 ? 56 : 64} height={2} rx={1} fill="#e5e7eb" /> : null
       ))}
     </svg>
   )
@@ -133,7 +178,7 @@ export function TemplateGallery({ current, onSelect, onClose }: Props) {
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 shrink-0">
           <div>
             <h2 className="text-base font-bold text-gray-900">Choisir un template</h2>
-            <p className="text-xs text-gray-400 mt-0.5">32 templates disponibles — cliquez pour sélectionner</p>
+            <p className="text-xs text-gray-400 mt-0.5">37 templates disponibles — cliquez pour sélectionner</p>
           </div>
           <button
             className="p-2 rounded-lg hover:bg-gray-100 transition-colors text-gray-400 hover:text-gray-700"

@@ -1,7 +1,9 @@
 import type { TemplateType } from '@/types/cvBuilder'
 
 export type LayoutType = 'single' | 'sidebar-left' | 'sidebar-right' | 'two-col'
-export type HeaderStyle = 'simple' | 'centered' | 'bold-left' | 'band' | 'gradient-band' | 'split-contact'
+export type HeaderStyle =
+  | 'simple' | 'centered' | 'bold-left' | 'band' | 'gradient-band' | 'split-contact'
+  | 'photo-left' | 'photo-right' | 'photo-centered' | 'photo-band'
 export type SectionStyle = 'underline' | 'border-left' | 'dot' | 'minimal' | 'box-bg' | 'caps-line'
 export type ColorMode = 'accent' | 'sidebar' | 'header' | 'minimal'
 export type FontVariant = 'sans' | 'serif' | 'mono'
@@ -202,6 +204,34 @@ const REGISTRY: TemplateConfig[] = [
     id: 'scholar', label: 'Érudit', category: 'academic',
     layout: 'single', headerStyle: 'bold-left', sectionStyle: 'caps-line',
     colorMode: 'accent', font: 'serif', sidebarSections: [],
+  },
+
+  // ─── Photo ───────────────────────────────────────────────────────────────────
+  {
+    id: 'portrait', label: 'Portrait', category: 'professional',
+    layout: 'single', headerStyle: 'photo-left', sectionStyle: 'underline',
+    colorMode: 'accent', font: 'serif', sidebarSections: [],
+  },
+  {
+    id: 'avatar', label: 'Avatar', category: 'creative',
+    layout: 'single', headerStyle: 'photo-right', sectionStyle: 'border-left',
+    colorMode: 'accent', font: 'sans', sidebarSections: [],
+  },
+  {
+    id: 'headshot', label: 'Headshot', category: 'creative',
+    layout: 'single', headerStyle: 'photo-centered', sectionStyle: 'dot',
+    colorMode: 'accent', font: 'sans', sidebarSections: [],
+  },
+  {
+    id: 'vcard', label: 'V-Card', category: 'professional',
+    layout: 'sidebar-left', headerStyle: 'photo-band', sectionStyle: 'minimal',
+    colorMode: 'sidebar', font: 'sans',
+    sidebarSections: ['skills', 'languages', 'certifications', 'interests'],
+  },
+  {
+    id: 'passport', label: 'Passeport', category: 'minimal',
+    layout: 'single', headerStyle: 'photo-band', sectionStyle: 'caps-line',
+    colorMode: 'header', font: 'sans', sidebarSections: [],
   },
 ]
 

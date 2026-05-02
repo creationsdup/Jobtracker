@@ -283,6 +283,34 @@ interface HeaderCtx {
   onDark: boolean
 }
 
+function PhotoAvatar({ photoUrl, firstName, lastName, size, color, onDark, shape = 'circle' }: {
+  photoUrl: string; firstName: string; lastName: string
+  size: number; color: string; onDark?: boolean; shape?: 'circle' | 'square'
+}) {
+  const radius = shape === 'circle' ? '50%' : 8
+  const initials = `${firstName?.[0] ?? ''}${lastName?.[0] ?? ''}`
+  if (photoUrl) {
+    return (
+      <img
+        src={photoUrl}
+        alt="photo"
+        style={{ width: size, height: size, borderRadius: radius, objectFit: 'cover', flexShrink: 0, display: 'block', border: onDark ? '2px solid rgba(255,255,255,0.25)' : `2px solid ${toRgba(color, 0.2)}` }}
+      />
+    )
+  }
+  return (
+    <div style={{
+      width: size, height: size, borderRadius: radius, flexShrink: 0,
+      background: onDark ? 'rgba(255,255,255,0.18)' : toRgba(color, 0.12),
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      fontSize: size * 0.3, fontWeight: 700, color: onDark ? '#fff' : color,
+      border: onDark ? '2px solid rgba(255,255,255,0.2)' : `2px solid ${toRgba(color, 0.2)}`,
+    }}>
+      {initials}
+    </div>
+  )
+}
+
 function renderHeader({ personal, color, ink, style, colorMode, onDark }: HeaderCtx) {
   const contactItems = [personal.email, personal.phone, personal.location, personal.linkedin, personal.website, personal.github].filter(Boolean)
   const nameColor = onDark ? '#ffffff' : ink
@@ -376,6 +404,78 @@ function renderHeader({ personal, color, ink, style, colorMode, onDark }: Header
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2px 16px', textAlign: 'right', fontSize: 9.5, color: contactColor }}>
           {contactItems.map((c, i) => <span key={i}>{c}</span>)}
         </div>
+      </div>
+    )
+  }
+
+  // ── Photo headers ──────────────────────────────────────────────────────────
+
+  if (style === 'photo-left') {
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', gap: 20, marginBottom: 20, paddingBottom: 16, borderBottom: `1.5px solid ${toRgba(color, 0.2)}` }}>
+        <PhotoAvatar photoUrl={personal.photoUrl} firstName={personal.firstName} lastName={personal.lastName} size={88} color={color} shape="circle" />
+        <div style={{ flex: 1 }}>
+          <h1 style={{ fontSize: 26, fontWeight: 700, color: nameColor, letterSpacing: '-0.5px', marginBottom: 2 }}>
+            {personal.firstName} {personal.lastName}
+          </h1>
+          {personal.title && <p style={{ fontSize: 12, color: titleColor, fontWeight: 500, marginBottom: 6 }}>{personal.title}</p>}
+          <p style={{ fontSize: 9.5, color: contactColor, letterSpacing: '0.04em' }}>{contactItems.join('   ·   ')}</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (style === 'photo-right') {
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 20, marginBottom: 20, paddingBottom: 16, borderBottom: `1.5px solid ${toRgba(color, 0.2)}` }}>
+        <div>
+          <h1 style={{ fontSize: 26, fontWeight: 700, color: nameColor, letterSpacing: '-0.5px', marginBottom: 2 }}>
+            {personal.firstName} {personal.lastName}
+          </h1>
+          {personal.title && <p style={{ fontSize: 12, color: titleColor, fontWeight: 500, marginBottom: 6 }}>{personal.title}</p>}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 2, fontSize: 9.5, color: contactColor }}>
+            {contactItems.map((c, i) => <span key={i}>{c}</span>)}
+          </div>
+        </div>
+        <PhotoAvatar photoUrl={personal.photoUrl} firstName={personal.firstName} lastName={personal.lastName} size={96} color={color} shape="square" />
+      </div>
+    )
+  }
+
+  if (style === 'photo-centered') {
+    return (
+      <div style={{ textAlign: 'center', marginBottom: 20, paddingBottom: 16, borderBottom: `1px solid ${toRgba(color, 0.18)}` }}>
+        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 10 }}>
+          <PhotoAvatar photoUrl={personal.photoUrl} firstName={personal.firstName} lastName={personal.lastName} size={100} color={color} shape="circle" />
+        </div>
+        <h1 style={{ fontSize: 26, fontWeight: 700, color: nameColor, letterSpacing: '-0.5px', marginBottom: 2 }}>
+          {personal.firstName} {personal.lastName}
+        </h1>
+        {personal.title && <p style={{ fontSize: 12, color: titleColor, fontWeight: 500, marginBottom: 6 }}>{personal.title}</p>}
+        <p style={{ fontSize: 9.5, color: contactColor, letterSpacing: '0.05em' }}>{contactItems.join('   ·   ')}</p>
+      </div>
+    )
+  }
+
+  if (style === 'photo-band') {
+    return (
+      <div style={{
+        background: `linear-gradient(135deg, ${color} 0%, ${darken(color, 25)} 100%)`,
+        padding: '22px 40px',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        gap: 20,
+        marginBottom: 0,
+      }}>
+        <div>
+          <h1 style={{ fontSize: 26, fontWeight: 700, color: '#fff', letterSpacing: '-0.5px', marginBottom: 2 }}>
+            {personal.firstName} {personal.lastName}
+          </h1>
+          {personal.title && <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.75)', marginBottom: 8 }}>{personal.title}</p>}
+          <p style={{ fontSize: 9, color: 'rgba(255,255,255,0.6)', letterSpacing: '0.05em' }}>{contactItems.join('   ·   ')}</p>
+        </div>
+        <PhotoAvatar photoUrl={personal.photoUrl} firstName={personal.firstName} lastName={personal.lastName} size={86} color="#fff" onDark shape="circle" />
       </div>
     )
   }
