@@ -22,7 +22,8 @@ export function useActivityData(userId: string | null): DayActivity[] {
       .select('createdAt')
       .eq('userId', userId)
       .gte('createdAt', sevenDaysAgo)
-      .then(({ data: rows }) => {
+      .then(({ data: rows, error }) => {
+        if (error) return
         const counts: Record<string, number> = {}
 
         for (let i = 6; i >= 0; i--) {
@@ -32,7 +33,9 @@ export function useActivityData(userId: string | null): DayActivity[] {
         }
 
         for (const row of rows ?? []) {
-          const key = new Date(row.createdAt).toISOString().split('T')[0]
+          // Use local date so the activity lands on the correct day in the user's timezone
+          const d = new Date(row.createdAt)
+          const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
           if (key in counts) counts[key]++
         }
 
@@ -41,7 +44,8 @@ export function useActivityData(userId: string | null): DayActivity[] {
 
         setData(
           entries.map(([dateStr, count]) => ({
-            day: DAY_LABELS[new Date(dateStr).getDay()],
+            // Parse as local date to avoid UTC-midnight off-by-one in negative UTC offsets
+            day: DAY_LABELS[new Date(`${dateStr}T00:00:00`).getDay()],
             count,
             isMax: count === max && count > 0,
           })),

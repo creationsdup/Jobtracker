@@ -83,7 +83,8 @@ export function LibraryPage({ userId, userEmail }: LibraryPageProps) {
           ...(exp.skills ?? []),
         ].some((value) => value.toLowerCase().includes(normalizedSearch))
       }),
-    [allExperiences, normalizedSearch, typeFilter],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [allExperiences, normalizedSearch, typeFilter, dateFrom, dateTo],
   )
 
   const filteredEducation = useMemo(
@@ -95,7 +96,8 @@ export function LibraryPage({ userId, userEmail }: LibraryPageProps) {
         exp.description ?? '',
         exp.location ?? '',
       ].some((value) => value.toLowerCase().includes(normalizedSearch))),
-    [educationExperiences, normalizedSearch],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [educationExperiences, normalizedSearch, dateFrom, dateTo],
   )
 
   const filteredSkills = useMemo(

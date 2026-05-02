@@ -8,17 +8,20 @@ import { KanbanPage } from '@/pages/KanbanPage'
 import { LibraryPage } from '@/pages/LibraryPage'
 import { ProfilePage } from '@/pages/ProfilePage'
 import { ResumeBuilderPage } from '@/pages/ResumeBuilderPage'
+import { GoalsPage } from '@/pages/GoalsPage'
 import { ApplicationForm } from '@/components/applications/ApplicationForm'
 import { ApplicationDetail } from '@/components/applications/ApplicationDetail'
 import { useAuth } from '@/hooks/useAuth'
 import { useApplications } from '@/hooks/useApplications'
 import { useSteps } from '@/hooks/useSteps'
+import { useGoals } from '@/hooks/useGoals'
 import type { Application } from '@/lib/types'
 
 export function App() {
   const { user, loading: authLoading, isAuthenticated, signIn, signInWithGoogle, signUp, signOut } = useAuth()
   const { applications, loading: appsLoading, addApplication, updateApplication, updateStatus, deleteApplication } = useApplications(user?.id ?? null)
   const { fetchStepsForApplication, addStep, updateStep, deleteStep, deleteStepsForApplication, getStepsForApplication } = useSteps()
+  const { goal } = useGoals(user?.id ?? null)
 
   const [formOpen, setFormOpen] = useState(false)
   const [editingApp, setEditingApp] = useState<Application | null>(null)
@@ -80,6 +83,7 @@ export function App() {
             <ApplicationsPage
               applications={applications}
               loading={appsLoading}
+              goal={goal}
               onOpenDetail={handleOpenDetail}
               onStatusChange={updateStatus}
               onAdd={() => { setEditingApp(null); setFormOpen(true) }}
@@ -88,6 +92,7 @@ export function App() {
           <Route path="kanban" element={
             <KanbanPage
               applications={applications}
+              goal={goal}
               onStatusChange={updateStatus}
               onOpenDetail={handleOpenDetail}
               onAdd={() => { setEditingApp(null); setFormOpen(true) }}
@@ -95,6 +100,7 @@ export function App() {
           } />
           <Route path="library" element={<LibraryPage userId={user.id} userEmail={user.email} />} />
           <Route path="resumes" element={<ResumeBuilderPage userId={user.id} userEmail={user.email} />} />
+          <Route path="goals" element={<GoalsPage userId={user.id} applications={applications} />} />
           <Route path="profile" element={<ProfilePage userId={user.id} userEmail={user.email} />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>

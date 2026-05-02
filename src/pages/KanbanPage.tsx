@@ -8,22 +8,43 @@ import {
 import { SortableContext, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { useState } from 'react'
+import { Target } from 'lucide-react'
 import { formatDate } from '@/lib/utils'
-import type { Application, ApplicationStatus } from '@/lib/types'
+import { computeAppScore } from '@/hooks/useGoals'
+import type { Application, ApplicationStatus, UserGoal } from '@/lib/types'
 import { KANBAN_COLUMNS, STATUS_LABELS } from '@/lib/types'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
 interface KanbanPageProps {
   applications: Application[]
+  goal?: UserGoal | null
   onStatusChange: (id: string, status: ApplicationStatus) => Promise<string | null>
   onOpenDetail: (app: Application) => void
   onAdd: () => void
 }
 
+// ─── Goal badge ───────────────────────────────────────────────────────────────
+
+function GoalBadge({ score }: { score: number }) {
+  const color = score >= 75 ? '#059669' : score >= 40 ? '#d97706' : '#dc2626'
+  const bg    = score >= 75 ? '#d1fae5' : score >= 40 ? '#fef3c7' : '#fee2e2'
+  return (
+    <span
+      className="flex items-center gap-0.5 text-[10px] font-semibold px-1.5 py-0.5 rounded-full flex-shrink-0"
+      style={{ color, background: bg }}
+      title="Alignement avec votre objectif de recherche"
+    >
+      <Target size={8} />
+      {score}%
+    </span>
+  )
+}
+
 // ─── Sortable Card ────────────────────────────────────────────────────────────
 
-function SortableCard({ app, onOpen }: { app: Application; onOpen: () => void }) {
+function SortableCard({ app, goal, onOpen }: { app: Application; goal?: UserGoal | null; onOpen: () => void }) {
+  const score = computeAppScore(goal ?? null, app)
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: app.id })
 
   return (
@@ -50,9 +71,10 @@ function SortableCard({ app, onOpen }: { app: Application; onOpen: () => void })
         ) : (
           <span className="text-[10px] text-[var(--color-muted)]">Sans lieu</span>
         )}
-        <span className="text-[10px] font-medium text-[var(--color-muted)]">
-          Ouvrir
-        </span>
+        <div className="flex items-center gap-1.5">
+          {score !== null && <GoalBadge score={score} />}
+          <span className="text-[10px] font-medium text-[var(--color-muted)]">Ouvrir</span>
+        </div>
       </div>
     </div>
   )
@@ -61,10 +83,11 @@ function SortableCard({ app, onOpen }: { app: Application; onOpen: () => void })
 // ─── Column ───────────────────────────────────────────────────────────────────
 
 function KanbanColumn({
-  status, apps, onOpen,
+  status, apps, goal, onOpen,
 }: {
   status: ApplicationStatus
   apps: Application[]
+  goal?: UserGoal | null
   onOpen: (app: Application) => void
 }) {
   const COLUMN_COLORS: Partial<Record<ApplicationStatus, string>> = {
@@ -86,7 +109,7 @@ function KanbanColumn({
       <SortableContext items={apps.map(a => a.id)} strategy={verticalListSortingStrategy}>
         <div ref={setNodeRef} className="flex flex-col gap-3 min-h-[80px]">
           {apps.map(app => (
-            <SortableCard key={app.id} app={app} onOpen={() => onOpen(app)} />
+            <SortableCard key={app.id} app={app} goal={goal} onOpen={() => onOpen(app)} />
           ))}
           {apps.length === 0 && (
             <div className="rounded-[var(--radius)] border-2 border-dashed border-[var(--color-border)] h-20 flex items-center justify-center bg-[var(--color-surface)]">
@@ -101,7 +124,7 @@ function KanbanColumn({
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
-export function KanbanPage({ applications, onStatusChange, onOpenDetail, onAdd }: KanbanPageProps) {
+export function KanbanPage({ applications, goal, onStatusChange, onOpenDetail, onAdd }: KanbanPageProps) {
   const [activeApp, setActiveApp] = useState<Application | null>(null)
 
   const sensors = useSensors(
@@ -154,6 +177,7 @@ export function KanbanPage({ applications, onStatusChange, onOpenDetail, onAdd }
               key={col}
               status={col}
               apps={grouped[col] ?? []}
+              goal={goal}
               onOpen={onOpenDetail}
             />
           ))}

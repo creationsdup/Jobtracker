@@ -1,14 +1,11 @@
-import { ArrowRight, Plus } from 'lucide-react'
+import { useMemo } from 'react'
 import { useOutletContext } from 'react-router-dom'
-import { StatCard } from '@/components/dashboard/StatCard'
-import { ApplicationRow } from '@/components/dashboard/ApplicationRow'
-import { TipBanner } from '@/components/dashboard/TipBanner'
-import { GoalCard } from '@/components/dashboard/GoalCard'
+import { Plus, ArrowRight } from 'lucide-react'
 import { MetricsCard } from '@/components/dashboard/MetricsCard'
-import { useDashboardStats } from '@/hooks/useDashboardStats'
+import { useGoals } from '@/hooks/useGoals'
 import { formatDate } from '@/lib/utils'
-import { STATUS_COLORS } from '@/utils/statusLabels'
-import type { Application } from '@/lib/types'
+import type { Application, ApplicationStatus } from '@/lib/types'
+import { STATUS_LABELS } from '@/lib/types'
 
 interface DashboardPageProps {
   userId: string
@@ -25,233 +22,223 @@ const TODAY = new Date().toLocaleDateString('fr-FR', {
   weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
 })
 
-const STAT_CARDS = [
-  {
-    key: 'wishlist' as const,
-    label: 'Sauvegardée',
-    accent: STATUS_COLORS.wishlist.accent,
-    bg: STATUS_COLORS.wishlist.bg,
-    fg: STATUS_COLORS.wishlist.text,
-  },
-  {
-    key: 'applied' as const,
-    label: 'Postulée',
-    accent: STATUS_COLORS.applied.accent,
-    bg: STATUS_COLORS.applied.bg,
-    fg: STATUS_COLORS.applied.text,
-  },
-  {
-    key: 'interview' as const,
-    label: 'Entretien',
-    accent: STATUS_COLORS.interview.accent,
-    bg: STATUS_COLORS.interview.bg,
-    fg: STATUS_COLORS.interview.text,
-  },
-  {
-    key: 'offer' as const,
-    label: 'Offre',
-    accent: STATUS_COLORS.offer.accent,
-    bg: STATUS_COLORS.offer.bg,
-    fg: STATUS_COLORS.offer.text,
-  },
-  {
-    key: 'rejected' as const,
-    label: 'Refusée',
-    accent: STATUS_COLORS.rejected.accent,
-    bg: STATUS_COLORS.rejected.bg,
-    fg: STATUS_COLORS.rejected.text,
-  },
-] as const
+const STATUS_BAR_CONFIG: { status: ApplicationStatus; color: string }[] = [
+  { status: 'WISHLIST',       color: '#a78bfa' },
+  { status: 'APPLIED',        color: '#60a5fa' },
+  { status: 'PHONE_SCREEN',   color: '#34d399' },
+  { status: 'INTERVIEW',      color: '#fbbf24' },
+  { status: 'TECHNICAL_TEST', color: '#f97316' },
+  { status: 'OFFER',          color: '#10b981' },
+  { status: 'ACCEPTED',       color: '#059669' },
+  { status: 'REJECTED',       color: '#f87171' },
+  { status: 'WITHDRAWN',      color: '#9ca3af' },
+]
 
 export function DashboardPage({ userId, applications, loading, onOpenDetail }: DashboardPageProps) {
   const { onAddApplication } = useOutletContext<OutletCtx>()
-  const stats = useDashboardStats(applications)
+  useGoals(userId, applications)
 
-  const recent = [...applications]
-    .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
-    .slice(0, 6)
+  const stats = useMemo(() => {
+    const total = applications.length
+    const active = applications.filter((a) =>
+      ['APPLIED', 'PHONE_SCREEN', 'INTERVIEW', 'TECHNICAL_TEST'].includes(a.status),
+    ).length
+    const offers = applications.filter((a) =>
+      ['OFFER', 'ACCEPTED'].includes(a.status),
+    ).length
+    const applied = applications.filter((a) => a.status !== 'WISHLIST').length
+    const progressed = applications.filter((a) =>
+      ['INTERVIEW', 'TECHNICAL_TEST', 'OFFER', 'ACCEPTED'].includes(a.status),
+    ).length
+    const convRate = applied > 0 ? Math.round((progressed / applied) * 100) : 0
 
-  const actions = buildActions(applications).slice(0, 4)
+    return { total, active, offers, convRate }
+  }, [applications])
 
-  const companies = [...new Set(applications.map((a) => a.company))].slice(0, 10)
+  const statusCounts = useMemo(() => {
+    const counts: Partial<Record<ApplicationStatus, number>> = {}
+    for (const app of applications) {
+      counts[app.status] = (counts[app.status] ?? 0) + 1
+    }
+    return counts
+  }, [applications])
+
+  const attentionItems = useMemo(() => buildAttentionItems(applications).slice(0, 5), [applications])
+
+  const heroCards = [
+    { label: 'Candidatures', value: stats.total, sub: 'au total', color: '#6c3de0' },
+    { label: 'En cours', value: stats.active, sub: 'actives', color: '#3b82f6' },
+    { label: 'Offres reçues', value: stats.offers, sub: 'offer / acceptée', color: '#10b981' },
+    { label: 'Taux de conversion', value: `${stats.convRate}%`, sub: 'postulé → entretien+', color: '#f59e0b' },
+  ]
 
   return (
     <div className="flex flex-col min-h-full">
-      <div
-        className="mx-4 md:mx-6 mt-4 md:mt-6 rounded-[28px] overflow-hidden relative"
-        style={{
-          background: 'linear-gradient(135deg, #6c3de0 0%, #4f46e5 55%, #312e81 100%)',
-          boxShadow: '0 24px 60px rgba(49, 46, 129, 0.22)',
-        }}
-      >
-        <div className="absolute -right-10 -top-10 h-40 w-40 rounded-full bg-white/10" />
-        <div className="absolute left-10 bottom-[-3.5rem] h-32 w-32 rounded-full bg-white/10" />
-        <div className="relative px-6 py-6 md:px-8 md:py-7 flex items-start justify-between gap-4">
-          <div>
-            <p className="text-[10px] uppercase tracking-[0.24em] text-white/70 font-semibold">Vue d&apos;ensemble</p>
-            <h1 className="text-2xl md:text-[2rem] font-bold tracking-tight text-white mt-2">
-              Tableau de bord
-            </h1>
-            <p className="text-sm capitalize mt-1 text-white">{TODAY}</p>
-          </div>
-          <button className="btn btn-secondary btn-sm flex-shrink-0" onClick={onAddApplication}>
-            <Plus size={14} />
-            Nouvelle candidature
-          </button>
+      {/* Header */}
+      <div className="px-6 pt-6 pb-2 flex items-end justify-between gap-4">
+        <div>
+          <p className="text-[10px] uppercase tracking-[0.2em] font-semibold" style={{ color: 'var(--color-muted)' }}>
+            Vue d&apos;ensemble
+          </p>
+          <h1 className="text-2xl font-bold tracking-tight mt-1" style={{ color: 'var(--color-ink)' }}>
+            Tableau de bord
+          </h1>
+          <p className="text-xs capitalize mt-0.5" style={{ color: 'var(--color-muted)' }}>{TODAY}</p>
         </div>
+        <button className="btn btn-primary btn-sm flex-shrink-0" onClick={onAddApplication}>
+          <Plus size={14} />
+          Nouvelle candidature
+        </button>
       </div>
 
       <div className="p-6 flex flex-col gap-5">
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-          {STAT_CARDS.map(({ key, label, accent, bg, fg }) => (
-            <StatCard
-              key={key}
-              label={label}
-              count={stats[key]}
-              accentColor={accent}
-              badgeBg={bg}
-              badgeFg={fg}
-              loading={loading}
-            />
+        {/* Hero numbers */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          {heroCards.map(({ label, value, sub, color }) => (
+            <div
+              key={label}
+              className="bg-[var(--color-surface)] rounded-[var(--radius)] shadow-[var(--shadow)] p-5 flex flex-col gap-1"
+              style={{ borderTop: `3px solid ${color}` }}
+            >
+              {loading ? (
+                <div className="h-9 w-16 rounded animate-pulse bg-[var(--color-bg)]" />
+              ) : (
+                <span className="font-bold leading-none" style={{ fontSize: 34, color }}>
+                  {value}
+                </span>
+              )}
+              <span className="text-sm font-semibold mt-1" style={{ color: 'var(--color-ink)' }}>
+                {label}
+              </span>
+              <span className="text-[11px]" style={{ color: 'var(--color-muted)' }}>
+                {sub}
+              </span>
+            </div>
           ))}
         </div>
 
-        <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1.25fr)_320px] gap-5 items-start">
-          <div className="flex flex-col gap-5">
-            <div className="bg-[var(--color-surface)] rounded-[var(--radius)] shadow-[var(--shadow)] p-4 flex flex-col gap-3">
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <h3 className="text-sm font-semibold" style={{ color: 'var(--color-ink)' }}>
-                    Actions du jour
-                  </h3>
-                  <p className="text-xs mt-0.5" style={{ color: 'var(--color-muted)' }}>
-                    Les actions concrètes à traiter en priorité.
-                  </p>
-                </div>
-                <span
-                  className="px-2 py-0.5 rounded-[var(--radius-sm)] border"
-                  style={{ fontSize: 11, background: 'var(--color-bg)', color: 'var(--color-muted)', borderColor: 'var(--color-border)' }}
-                >
-                  {actions.length}
-                </span>
-              </div>
-
-              {loading ? (
-                <div className="flex flex-col gap-2">
-                  {[1, 2, 3].map((i) => (
-                    <div key={i} className="h-16 rounded-[var(--radius-sm)] animate-pulse bg-[var(--color-bg)]" />
-                  ))}
-                </div>
-              ) : actions.length === 0 ? (
-                <div className="py-8 text-center" style={{ color: 'var(--color-muted)' }}>
-                  <p className="text-sm font-semibold">Aucune action urgente</p>
-                  <p className="text-xs mt-1">Le tableau se remplira dès qu&apos;une candidature demandera un suivi.</p>
-                </div>
-              ) : (
-                <div className="flex flex-col gap-2">
-                  {actions.map(({ app, title, reason, tone }) => (
-                    <button
-                      key={`${app.id}-${title}`}
-                      onClick={() => onOpenDetail(app)}
-                      className="w-full rounded-[var(--radius-sm)] border text-left px-3 py-3 transition-colors hover:bg-[var(--color-bg)]"
-                      style={{ borderColor: 'var(--color-border)', background: 'var(--color-surface)' }}
-                    >
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <span
-                              className="px-2 py-0.5 rounded-full text-[10px] font-semibold"
-                              style={{
-                                background: tone.bg,
-                                color: tone.fg,
-                              }}
-                            >
-                              {title}
-                            </span>
-                            <span className="text-sm font-medium truncate" style={{ color: 'var(--color-ink)' }}>
-                              {app.position}
-                            </span>
-                          </div>
-                          <p className="text-xs mt-1 truncate" style={{ color: 'var(--color-muted)' }}>
-                            {app.company}{app.location ? ` · ${app.location}` : ''}
-                          </p>
-                          <p className="text-xs mt-2" style={{ color: 'var(--color-ink)' }}>
-                            {reason}
-                          </p>
-                        </div>
-                        <ArrowRight size={15} className="flex-shrink-0 mt-0.5 text-[var(--color-muted)]" />
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            <div className="bg-[var(--color-surface)] rounded-[var(--radius)] shadow-[var(--shadow)] p-4 flex flex-col gap-3">
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <h3 className="text-sm font-semibold" style={{ color: 'var(--color-ink)' }}>
-                    Dernières candidatures
-                  </h3>
-                  <p className="text-xs mt-0.5" style={{ color: 'var(--color-muted)' }}>
-                    Les candidatures récemment ajoutées ou mises à jour.
-                  </p>
-                </div>
-              </div>
-
-              {loading ? (
-                <div className="flex flex-col gap-2">
-                  {[1, 2, 3].map((i) => (
-                    <div key={i} className="h-14 rounded-[var(--radius-sm)] animate-pulse bg-[var(--color-bg)]" />
-                  ))}
-                </div>
-              ) : recent.length === 0 ? (
-                <div className="py-10 text-center" style={{ color: 'var(--color-muted)' }}>
-                  <div className="text-3xl mb-2">📋</div>
-                  <p className="text-sm font-semibold">Aucune candidature</p>
-                  <p className="text-xs mt-1">Commencez par en ajouter une.</p>
-                </div>
-              ) : (
-                <div className="flex flex-col gap-0.5">
-                  {recent.map((app, i) => (
-                    <ApplicationRow
-                      key={app.id}
-                      application={app}
-                      colorVariant={(i % 2) as 0 | 1}
-                      onClick={() => onOpenDetail(app)}
-                    />
-                  ))}
-                </div>
-              )}
-
-              {!loading && companies.length > 0 && (
-                <div className="pt-3 flex flex-col gap-2" style={{ borderTop: '1px solid var(--color-border)' }}>
-                  <span className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: 'var(--color-muted)' }}>
-                    Entreprises
-                  </span>
-                  <div className="flex flex-wrap gap-1.5">
-                    {companies.map((company) => (
-                      <span
-                        key={company}
-                        className="px-2 py-0.5 rounded-[var(--radius-sm)] border"
-                        style={{ fontSize: 11, background: 'var(--color-bg)', color: 'var(--color-muted)', borderColor: 'var(--color-border)' }}
-                      >
-                        {company}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
+        {/* Status breakdown */}
+        <div className="bg-[var(--color-surface)] rounded-[var(--radius)] shadow-[var(--shadow)] p-5 flex flex-col gap-4">
+          <div>
+            <h3 className="text-sm font-semibold" style={{ color: 'var(--color-ink)' }}>
+              Répartition par statut
+            </h3>
+            <p className="text-[11px] mt-0.5" style={{ color: 'var(--color-muted)' }}>
+              {stats.total} candidature{stats.total !== 1 ? 's' : ''} au total
+            </p>
           </div>
 
-          <div className="flex flex-col gap-5">
-            <GoalCard userId={userId} applications={applications} />
-            <MetricsCard applications={applications} />
+          {loading ? (
+            <div className="h-5 w-full rounded-full animate-pulse bg-[var(--color-bg)]" />
+          ) : stats.total === 0 ? (
+            <div className="h-5 w-full rounded-full bg-[var(--color-bg)]" />
+          ) : (
+            <div className="flex rounded-full overflow-hidden h-5 gap-px">
+              {STATUS_BAR_CONFIG.map(({ status, color }) => {
+                const count = statusCounts[status] ?? 0
+                if (count === 0) return null
+                const pct = (count / stats.total) * 100
+                return (
+                  <div
+                    key={status}
+                    style={{ width: `${pct}%`, background: color, minWidth: 4 }}
+                    title={`${STATUS_LABELS[status]}: ${count}`}
+                  />
+                )
+              })}
+            </div>
+          )}
+
+          <div className="flex flex-wrap gap-x-4 gap-y-2">
+            {STATUS_BAR_CONFIG.map(({ status, color }) => {
+              const count = statusCounts[status] ?? 0
+              if (count === 0) return null
+              return (
+                <div key={status} className="flex items-center gap-1.5">
+                  <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: color }} />
+                  <span className="text-[12px]" style={{ color: 'var(--color-muted)' }}>
+                    {STATUS_LABELS[status]}
+                  </span>
+                  <span className="text-[12px] font-semibold" style={{ color: 'var(--color-ink)' }}>
+                    {count}
+                  </span>
+                </div>
+              )
+            })}
           </div>
         </div>
 
-        {!loading && <TipBanner applications={applications} />}
+        {/* Attention + Metrics */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* Candidatures qui méritent une attention */}
+          <div className="bg-[var(--color-surface)] rounded-[var(--radius)] shadow-[var(--shadow)] p-5 flex flex-col gap-3">
+            <div className="flex items-center justify-between gap-2">
+              <div>
+                <h3 className="text-sm font-semibold" style={{ color: 'var(--color-ink)' }}>
+                  À surveiller
+                </h3>
+                <p className="text-[11px] mt-0.5" style={{ color: 'var(--color-muted)' }}>
+                  Candidatures qui méritent une attention
+                </p>
+              </div>
+              {attentionItems.length > 0 && (
+                <span
+                  className="px-2 py-0.5 rounded-full text-[11px] font-semibold flex-shrink-0"
+                  style={{ background: 'var(--color-bg)', color: 'var(--color-muted)' }}
+                >
+                  {attentionItems.length}
+                </span>
+              )}
+            </div>
+
+            {loading ? (
+              <div className="flex flex-col gap-2">
+                {[1, 2, 3].map((i) => (
+                  <div key={i} className="h-14 rounded-[var(--radius-sm)] animate-pulse bg-[var(--color-bg)]" />
+                ))}
+              </div>
+            ) : attentionItems.length === 0 ? (
+              <div className="flex-1 flex flex-col items-center justify-center py-8 text-center gap-1">
+                <p className="text-sm font-semibold" style={{ color: 'var(--color-ink)' }}>Tout est à jour</p>
+                <p className="text-[11px]" style={{ color: 'var(--color-muted)' }}>
+                  Aucune candidature ne nécessite d&apos;action immédiate.
+                </p>
+              </div>
+            ) : (
+              <div className="flex flex-col gap-1.5">
+                {attentionItems.map(({ app, tag, tagColor, reason }) => (
+                  <button
+                    key={app.id}
+                    onClick={() => onOpenDetail(app)}
+                    className="w-full rounded-[var(--radius-sm)] border text-left px-3 py-2.5 transition-colors hover:bg-[var(--color-bg)] flex items-center gap-3"
+                    style={{ borderColor: 'var(--color-border)', background: 'var(--color-surface)' }}
+                  >
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span
+                          className="px-2 py-0.5 rounded-full text-[10px] font-semibold flex-shrink-0"
+                          style={{ background: tagColor.bg, color: tagColor.fg }}
+                        >
+                          {tag}
+                        </span>
+                        <span className="text-[13px] font-medium truncate" style={{ color: 'var(--color-ink)' }}>
+                          {app.position}
+                        </span>
+                      </div>
+                      <p className="text-[11px] mt-0.5 truncate" style={{ color: 'var(--color-muted)' }}>
+                        {app.company}{app.location ? ` · ${app.location}` : ''} · {reason}
+                      </p>
+                    </div>
+                    <ArrowRight size={14} className="flex-shrink-0" style={{ color: 'var(--color-muted)' }} />
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Metrics */}
+          <MetricsCard applications={applications} />
+        </div>
       </div>
     </div>
   )
@@ -262,75 +249,64 @@ function daysSince(dateStr: string | null | undefined): number {
   return Math.floor((Date.now() - new Date(dateStr).getTime()) / 86_400_000)
 }
 
-function buildActions(applications: Application[]) {
+interface AttentionItem {
+  app: Application
+  tag: string
+  tagColor: { bg: string; fg: string }
+  reason: string
+  priority: number
+}
+
+function buildAttentionItems(applications: Application[]): AttentionItem[] {
   return applications
-    .map((app) => {
-      if (app.status === 'INTERVIEW' || app.status === 'TECHNICAL_TEST') {
-        return {
-          app,
-          priority: 100,
-          title: 'Préparer',
-          reason: `Entretien en cours. Dernière mise à jour le ${formatDate(app.updatedAt)}.`,
-          tone: { bg: 'var(--color-amber-light)', fg: 'var(--color-amber-text)' },
-        }
-      }
-
+    .flatMap((app): AttentionItem[] => {
       if (app.status === 'OFFER') {
-        return {
-          app,
-          priority: 95,
-          title: 'Décider',
-          reason: `Offre reçue. Vérifie les conditions et la date de réponse.`,
-          tone: { bg: 'var(--color-green-light)', fg: 'var(--color-green-text)' },
-        }
+        return [{
+          app, priority: 100,
+          tag: 'Décision à prendre',
+          tagColor: { bg: '#d1fae5', fg: '#065f46' },
+          reason: 'Offre reçue — à accepter ou refuser',
+        }]
       }
-
+      if (app.status === 'INTERVIEW' || app.status === 'TECHNICAL_TEST') {
+        return [{
+          app, priority: 90,
+          tag: 'Entretien en cours',
+          tagColor: { bg: '#fef3c7', fg: '#92400e' },
+          reason: `Dernière mise à jour le ${formatDate(app.updatedAt)}`,
+        }]
+      }
       if (app.status === 'PHONE_SCREEN') {
-        return {
-          app,
-          priority: 85,
-          title: 'Relancer',
-          reason: `Pré-sélection active. Assure-toi d'avoir préparé la suite.`,
-          tone: { bg: 'var(--color-violet-light)', fg: 'var(--color-violet-text)' },
-        }
+        return [{
+          app, priority: 80,
+          tag: 'Pré-sélection',
+          tagColor: { bg: '#ede9fe', fg: '#5b21b6' },
+          reason: 'Suivi à assurer avant la prochaine étape',
+        }]
       }
-
       if (app.status === 'APPLIED') {
         const age = daysSince(app.appliedAt ?? app.updatedAt)
         if (age >= 7) {
-          return {
-            app,
-            priority: 80 + Math.min(age, 20),
-            title: 'Relancer',
-            reason: `${age} jour(s) sans réponse depuis l'envoi de la candidature.`,
-            tone: { bg: '#fff8f0', fg: '#b45309' },
-          }
-        }
-
-        return {
-          app,
-          priority: 50 + age,
-          title: 'Surveiller',
-          reason: `Candidature envoyée récemment. Dernier envoi le ${formatDate(app.appliedAt ?? app.updatedAt)}.`,
-          tone: { bg: 'var(--color-violet-light)', fg: 'var(--color-violet-text)' },
+          return [{
+            app, priority: 70 + Math.min(age, 20),
+            tag: 'Relance suggérée',
+            tagColor: { bg: '#fff7ed', fg: '#c2410c' },
+            reason: `${age} jour${age > 1 ? 's' : ''} sans réponse`,
+          }]
         }
       }
-
       if (app.status === 'WISHLIST') {
         const age = daysSince(app.createdAt)
-        return {
-          app,
-          priority: 40 + Math.min(age, 20),
-          title: 'Postuler',
-          reason: age >= 5
-            ? `Candidature sauvegardée depuis ${age} jour(s), à traiter avant qu'elle refroidisse.`
-            : `Offre enregistrée récemment, prête à être préparée.`,
-          tone: { bg: 'var(--color-bg)', fg: 'var(--color-muted)' },
+        if (age >= 5) {
+          return [{
+            app, priority: 40 + Math.min(age, 20),
+            tag: 'À postuler',
+            tagColor: { bg: 'var(--color-bg)', fg: 'var(--color-muted)' },
+            reason: `Sauvegardée depuis ${age} jour${age > 1 ? 's' : ''}`,
+          }]
         }
       }
-
-      return null
+      return []
     })
-    .filter((item): item is NonNullable<typeof item> => item !== null)
     .sort((a, b) => b.priority - a.priority)
 }

@@ -1,7 +1,7 @@
 import { NavLink } from 'react-router-dom'
 import {
   LayoutDashboard, Briefcase, BookOpen,
-  FileText, X,
+  FileText, Target, X,
 } from 'lucide-react'
 import { cn, getInitial } from '@/lib/utils'
 import { useUIStore } from '@/store/uiStore'
@@ -18,6 +18,7 @@ interface SidebarProps {
 const MAIN_NAV = [
   { to: '/',             label: 'Tableau de bord', icon: LayoutDashboard },
   { to: '/applications', label: 'Candidatures',    icon: Briefcase },
+  { to: '/goals',        label: 'Objectifs',       icon: Target },
   { to: '/library',      label: 'Expériences',     icon: BookOpen },
   { to: '/resumes',      label: 'CV Builder',      icon: FileText },
 ]

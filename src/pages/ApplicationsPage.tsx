@@ -1,11 +1,12 @@
 import { useState } from 'react'
-import { Search, LayoutList, LayoutGrid, Columns } from 'lucide-react'
+import { Search, LayoutList, LayoutGrid, Columns, Target } from 'lucide-react'
 import { ApplicationCard } from '@/components/applications/ApplicationCard'
 import { StatusBadge } from '@/components/applications/StatusBadge'
 import { JobTrackerLogo } from '@/components/ui/JobTrackerLogo'
 import { KanbanPage } from '@/pages/KanbanPage'
 import { formatDate, getInitial } from '@/lib/utils'
-import type { Application, ApplicationStatus } from '@/lib/types'
+import { computeAppScore } from '@/hooks/useGoals'
+import type { Application, ApplicationStatus, UserGoal } from '@/lib/types'
 
 type ViewMode = 'list' | 'grid' | 'kanban'
 
@@ -25,14 +26,33 @@ const STATUS_OPTIONS: { value: ApplicationStatus | ''; label: string }[] = [
 interface ApplicationsPageProps {
   applications: Application[]
   loading: boolean
+  goal?: UserGoal | null
   onOpenDetail: (app: Application) => void
   onStatusChange: (id: string, status: ApplicationStatus) => Promise<string | null>
   onAdd: () => void
 }
 
+// ─── Goal badge ───────────────────────────────────────────────────────────────
+
+function GoalBadge({ score }: { score: number }) {
+  const color = score >= 75 ? '#059669' : score >= 40 ? '#d97706' : '#dc2626'
+  const bg    = score >= 75 ? '#d1fae5' : score >= 40 ? '#fef3c7' : '#fee2e2'
+  return (
+    <span
+      className="flex items-center gap-0.5 text-[10px] font-semibold px-1.5 py-0.5 rounded-full"
+      style={{ color, background: bg }}
+      title="Alignement avec votre objectif de recherche"
+    >
+      <Target size={8} />
+      {score}%
+    </span>
+  )
+}
+
 // ─── Thumbnail card (grid view) ───────────────────────────────────────────────
 
-function AppThumbnail({ app, onClick }: { app: Application; onClick: () => void }) {
+function AppThumbnail({ app, goal, onClick }: { app: Application; goal?: UserGoal | null; onClick: () => void }) {
+  const score = computeAppScore(goal ?? null, app)
   const STATUS_DOT: Partial<Record<ApplicationStatus, string>> = {
     WISHLIST:       'bg-slate-400',
     APPLIED:        'bg-blue-400',
@@ -70,7 +90,10 @@ function AppThumbnail({ app, onClick }: { app: Application; onClick: () => void 
       {/* Footer */}
       <div className="flex items-center justify-between mt-auto pt-1 border-t border-[var(--color-border)]">
         <StatusBadge status={app.status} />
-        <span className="text-[10px] text-[var(--color-muted)]">{formatDate(app.appliedAt ?? app.createdAt)}</span>
+        <div className="flex items-center gap-1">
+          {score !== null && <GoalBadge score={score} />}
+          <span className="text-[10px] text-[var(--color-muted)]">{formatDate(app.appliedAt ?? app.createdAt)}</span>
+        </div>
       </div>
     </div>
   )
@@ -95,7 +118,7 @@ function ViewBtn({ active, onClick, children }: { active: boolean; onClick: () =
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
-export function ApplicationsPage({ applications, loading, onOpenDetail, onStatusChange, onAdd }: ApplicationsPageProps) {
+export function ApplicationsPage({ applications, loading, goal, onOpenDetail, onStatusChange, onAdd }: ApplicationsPageProps) {
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<ApplicationStatus | ''>('')
   const [view, setView] = useState<ViewMode>('list')
@@ -162,6 +185,7 @@ export function ApplicationsPage({ applications, loading, onOpenDetail, onStatus
       ) : view === 'kanban' ? (
         <KanbanPage
           applications={filtered}
+          goal={goal}
           onStatusChange={onStatusChange}
           onOpenDetail={onOpenDetail}
           onAdd={onAdd}
@@ -175,13 +199,13 @@ export function ApplicationsPage({ applications, loading, onOpenDetail, onStatus
       ) : view === 'grid' ? (
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
           {filtered.map((app) => (
-            <AppThumbnail key={app.id} app={app} onClick={() => onOpenDetail(app)} />
+            <AppThumbnail key={app.id} app={app} goal={goal} onClick={() => onOpenDetail(app)} />
           ))}
         </div>
       ) : (
         <div className="flex flex-col gap-3">
           {filtered.map((app) => (
-            <ApplicationCard key={app.id} application={app} onClick={() => onOpenDetail(app)} />
+            <ApplicationCard key={app.id} application={app} goal={goal} onClick={() => onOpenDetail(app)} />
           ))}
         </div>
       )}

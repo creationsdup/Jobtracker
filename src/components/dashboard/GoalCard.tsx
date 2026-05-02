@@ -51,7 +51,7 @@ export function GoalCard({ userId, applications }: GoalCardProps) {
   const [draft, setDraft] = useState(String(target))
 
   useEffect(() => {
-    if (goal?.personal_target) {
+    if (goal?.personal_target != null) {
       setTarget(goal.personal_target)
       setDraft(String(goal.personal_target))
     }

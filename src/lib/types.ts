@@ -81,10 +81,12 @@ export interface UserGoal {
   id: string
   user_id: string
   type: string | null
+  target_positions: string[]
   contract_types: string[]
   target_date: string | null
   personal_target: number | null
   zones: string[]
+  target_companies: string[]
   created_at: string
   updated_at: string
 }

@@ -1,15 +1,33 @@
-import { MapPin, FileText } from 'lucide-react'
+import { MapPin, FileText, Target } from 'lucide-react'
 import { StatusBadge } from './StatusBadge'
 import { formatDate, getInitial } from '@/lib/utils'
-import type { Application } from '@/lib/types'
+import { computeAppScore } from '@/hooks/useGoals'
+import type { Application, UserGoal } from '@/lib/types'
 
 interface ApplicationCardProps {
   application: Application
+  goal?: UserGoal | null
   onClick: () => void
 }
 
-export function ApplicationCard({ application, onClick }: ApplicationCardProps) {
+function GoalBadge({ score }: { score: number }) {
+  const color = score >= 75 ? '#059669' : score >= 40 ? '#d97706' : '#dc2626'
+  const bg    = score >= 75 ? '#d1fae5' : score >= 40 ? '#fef3c7' : '#fee2e2'
+  return (
+    <span
+      className="flex items-center gap-0.5 text-[10px] font-semibold px-1.5 py-0.5 rounded-full flex-shrink-0"
+      style={{ color, background: bg }}
+      title="Alignement avec votre objectif de recherche"
+    >
+      <Target size={8} />
+      {score}%
+    </span>
+  )
+}
+
+export function ApplicationCard({ application, goal, onClick }: ApplicationCardProps) {
   const { company, position, location, contractType, status, createdAt } = application
+  const score = computeAppScore(goal ?? null, application)
 
   return (
     <div
@@ -33,7 +51,10 @@ export function ApplicationCard({ application, onClick }: ApplicationCardProps) 
 
       <div className="flex flex-col items-end gap-2 flex-shrink-0">
         <StatusBadge status={status} />
-        <span className="text-xs text-[var(--color-muted)]">{formatDate(createdAt)}</span>
+        <div className="flex items-center gap-1.5">
+          {score !== null && <GoalBadge score={score} />}
+          <span className="text-xs text-[var(--color-muted)]">{formatDate(createdAt)}</span>
+        </div>
       </div>
     </div>
   )

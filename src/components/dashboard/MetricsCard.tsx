@@ -20,40 +20,98 @@ interface MetricsCardProps {
   applications: Application[]
 }
 
+interface MetricRowProps {
+  label: string
+  value: string
+  sub?: string
+  color?: string
+}
+
+function MetricRow({ label, value, sub, color = 'var(--color-ink)' }: MetricRowProps) {
+  return (
+    <div
+      className="flex items-center justify-between py-3 gap-4"
+      style={{ borderBottom: '1px solid var(--color-border)' }}
+    >
+      <div className="flex flex-col gap-0.5 min-w-0">
+        <span className="text-[13px] font-medium truncate" style={{ color: 'var(--color-ink)' }}>
+          {label}
+        </span>
+        {sub && (
+          <span className="text-[11px]" style={{ color: 'var(--color-muted)' }}>
+            {sub}
+          </span>
+        )}
+      </div>
+      <span className="text-xl font-bold flex-shrink-0" style={{ color }}>
+        {value}
+      </span>
+    </div>
+  )
+}
+
 export function MetricsCard({ applications }: MetricsCardProps) {
   const applied = applications.filter((a) => a.status !== 'WISHLIST').length
   const progressed = applications.filter((a) =>
     ['INTERVIEW', 'TECHNICAL_TEST', 'OFFER', 'ACCEPTED'].includes(a.status),
   ).length
-  const rate = applied > 0 ? Math.round((progressed / applied) * 100) : 0
+  const convRate = applied > 0 ? Math.round((progressed / applied) * 100) : 0
+
+  const responseCount = applications.filter((a) =>
+    ['PHONE_SCREEN', 'INTERVIEW', 'TECHNICAL_TEST', 'OFFER', 'ACCEPTED'].includes(a.status),
+  ).length
+  const responseRate = applied > 0 ? Math.round((responseCount / applied) * 100) : 0
+
   const avgDays = avgResponseDays(applications)
+  const companies = new Set(applications.map((a) => a.company)).size
+  const rejected = applications.filter((a) => a.status === 'REJECTED').length
+  const rejectionRate = applied > 0 ? Math.round((rejected / applied) * 100) : 0
 
   return (
-    <div className="card p-4 flex flex-col gap-3">
-      <span className="text-[11px] font-semibold uppercase tracking-wide text-[var(--color-muted)]">
+    <div className="bg-[var(--color-surface)] rounded-[var(--radius)] shadow-[var(--shadow)] p-5 flex flex-col">
+      <h3 className="text-sm font-semibold mb-1" style={{ color: 'var(--color-ink)' }}>
         Métriques clés
-      </span>
-      <div className="grid grid-cols-2 gap-2">
-        <div
-          className="flex flex-col gap-1 rounded-[var(--radius-sm)] px-3 py-2.5"
-          style={{ background: 'var(--color-bg)' }}
-        >
-          <span className="font-medium leading-none" style={{ fontSize: 22 }}>
-            {rate}%
-          </span>
-          <span className="text-[var(--color-muted)] leading-tight" style={{ fontSize: 11 }}>
-            Taux de transformation
-          </span>
-        </div>
-        <div
-          className="flex flex-col gap-1 rounded-[var(--radius-sm)] px-3 py-2.5"
-          style={{ background: 'var(--color-bg)' }}
-        >
-          <span className="font-medium leading-none" style={{ fontSize: 22 }}>
-            {avgDays !== null ? `${avgDays}j` : '—'}
-          </span>
-          <span className="text-[var(--color-muted)] leading-tight" style={{ fontSize: 11 }}>
-            Délai moyen de réponse
+      </h3>
+      <p className="text-[11px] mb-3" style={{ color: 'var(--color-muted)' }}>
+        Indicateurs globaux de ta recherche
+      </p>
+
+      <div className="flex flex-col">
+        <MetricRow
+          label="Taux de réponse"
+          value={`${responseRate}%`}
+          sub={`${responseCount} réponse${responseCount !== 1 ? 's' : ''} sur ${applied} envoyée${applied !== 1 ? 's' : ''}`}
+          color="#6c3de0"
+        />
+        <MetricRow
+          label="Taux de conversion"
+          value={`${convRate}%`}
+          sub="postulé → entretien ou mieux"
+          color="#3b82f6"
+        />
+        <MetricRow
+          label="Délai moyen de réponse"
+          value={avgDays !== null ? `${avgDays}j` : '—'}
+          sub={avgDays !== null ? 'entre envoi et entretien' : 'pas encore de données'}
+          color="#f59e0b"
+        />
+        <MetricRow
+          label="Entreprises contactées"
+          value={String(companies)}
+          sub="entreprises distinctes"
+          color="#10b981"
+        />
+        <div className="flex items-center justify-between py-3 gap-4">
+          <div className="flex flex-col gap-0.5">
+            <span className="text-[13px] font-medium" style={{ color: 'var(--color-ink)' }}>
+              Taux de refus
+            </span>
+            <span className="text-[11px]" style={{ color: 'var(--color-muted)' }}>
+              {rejected} refus sur {applied} envoyée{applied !== 1 ? 's' : ''}
+            </span>
+          </div>
+          <span className="text-xl font-bold flex-shrink-0" style={{ color: rejectionRate > 50 ? '#f87171' : 'var(--color-ink)' }}>
+            {`${rejectionRate}%`}
           </span>
         </div>
       </div>

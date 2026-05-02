@@ -35,16 +35,18 @@ function experienceSignature(item: Pick<NewExperience, 'type' | 'title' | 'organ
 export function useExperiences(userId: string | null) {
   const [experiences, setExperiences] = useState<Experience[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
   const fetch = useCallback(async () => {
     if (!userId) { setExperiences([]); setLoading(false); return }
     setLoading(true)
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('Experience')
       .select('*')
       .eq('userId', userId)
       .order('startDate', { ascending: false })
-    setExperiences(data ?? [])
+    if (error) setError(error.message)
+    else setExperiences(data ?? [])
     setLoading(false)
   }, [userId])
 
@@ -104,5 +106,5 @@ export function useExperiences(userId: string | null) {
     return null
   }
 
-  return { experiences, loading, bulkAddExperiences, addExperience, updateExperience, deleteExperience, refetch: fetch }
+  return { experiences, loading, error, bulkAddExperiences, addExperience, updateExperience, deleteExperience, refetch: fetch }
 }

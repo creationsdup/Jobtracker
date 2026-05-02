@@ -186,9 +186,9 @@ export function useProfile(userId: string | null, fallbackEmail?: string | null)
       return null
     }
     if (error) { setError(error.message); return error.message }
-    setProfile(data)
+    setProfile(data ?? profile)
     return null
-  }, [fallbackEmail, profile, profile?.email, useLocalFallback, userId])
+  }, [fallbackEmail, profile, useLocalFallback, userId])
 
   const uploadAvatar = useCallback(async (file: File): Promise<string | null> => {
     if (!userId) return 'Non authentifié'
