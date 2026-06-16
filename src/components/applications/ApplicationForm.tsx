@@ -1,19 +1,16 @@
 import { useEffect, useState } from 'react'
-import { X, Sparkles } from 'lucide-react'
+import { X, ChevronLeft, ChevronRight } from 'lucide-react'
 import type { Application, ApplicationStatus } from '@/lib/types'
 import { JobOfferImporter } from './JobOfferImporter'
+import { ApplicationFormStepOffer, type ApplicationFormData } from './steps/ApplicationFormStepOffer'
+import { ApplicationFormStepTracking } from './steps/ApplicationFormStepTracking'
+import { ApplicationFormStepNotes } from './steps/ApplicationFormStepNotes'
 
-const STATUS_OPTIONS: { value: ApplicationStatus; label: string }[] = [
-  { value: 'WISHLIST', label: 'À postuler' },
-  { value: 'APPLIED', label: 'Postulée' },
-  { value: 'PHONE_SCREEN', label: 'Pré-sélection' },
-  { value: 'INTERVIEW', label: 'Entretien' },
-  { value: 'TECHNICAL_TEST', label: 'Test technique' },
-  { value: 'OFFER', label: 'Offre reçue' },
-  { value: 'ACCEPTED', label: 'Acceptée' },
-  { value: 'REJECTED', label: 'Refusée' },
-  { value: 'WITHDRAWN', label: 'Abandonnée' },
-]
+const STEPS = [
+  { id: 1, label: "L'offre" },
+  { id: 2, label: 'Suivi' },
+  { id: 3, label: 'Notes' },
+] as const
 
 interface ApplicationFormProps {
   initial?: Application | null
@@ -23,11 +20,32 @@ interface ApplicationFormProps {
   onClose: () => void
 }
 
+function buildFormData(
+  initial: Application | null | undefined,
+  imported: Partial<Omit<Application, 'id' | 'createdAt' | 'updatedAt'>> | null,
+): ApplicationFormData {
+  const source = imported ?? initial
+  return {
+    company: source?.company ?? '',
+    position: source?.position ?? '',
+    location: source?.location ?? '',
+    contractType: source?.contractType ?? '',
+    jobUrl: source?.jobUrl ?? '',
+    status: source?.status ?? 'WISHLIST',
+    appliedAt: source?.appliedAt ?? '',
+    notes: source?.notes ?? '',
+  }
+}
+
 export function ApplicationForm({ initial, userId, onSave, externalError, onClose }: ApplicationFormProps) {
   const [saving, setSaving] = useState(false)
   const [importerOpen, setImporterOpen] = useState(false)
   const [importedData, setImportedData] = useState<Partial<Omit<Application, 'id' | 'createdAt' | 'updatedAt'>> | null>(null)
-  const formSeed = JSON.stringify(importedData ?? initial ?? {})
+  const [step, setStep] = useState(1)
+  const [formData, setFormData] = useState<ApplicationFormData>(() => buildFormData(initial, importedData))
+
+  const isEditMode = !!initial
+  const maxReachedStep = isEditMode ? 3 : step
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
@@ -35,111 +53,130 @@ export function ApplicationForm({ initial, userId, onSave, externalError, onClos
     return () => window.removeEventListener('keydown', onKey)
   }, [onClose])
 
-  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault()
-    const fd = new FormData(e.currentTarget)
+  function patchFormData(patch: Partial<ApplicationFormData>) {
+    setFormData((prev) => ({ ...prev, ...patch }))
+  }
+
+  function handleImport(data: Partial<Omit<Application, 'id' | 'createdAt' | 'updatedAt'>>) {
+    setImportedData(data)
+    setFormData(buildFormData(initial, data))
+    setImporterOpen(false)
+  }
+
+  const step1Valid = formData.company.trim().length > 0 && formData.position.trim().length > 0
+
+  function goNext() {
+    if (step === 1 && !step1Valid) return
+    setStep((s) => Math.min(3, s + 1))
+  }
+
+  function goPrev() {
+    setStep((s) => Math.max(1, s - 1))
+  }
+
+  function goToStep(target: number) {
+    if (isEditMode || target <= maxReachedStep) setStep(target)
+  }
+
+  async function handleSubmit() {
+    if (!step1Valid) { setStep(1); return }
     setSaving(true)
     await onSave({
       userId,
-      company: (fd.get('company') as string).trim(),
-      position: (fd.get('position') as string).trim(),
-      location: (fd.get('location') as string).trim() || null,
-      contractType: (fd.get('contractType') as string).trim() || null,
-      jobUrl: (fd.get('jobUrl') as string).trim() || null,
-      status: fd.get('status') as ApplicationStatus,
-      notes: (fd.get('notes') as string).trim() || null,
-      appliedAt: (fd.get('appliedAt') as string) || null,
+      company: formData.company.trim(),
+      position: formData.position.trim(),
+      location: formData.location.trim() || null,
+      contractType: formData.contractType.trim() || null,
+      jobUrl: formData.jobUrl.trim() || null,
+      status: formData.status as ApplicationStatus,
+      notes: formData.notes.trim() || null,
+      appliedAt: formData.appliedAt || null,
       resumeId: initial?.resumeId ?? null,
     })
     setSaving(false)
   }
 
   return (
-    <div
-      className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4"
-      onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
-    >
-      <div className="bg-[var(--color-surface)] rounded-[var(--radius)] w-full max-w-lg max-h-[90vh] overflow-y-auto shadow-[var(--shadow-lg)]">
-        <div className="flex items-center justify-between px-6 pt-5">
-          <h3 className="text-lg font-bold">{initial ? 'Modifier la candidature' : 'Nouvelle candidature'}</h3>
-          <div className="flex items-center gap-2">
-            {!initial && (
-              <button type="button" className="btn btn-secondary btn-sm" onClick={() => setImporterOpen(true)}>
-                <Sparkles size={13} />
-                Import IA
-              </button>
-            )}
-            <button className="btn btn-ghost p-1" onClick={onClose}><X size={18} /></button>
-          </div>
+    <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50" onClick={(e) => { if (e.target === e.currentTarget) onClose() }}>
+      <div className="absolute inset-y-0 right-0 w-full max-w-xl bg-[var(--color-surface)] shadow-[var(--shadow-lg)] flex flex-col h-full">
+        <div className="flex items-center justify-between px-8 pt-7 pb-5 border-b border-[var(--color-border)]">
+          <h3 className="text-xl font-bold">{initial ? 'Modifier la candidature' : 'Nouvelle candidature'}</h3>
+          <button className="btn btn-ghost p-1" onClick={onClose}><X size={18} /></button>
         </div>
 
-        <form key={formSeed} onSubmit={handleSubmit} className="p-6 flex flex-col gap-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div className="flex flex-col gap-1.5">
-              <label className="text-xs font-medium">Entreprise *</label>
-              <input className="input" name="company" defaultValue={importedData?.company ?? initial?.company ?? ''} placeholder="Google" required />
+        <div className="px-8 pt-5 pb-2 flex items-center gap-3">
+          {STEPS.map((s, idx) => (
+            <div key={s.id} className="flex items-center gap-3 flex-1">
+              <button
+                type="button"
+                onClick={() => goToStep(s.id)}
+                disabled={!isEditMode && s.id > maxReachedStep}
+                className="flex items-center gap-2 text-sm font-medium disabled:cursor-not-allowed"
+                style={{ color: step === s.id ? 'var(--color-primary)' : 'var(--color-muted)' }}
+              >
+                <span
+                  className="flex items-center justify-center w-6 h-6 rounded-full text-xs font-bold"
+                  style={{
+                    background: step >= s.id ? 'var(--color-primary)' : 'var(--color-border)',
+                    color: step >= s.id ? '#fff' : 'var(--color-muted)',
+                  }}
+                >
+                  {s.id}
+                </span>
+                {s.label}
+              </button>
+              {idx < STEPS.length - 1 && <div className="flex-1 h-px bg-[var(--color-border)]" />}
             </div>
-            <div className="flex flex-col gap-1.5">
-              <label className="text-xs font-medium">Poste *</label>
-              <input className="input" name="position" defaultValue={importedData?.position ?? initial?.position ?? ''} placeholder="Développeur Frontend" required />
-            </div>
-          </div>
+          ))}
+        </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div className="flex flex-col gap-1.5">
-              <label className="text-xs font-medium">Lieu</label>
-              <input className="input" name="location" defaultValue={importedData?.location ?? initial?.location ?? ''} placeholder="Paris, France" />
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <label className="text-xs font-medium">Contrat</label>
-              <input className="input" name="contractType" defaultValue={importedData?.contractType ?? initial?.contractType ?? ''} placeholder="CDI, CDD, Stage..." />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div className="flex flex-col gap-1.5">
-              <label className="text-xs font-medium">Statut</label>
-              <select className="input" name="status" defaultValue={importedData?.status ?? initial?.status ?? 'WISHLIST'}>
-                {STATUS_OPTIONS.map((o) => (
-                  <option key={o.value} value={o.value}>{o.label}</option>
-                ))}
-              </select>
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <label className="text-xs font-medium">URL de l'offre</label>
-              <input className="input" name="jobUrl" type="url" defaultValue={importedData?.jobUrl ?? initial?.jobUrl ?? ''} placeholder="https://..." />
-            </div>
-          </div>
-
-          <div className="flex flex-col gap-1.5">
-            <label className="text-xs font-medium">Date de candidature</label>
-            <input className="input" name="appliedAt" type="date" defaultValue={importedData?.appliedAt ?? initial?.appliedAt ?? ''} />
-          </div>
-
-          <div className="flex flex-col gap-1.5">
-            <label className="text-xs font-medium">Notes</label>
-            <textarea className="input resize-y" name="notes" rows={3} defaultValue={importedData?.notes ?? initial?.notes ?? ''} placeholder="Notes sur la candidature..." />
-          </div>
-
-          {externalError && (
-            <p className="text-xs text-[var(--color-danger)]">{externalError}</p>
+        <div className="flex-1 overflow-y-auto px-8 py-6">
+          {step === 1 && (
+            <ApplicationFormStepOffer
+              value={formData}
+              onChange={patchFormData}
+              showImport={!initial}
+              onImportClick={() => setImporterOpen(true)}
+            />
+          )}
+          {step === 2 && (
+            <ApplicationFormStepTracking value={formData} onChange={patchFormData} />
+          )}
+          {step === 3 && (
+            <ApplicationFormStepNotes value={formData} onChange={patchFormData} />
           )}
 
-          <div className="flex justify-end gap-2.5 mt-2">
-            <button type="button" className="btn btn-secondary" onClick={onClose} disabled={saving}>Annuler</button>
-            <button type="submit" className="btn btn-primary" disabled={saving}>
-              {saving ? 'Enregistrement…' : 'Enregistrer'}
-            </button>
+          {externalError && (
+            <p className="text-sm text-[var(--color-danger)] mt-4">{externalError}</p>
+          )}
+        </div>
+
+        <div className="flex items-center justify-between gap-3 px-8 py-5 border-t border-[var(--color-border)]">
+          <button type="button" className="btn btn-secondary" onClick={onClose} disabled={saving}>Annuler</button>
+          <div className="flex items-center gap-2">
+            {step > 1 && (
+              <button type="button" className="btn btn-secondary" onClick={goPrev} disabled={saving}>
+                <ChevronLeft size={16} />
+                Précédent
+              </button>
+            )}
+            {step < 3 ? (
+              <button type="button" className="btn btn-primary" onClick={goNext} disabled={saving || (step === 1 && !step1Valid)}>
+                Suivant
+                <ChevronRight size={16} />
+              </button>
+            ) : (
+              <button type="button" className="btn btn-primary" onClick={handleSubmit} disabled={saving}>
+                {saving ? 'Enregistrement…' : 'Enregistrer'}
+              </button>
+            )}
           </div>
-        </form>
+        </div>
       </div>
 
       {importerOpen && (
         <JobOfferImporter
-          onImport={(data) => {
-            setImportedData(data)
-            setImporterOpen(false)
-          }}
+          onImport={handleImport}
           onClose={() => setImporterOpen(false)}
         />
       )}
