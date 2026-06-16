@@ -45,7 +45,6 @@ export function ApplicationForm({ initial, userId, onSave, externalError, onClos
   const [formData, setFormData] = useState<ApplicationFormData>(() => buildFormData(initial, importedData))
 
   const isEditMode = !!initial
-  const maxReachedStep = isEditMode ? 3 : step
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
@@ -74,8 +73,12 @@ export function ApplicationForm({ initial, userId, onSave, externalError, onClos
     setStep((s) => Math.max(1, s - 1))
   }
 
+  function canNavigateToStep(target: number) {
+    return isEditMode || target <= step
+  }
+
   function goToStep(target: number) {
-    if (isEditMode || target <= maxReachedStep) setStep(target)
+    if (canNavigateToStep(target)) setStep(target)
   }
 
   async function handleSubmit() {
@@ -110,7 +113,7 @@ export function ApplicationForm({ initial, userId, onSave, externalError, onClos
               <button
                 type="button"
                 onClick={() => goToStep(s.id)}
-                disabled={!isEditMode && s.id > maxReachedStep}
+                disabled={!canNavigateToStep(s.id)}
                 className="flex items-center gap-2 text-sm font-medium disabled:cursor-not-allowed"
                 style={{ color: step === s.id ? 'var(--color-primary)' : 'var(--color-muted)' }}
               >
