@@ -1,16 +1,10 @@
 import type { ApplicationFormData } from './ApplicationFormStepOffer'
+import type { ApplicationStatus } from '@/lib/types'
+import { STATUS_LABELS } from '@/lib/types'
 
-const STATUS_OPTIONS: { value: string; label: string }[] = [
-  { value: 'WISHLIST', label: 'À postuler' },
-  { value: 'APPLIED', label: 'Postulée' },
-  { value: 'PHONE_SCREEN', label: 'Pré-sélection' },
-  { value: 'INTERVIEW', label: 'Entretien' },
-  { value: 'TECHNICAL_TEST', label: 'Test technique' },
-  { value: 'OFFER', label: 'Offre reçue' },
-  { value: 'ACCEPTED', label: 'Acceptée' },
-  { value: 'REJECTED', label: 'Refusée' },
-  { value: 'WITHDRAWN', label: 'Abandonnée' },
-]
+const STATUS_OPTIONS: { value: ApplicationStatus; label: string }[] = (
+  Object.entries(STATUS_LABELS) as [ApplicationStatus, string][]
+).map(([value, label]) => ({ value, label }))
 
 interface ApplicationFormStepTrackingProps {
   value: ApplicationFormData
@@ -25,7 +19,7 @@ export function ApplicationFormStepTracking({ value, onChange }: ApplicationForm
         <select
           className="input text-base py-2.5"
           value={value.status}
-          onChange={(e) => onChange({ status: e.target.value })}
+          onChange={(e) => onChange({ status: e.target.value as ApplicationStatus })}
         >
           {STATUS_OPTIONS.map((o) => (
             <option key={o.value} value={o.value}>{o.label}</option>

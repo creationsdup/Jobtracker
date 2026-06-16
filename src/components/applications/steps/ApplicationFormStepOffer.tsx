@@ -1,4 +1,5 @@
 import { Sparkles } from 'lucide-react'
+import type { ApplicationStatus } from '@/lib/types'
 
 export interface ApplicationFormData {
   company: string
@@ -6,7 +7,7 @@ export interface ApplicationFormData {
   location: string
   contractType: string
   jobUrl: string
-  status: string
+  status: ApplicationStatus
   appliedAt: string
   notes: string
 }
