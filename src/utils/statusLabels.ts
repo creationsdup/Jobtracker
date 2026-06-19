@@ -17,11 +17,11 @@ export interface StatusColor {
 }
 
 export const STATUS_COLORS: Record<StatusKey, StatusColor> = {
-  saved:     { bg: '#EEEDFE', text: '#3C3489', accent: '#7F77DD' },
-  wishlist:  { bg: '#EEEDFE', text: '#3C3489', accent: '#7F77DD' },
-  applied:   { bg: '#EEEDFE', text: '#534AB7', accent: '#534AB7' },
-  interview: { bg: '#FAEEDA', text: '#633806', accent: '#EF9F27' },
-  offer:     { bg: '#E1F5EE', text: '#085041', accent: '#1D9E75' },
-  refused:   { bg: '#FAECE7', text: '#712B13', accent: '#D85A30' },
-  rejected:  { bg: '#FAECE7', text: '#712B13', accent: '#D85A30' },
+  saved:     { bg: '#F3F4F6', text: '#374151', accent: '#9CA3AF' },
+  wishlist:  { bg: '#F3F4F6', text: '#374151', accent: '#9CA3AF' },
+  applied:   { bg: '#E0F4FB', text: '#003459', accent: '#007EA7' },
+  interview: { bg: '#FEF3C7', text: '#92400E', accent: '#F59E0B' },
+  offer:     { bg: '#D1FAE5', text: '#065F46', accent: '#059669' },
+  refused:   { bg: '#FEE2E2', text: '#991B1B', accent: '#DC2626' },
+  rejected:  { bg: '#FEE2E2', text: '#991B1B', accent: '#DC2626' },
 }

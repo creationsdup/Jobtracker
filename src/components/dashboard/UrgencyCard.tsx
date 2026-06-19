@@ -1,6 +1,6 @@
 import type { Application } from '@/lib/types'
+import { useTranslation } from '@/lib/i18n/I18nContext'
 
-const THRESHOLD_DAYS = 7
 const MAX_DAYS = 21
 
 function daysSince(dateStr: string | null | undefined): number {
@@ -10,17 +10,21 @@ function daysSince(dateStr: string | null | undefined): number {
 
 interface UrgencyCardProps {
   applications: Application[]
+  enabled?: boolean
+  thresholdDays?: number
 }
 
-export function UrgencyCard({ applications }: UrgencyCardProps) {
+export function UrgencyCard({ applications, enabled = true, thresholdDays = 7 }: UrgencyCardProps) {
+  const { t } = useTranslation()
+
   const candidates = applications
     .filter((a) => a.status === 'APPLIED' || a.status === 'PHONE_SCREEN')
     .map((a) => ({ app: a, days: daysSince(a.appliedAt ?? a.updatedAt) }))
-    .filter(({ days }) => days >= THRESHOLD_DAYS && days <= MAX_DAYS)
+    .filter(({ days }) => days >= thresholdDays && days <= MAX_DAYS)
     .sort((a, b) => b.days - a.days)
 
   const top = candidates[0]
-  if (!top) return null
+  if (!enabled || !top) return null
 
   return (
     <div
@@ -29,7 +33,7 @@ export function UrgencyCard({ applications }: UrgencyCardProps) {
     >
       <div className="flex items-center justify-between">
         <span className="text-[13px] font-medium" style={{ color: '#92400e' }}>
-          Prochaine relance
+          {t('dashboard.nextFollowUp')}
         </span>
       </div>
 
@@ -47,7 +51,7 @@ export function UrgencyCard({ applications }: UrgencyCardProps) {
           {top.days}
         </span>
         <span className="text-[12px]" style={{ color: '#b45309' }}>
-          jours sans réponse
+          {t('dashboard.daysWithoutResponse')}
         </span>
       </div>
 
@@ -58,7 +62,7 @@ export function UrgencyCard({ applications }: UrgencyCardProps) {
           if (top.app.jobUrl) window.open(top.app.jobUrl, '_blank')
         }}
       >
-        Envoyer la relance →
+        {t('dashboard.sendFollowUp')}
       </button>
     </div>
   )

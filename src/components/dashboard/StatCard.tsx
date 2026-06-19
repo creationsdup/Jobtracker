@@ -17,7 +17,7 @@ export function StatCard({ label, count, accentColor, badgeBg, badgeFg, loading,
     >
       <span
         className="font-medium leading-none"
-        style={{ fontSize: 30, color: 'var(--color-violet-deep)' }}
+        style={{ fontSize: 30, color: 'var(--color-deep-space)' }}
       >
         {loading ? '—' : count}
       </span>

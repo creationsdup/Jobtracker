@@ -81,25 +81,25 @@ export function MetricsCard({ applications }: MetricsCardProps) {
           label="Taux de réponse"
           value={`${responseRate}%`}
           sub={`${responseCount} réponse${responseCount !== 1 ? 's' : ''} sur ${applied} envoyée${applied !== 1 ? 's' : ''}`}
-          color="#6c3de0"
+          color="#007EA7"
         />
         <MetricRow
           label="Taux de conversion"
           value={`${convRate}%`}
-          sub="postulé → entretien ou mieux"
-          color="#3b82f6"
+          sub="candidature → entretien ou mieux"
+          color="#003459"
         />
         <MetricRow
           label="Délai moyen de réponse"
           value={avgDays !== null ? `${avgDays}j` : '—'}
           sub={avgDays !== null ? 'entre envoi et entretien' : 'pas encore de données'}
-          color="#f59e0b"
+          color="#92400E"
         />
         <MetricRow
           label="Entreprises contactées"
           value={String(companies)}
           sub="entreprises distinctes"
-          color="#10b981"
+          color="#059669"
         />
         <div className="flex items-center justify-between py-3 gap-4">
           <div className="flex flex-col gap-0.5">
@@ -110,7 +110,7 @@ export function MetricsCard({ applications }: MetricsCardProps) {
               {rejected} refus sur {applied} envoyée{applied !== 1 ? 's' : ''}
             </span>
           </div>
-          <span className="text-xl font-bold flex-shrink-0" style={{ color: rejectionRate > 50 ? '#f87171' : 'var(--color-ink)' }}>
+          <span className="text-xl font-bold flex-shrink-0" style={{ color: rejectionRate > 50 ? '#DC2626' : 'var(--color-ink)' }}>
             {`${rejectionRate}%`}
           </span>
         </div>

@@ -22,7 +22,7 @@ export function TipBanner({ applications, onPrepare }: TipBannerProps) {
   return (
     <div
       className="rounded-[14px] p-4 flex items-center gap-4"
-      style={{ background: 'var(--color-violet-deep)' }}
+      style={{ background: 'var(--color-deep-space)' }}
     >
       <span style={{ fontSize: 22 }}>
         {interviewApp ? '🎯' : '💡'}

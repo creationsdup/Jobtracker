@@ -1,10 +1,10 @@
 import type { ApplicationFormData } from './ApplicationFormStepOffer'
 import type { ApplicationStatus } from '@/lib/types'
-import { STATUS_LABELS } from '@/lib/types'
+import { APPLICABLE_STATUSES, STATUS_LABELS } from '@/lib/types'
 
-const STATUS_OPTIONS: { value: ApplicationStatus; label: string }[] = (
-  Object.entries(STATUS_LABELS) as [ApplicationStatus, string][]
-).map(([value, label]) => ({ value, label }))
+const STATUS_OPTIONS: { value: ApplicationStatus; label: string }[] = APPLICABLE_STATUSES.map(
+  (value) => ({ value, label: STATUS_LABELS[value] }),
+)
 
 interface ApplicationFormStepTrackingProps {
   value: ApplicationFormData
@@ -15,9 +15,9 @@ export function ApplicationFormStepTracking({ value, onChange }: ApplicationForm
   return (
     <div className="grid grid-cols-2 gap-6">
       <div className="flex flex-col gap-2">
-        <label className="text-sm font-medium">Statut</label>
+        <label className="text-xs font-medium">Statut</label>
         <select
-          className="input text-base py-2.5"
+          className="input text-sm py-2"
           value={value.status}
           onChange={(e) => onChange({ status: e.target.value as ApplicationStatus })}
         >
@@ -27,9 +27,9 @@ export function ApplicationFormStepTracking({ value, onChange }: ApplicationForm
         </select>
       </div>
       <div className="flex flex-col gap-2">
-        <label className="text-sm font-medium">Date de candidature</label>
+        <label className="text-xs font-medium">Date de candidature</label>
         <input
-          className="input text-base py-2.5"
+          className="input text-sm py-2"
           type="date"
           value={value.appliedAt}
           onChange={(e) => onChange({ appliedAt: e.target.value })}

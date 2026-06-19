@@ -1,26 +1,31 @@
-import { useState } from 'react'
-import { Search, LayoutList, LayoutGrid, Columns, Target } from 'lucide-react'
+import { useMemo, useState } from 'react'
+import { Search, LayoutList, LayoutGrid, Columns, ArrowUpDown, ChevronDown, Plus } from 'lucide-react'
 import { ApplicationCard } from '@/components/applications/ApplicationCard'
 import { StatusBadge } from '@/components/applications/StatusBadge'
-import { JobTrackerLogo } from '@/components/ui/JobTrackerLogo'
+import { GoalBadge } from '@/components/applications/GoalBadge'
+import { CompanyLogo } from '@/components/applications/CompanyLogo'
+import { CandidateTable } from '@/components/applications/CandidateTable'
 import { KanbanPage } from '@/pages/KanbanPage'
-import { formatDate, getInitial } from '@/lib/utils'
-import { computeAppScore } from '@/hooks/useGoals'
+import { formatDate } from '@/lib/utils'
+import { computeAppScore, computeAppScoreBreakdown } from '@/hooks/useGoals'
 import type { Application, ApplicationStatus, UserGoal } from '@/lib/types'
+import { APPLICABLE_STATUSES, STATUS_LABELS } from '@/lib/types'
 
 type ViewMode = 'list' | 'grid' | 'kanban'
 
+type SortMode = 'date_desc' | 'date_asc' | 'position_asc' | 'company_asc' | 'match_desc'
+
 const STATUS_OPTIONS: { value: ApplicationStatus | ''; label: string }[] = [
   { value: '', label: 'Tous les statuts' },
-  { value: 'WISHLIST', label: 'À postuler' },
-  { value: 'APPLIED', label: 'Postulée' },
-  { value: 'PHONE_SCREEN', label: 'Pré-sélection' },
-  { value: 'INTERVIEW', label: 'Entretien' },
-  { value: 'TECHNICAL_TEST', label: 'Test technique' },
-  { value: 'OFFER', label: 'Offre reçue' },
-  { value: 'ACCEPTED', label: 'Acceptée' },
-  { value: 'REJECTED', label: 'Refusée' },
-  { value: 'WITHDRAWN', label: 'Abandonnée' },
+  ...APPLICABLE_STATUSES.map((value) => ({ value, label: STATUS_LABELS[value] })),
+]
+
+const SORT_OPTIONS: { value: SortMode; label: string }[] = [
+  { value: 'date_desc', label: 'Plus récentes' },
+  { value: 'date_asc', label: 'Plus anciennes' },
+  { value: 'position_asc', label: 'Poste (A-Z)' },
+  { value: 'company_asc', label: 'Entreprise (A-Z)' },
+  { value: 'match_desc', label: 'Meilleur match' },
 ]
 
 interface ApplicationsPageProps {
@@ -30,51 +35,33 @@ interface ApplicationsPageProps {
   onOpenDetail: (app: Application) => void
   onStatusChange: (id: string, status: ApplicationStatus) => Promise<string | null>
   onAdd: () => void
-}
-
-// ─── Goal badge ───────────────────────────────────────────────────────────────
-
-function GoalBadge({ score }: { score: number }) {
-  const color = score >= 75 ? '#059669' : score >= 40 ? '#d97706' : '#dc2626'
-  const bg    = score >= 75 ? '#d1fae5' : score >= 40 ? '#fef3c7' : '#fee2e2'
-  return (
-    <span
-      className="flex items-center gap-0.5 text-[10px] font-semibold px-1.5 py-0.5 rounded-full"
-      style={{ color, background: bg }}
-      title="Alignement avec votre objectif de recherche"
-    >
-      <Target size={8} />
-      {score}%
-    </span>
-  )
+  onEdit: (app: Application) => void
+  onDelete: (app: Application) => void
+  resolveLogo: (company: string) => string | undefined
 }
 
 // ─── Thumbnail card (grid view) ───────────────────────────────────────────────
 
-function AppThumbnail({ app, goal, onClick }: { app: Application; goal?: UserGoal | null; onClick: () => void }) {
+function AppThumbnail({ app, goal, onClick, logoUrl }: { app: Application; goal?: UserGoal | null; onClick: () => void; logoUrl?: string }) {
   const score = computeAppScore(goal ?? null, app)
+  const scoreCriteria = computeAppScoreBreakdown(goal ?? null, app)
   const STATUS_DOT: Partial<Record<ApplicationStatus, string>> = {
-    WISHLIST:       'bg-slate-400',
-    APPLIED:        'bg-blue-400',
-    PHONE_SCREEN:   'bg-sky-400',
-    INTERVIEW:      'bg-amber-400',
-    TECHNICAL_TEST: 'bg-orange-400',
-    OFFER:          'bg-green-400',
-    ACCEPTED:       'bg-emerald-500',
-    REJECTED:       'bg-red-400',
-    WITHDRAWN:      'bg-gray-400',
+    WISHLIST:  'bg-slate-400',
+    APPLIED:   'bg-blue-400',
+    INTERVIEW: 'bg-amber-400',
+    OFFER:     'bg-green-400',
+    REJECTED:  'bg-red-400',
   }
 
   return (
     <div
-      className="card px-4 py-4 flex flex-col gap-3 cursor-pointer transition-all duration-150 hover:shadow-[var(--shadow-md)] hover:-translate-y-px hover:border-[var(--color-border)] border border-transparent"
+      className="card px-4 py-4 flex flex-col gap-3 cursor-pointer transition-all duration-150 hover:shadow-[var(--shadow-md)] hover:-translate-y-px"
+      style={{ borderColor: 'var(--color-border)' }}
       onClick={onClick}
     >
       {/* Logo + status dot */}
       <div className="flex items-start justify-between">
-        <div className="w-11 h-11 rounded-[10px] bg-[var(--color-bg)] border border-[var(--color-border)] flex items-center justify-center text-lg font-bold text-[var(--color-primary)]">
-          {getInitial(app.company)}
-        </div>
+        <CompanyLogo company={app.company} logoUrl={logoUrl} size={44} />
         <span className={`w-2.5 h-2.5 rounded-full mt-1 ${STATUS_DOT[app.status] ?? 'bg-gray-400'}`} />
       </div>
 
@@ -91,7 +78,7 @@ function AppThumbnail({ app, goal, onClick }: { app: Application; goal?: UserGoa
       <div className="flex items-center justify-between mt-auto pt-1 border-t border-[var(--color-border)]">
         <StatusBadge status={app.status} />
         <div className="flex items-center gap-1">
-          {score !== null && <GoalBadge score={score} />}
+          {score !== null && <GoalBadge score={score} criteria={scoreCriteria} />}
           <span className="text-[10px] text-[var(--color-muted)]">{formatDate(app.appliedAt ?? app.createdAt)}</span>
         </div>
       </div>
@@ -105,44 +92,105 @@ function ViewBtn({ active, onClick, children }: { active: boolean; onClick: () =
   return (
     <button
       onClick={onClick}
-      className={`p-1.5 rounded-[var(--radius-sm)] transition-colors ${
-        active
-          ? 'bg-[var(--color-primary)] text-white'
-          : 'text-[var(--color-muted)] hover:text-[var(--color-ink)] hover:bg-[var(--color-bg)]'
-      }`}
+      className="p-2 rounded-full transition-all duration-150"
+      style={active
+        ? { background: 'var(--color-primary)', color: '#ffffff' }
+        : { color: 'var(--color-muted)' }
+      }
     >
       {children}
     </button>
   )
 }
 
+// ─── Filter select (pill-styled, custom chevron) ──────────────────────────────
+
+function FilterSelect({ value, onChange, options, icon }: {
+  value: string
+  onChange: (value: string) => void
+  options: { value: string; label: string }[]
+  icon?: React.ReactNode
+}) {
+  return (
+    <div className="relative">
+      {icon && (
+        <span className="absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none text-[var(--color-muted)]">
+          {icon}
+        </span>
+      )}
+      <select
+        className={`appearance-none rounded-full text-[13px] font-medium cursor-pointer outline-none transition-colors ${icon ? 'pl-9' : 'pl-4'} pr-9 py-2 bg-white hover:bg-[var(--color-bg)]`}
+        style={{ border: '1px solid var(--color-border)', color: 'var(--color-text)' }}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+      >
+        {options.map((o) => (
+          <option key={o.value} value={o.value}>{o.label}</option>
+        ))}
+      </select>
+      <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-[var(--color-muted)]" />
+    </div>
+  )
+}
+
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
-export function ApplicationsPage({ applications, loading, goal, onOpenDetail, onStatusChange, onAdd }: ApplicationsPageProps) {
+export function ApplicationsPage({ applications, loading, goal, onOpenDetail, onStatusChange, onAdd, onEdit, onDelete, resolveLogo }: ApplicationsPageProps) {
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<ApplicationStatus | ''>('')
+  const [contractFilter, setContractFilter] = useState('')
+  const [sortMode, setSortMode] = useState<SortMode>('date_desc')
   const [view, setView] = useState<ViewMode>('list')
 
-  const filtered = applications
-    .filter((a) => {
-      const q = search.toLowerCase()
-      return !q || a.company.toLowerCase().includes(q) || a.position.toLowerCase().includes(q)
+  const contractOptions = useMemo(
+    () => Array.from(new Set(applications.map((a) => a.contractType).filter((c): c is string => !!c))).sort(),
+    [applications],
+  )
+
+  const filtered = useMemo(() => {
+    const q = search.toLowerCase()
+    const result = applications
+      .filter((a) => !q || a.company.toLowerCase().includes(q) || a.position.toLowerCase().includes(q))
+      .filter((a) => !statusFilter || a.status === statusFilter)
+      .filter((a) => !contractFilter || a.contractType === contractFilter)
+
+    return [...result].sort((a, b) => {
+      switch (sortMode) {
+        case 'date_asc':
+          return new Date(a.appliedAt ?? a.createdAt).getTime() - new Date(b.appliedAt ?? b.createdAt).getTime()
+        case 'position_asc':
+          return a.position.localeCompare(b.position)
+        case 'company_asc':
+          return a.company.localeCompare(b.company)
+        case 'match_desc':
+          return (computeAppScore(goal ?? null, b) ?? -1) - (computeAppScore(goal ?? null, a) ?? -1)
+        case 'date_desc':
+        default:
+          return new Date(b.appliedAt ?? b.createdAt).getTime() - new Date(a.appliedAt ?? a.createdAt).getTime()
+      }
     })
-    .filter((a) => !statusFilter || a.status === statusFilter)
+  }, [applications, search, statusFilter, contractFilter, sortMode, goal])
 
   return (
     <div className="flex flex-col gap-4">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight" style={{ color: 'var(--color-primary)', letterSpacing: '-0.02em' }}>Candidatures</h1>
+          <p className="text-[13px] mt-0.5" style={{ color: 'var(--color-muted)' }}>Gérez et suivez toutes vos candidatures</p>
+        </div>
+        <button className="btn btn-primary btn-sm shrink-0 gap-1.5" onClick={onAdd}>
+          <Plus size={15} />
+          Nouvelle candidature
+        </button>
+      </div>
+
       {/* Toolbar */}
-      <div className="flex gap-3 flex-col sm:flex-row">
-        <div className="relative flex-1">
-          <div className="pointer-events-none absolute left-2 top-1/2 flex -translate-y-1/2 items-center gap-2 rounded-[10px] border border-[rgba(60,52,137,0.12)] bg-white/82 px-2 py-1 shadow-[0_8px_18px_rgba(31,27,77,0.06)]">
-            <JobTrackerLogo size={20} />
-            <span className="text-[11px] font-bold tracking-[0.08em] text-[var(--color-violet-deep)]">JT.</span>
-          </div>
-          <Search size={14} className="absolute left-[86px] top-1/2 -translate-y-1/2 text-[var(--color-muted)]" />
+      <div className="flex gap-2.5 flex-col sm:flex-row sm:items-center sm:flex-wrap">
+        <div className="relative flex-1 sm:min-w-[220px]">
+          <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[var(--color-muted)] pointer-events-none" />
           <input
-            className="input pl-[110px]"
-            placeholder="Rechercher..."
+            className="input pl-9 rounded-full"
+            placeholder="Rechercher une candidature..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
@@ -150,19 +198,36 @@ export function ApplicationsPage({ applications, loading, goal, onOpenDetail, on
 
         {/* Status filter — hidden in kanban (columns already segment by status) */}
         {view !== 'kanban' && (
-          <select
-            className="input sm:w-52"
+          <FilterSelect
             value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value as ApplicationStatus | '')}
-          >
-            {STATUS_OPTIONS.map((o) => (
-              <option key={o.value} value={o.value}>{o.label}</option>
-            ))}
-          </select>
+            onChange={(v) => setStatusFilter(v as ApplicationStatus | '')}
+            options={STATUS_OPTIONS}
+          />
         )}
 
+        {/* Contract type filter */}
+        {view !== 'kanban' && contractOptions.length > 0 && (
+          <FilterSelect
+            value={contractFilter}
+            onChange={setContractFilter}
+            options={[{ value: '', label: 'Tous les contrats' }, ...contractOptions.map((c) => ({ value: c, label: c }))]}
+          />
+        )}
+
+        {/* Sort */}
+        {view !== 'kanban' && (
+          <FilterSelect
+            value={sortMode}
+            onChange={(v) => setSortMode(v as SortMode)}
+            options={SORT_OPTIONS}
+            icon={<ArrowUpDown size={13} />}
+          />
+        )}
+
+        <div className="flex-1 hidden sm:block" />
+
         {/* View toggle */}
-        <div className="flex items-center gap-1 border border-[var(--color-border)] rounded-[var(--radius-sm)] px-1 py-1 self-start">
+        <div className="flex items-center gap-1 rounded-full bg-[var(--color-bg)] p-1 self-start" style={{ border: '1px solid var(--color-border)' }}>
           <ViewBtn active={view === 'list'} onClick={() => setView('list')}>
             <LayoutList size={15} />
           </ViewBtn>
@@ -188,26 +253,41 @@ export function ApplicationsPage({ applications, loading, goal, onOpenDetail, on
           goal={goal}
           onStatusChange={onStatusChange}
           onOpenDetail={onOpenDetail}
-          onAdd={onAdd}
+          resolveLogo={resolveLogo}
+          standalone={false}
         />
       ) : filtered.length === 0 ? (
         <div className="empty-state">
-          <div className="text-5xl mb-3">📋</div>
-          <p className="font-semibold">Aucune candidature trouvée</p>
-          <p className="text-xs mt-1">Modifiez les filtres ou ajoutez une candidature.</p>
+          <div
+            className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4"
+            style={{ background: 'var(--color-deep-space-light)' }}
+          >
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--color-primary)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="2" y="7" width="20" height="14" rx="2"/>
+              <path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/>
+            </svg>
+          </div>
+          <p className="font-semibold text-base" style={{ color: 'var(--color-ink)' }}>Aucune candidature trouvée</p>
+          <p className="text-sm mt-1.5">Modifiez les filtres ou ajoutez votre première opportunité.</p>
+          <button className="btn btn-primary btn-sm mt-4" onClick={onAdd}>+ Ajouter une candidature</button>
         </div>
       ) : view === 'grid' ? (
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
           {filtered.map((app) => (
-            <AppThumbnail key={app.id} app={app} goal={goal} onClick={() => onOpenDetail(app)} />
+            <AppThumbnail key={app.id} app={app} goal={goal} onClick={() => onOpenDetail(app)} logoUrl={resolveLogo(app.company)} />
           ))}
         </div>
       ) : (
-        <div className="flex flex-col gap-3">
-          {filtered.map((app) => (
-            <ApplicationCard key={app.id} application={app} goal={goal} onClick={() => onOpenDetail(app)} />
-          ))}
-        </div>
+        <>
+          <div className="hidden md:block">
+            <CandidateTable applications={filtered} goal={goal} onOpenDetail={onOpenDetail} onEdit={onEdit} onDelete={onDelete} resolveLogo={resolveLogo} />
+          </div>
+          <div className="flex flex-col gap-3 md:hidden">
+            {filtered.map((app) => (
+              <ApplicationCard key={app.id} application={app} goal={goal} onClick={() => onOpenDetail(app)} logoUrl={resolveLogo(app.company)} />
+            ))}
+          </div>
+        </>
       )}
     </div>
   )

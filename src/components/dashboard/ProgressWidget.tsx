@@ -23,7 +23,7 @@ export function ProgressWidget({ stats }: ProgressWidgetProps) {
         <button
           disabled
           className="text-[11px] font-medium opacity-40 cursor-not-allowed"
-          style={{ color: 'var(--color-violet-text)' }}
+          style={{ color: 'var(--color-cerulean)' }}
         >
           Analyser ↗
         </button>

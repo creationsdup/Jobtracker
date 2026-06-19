@@ -295,7 +295,7 @@ export function CVImporter({
               <div className="rounded-[18px] border bg-white/72 px-4 py-4" style={{ borderColor: 'var(--color-border)' }}>
                 <div className="flex items-center justify-between gap-3 mb-3">
                   <div>
-                    <h3 className="text-base font-semibold text-[var(--color-violet-deep)]">Entrées détectées</h3>
+                    <h3 className="text-base font-semibold text-[var(--color-deep-space)]">Entrées détectées</h3>
                     <p className="text-sm text-[var(--color-muted)]">
                       {selectedCount} / {entries.length} entrée(s) seront importée(s). Tu peux les corriger avant validation.
                     </p>
@@ -426,7 +426,7 @@ export function CVImporter({
 
               <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
                 <div className="rounded-[18px] border bg-white/72 px-4 py-4" style={{ borderColor: 'var(--color-border)' }}>
-                  <h3 className="text-base font-semibold text-[var(--color-violet-deep)]">Compétences détectées</h3>
+                  <h3 className="text-base font-semibold text-[var(--color-deep-space)]">Compétences détectées</h3>
                   <p className="text-sm text-[var(--color-muted)] mt-1">Tu peux les corriger avant de les enregistrer dans le profil.</p>
                   <textarea
                     className="input resize-y min-h-28 mt-3"
@@ -437,7 +437,7 @@ export function CVImporter({
                 </div>
 
                 <div className="rounded-[18px] border bg-white/72 px-4 py-4" style={{ borderColor: 'var(--color-border)' }}>
-                  <h3 className="text-base font-semibold text-[var(--color-violet-deep)]">Centres d’intérêt détectés</h3>
+                  <h3 className="text-base font-semibold text-[var(--color-deep-space)]">Centres d’intérêt détectés</h3>
                   <p className="text-sm text-[var(--color-muted)] mt-1">Ajoute, retire ou reformule les éléments si nécessaire.</p>
                   <textarea
                     className="input resize-y min-h-28 mt-3"

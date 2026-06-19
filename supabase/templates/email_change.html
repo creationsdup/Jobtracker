@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="fr">
+  <body style="margin:0; padding:0; background-color:#F7FAFC; font-family:'Helvetica Neue', Helvetica, Arial, sans-serif;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#F7FAFC; padding:40px 0;">
+      <tr>
+        <td align="center">
+          <table role="presentation" width="480" cellpadding="0" cellspacing="0" style="background-color:#ffffff; border-radius:16px; overflow:hidden; border:1px solid #EEF2F4;">
+            <tr>
+              <td style="background-color:#003459; padding:28px 36px;">
+                <span style="color:#ffffff; font-size:18px; font-weight:700; letter-spacing:-0.02em;">JobTracker</span>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:36px;">
+                <h1 style="margin:0 0 12px; color:#00171F; font-size:20px; font-weight:700; letter-spacing:-0.02em;">
+                  Confirmez votre nouvelle adresse e-mail
+                </h1>
+                <p style="margin:0 0 24px; color:#5B6B73; font-size:14px; line-height:1.6;">
+                  Vous avez demandé à changer l'adresse e-mail associée à votre compte JobTracker
+                  pour <strong>{{ .NewEmail }}</strong>. Confirmez ce changement en cliquant ci-dessous.
+                </p>
+                <table role="presentation" cellpadding="0" cellspacing="0">
+                  <tr>
+                    <td style="border-radius:10px; background-color:#003459;">
+                      <a href="{{ .ConfirmationURL }}"
+                         style="display:inline-block; padding:13px 28px; color:#ffffff; font-size:14px; font-weight:600; text-decoration:none; border-radius:10px;">
+                        Confirmer la nouvelle adresse
+                      </a>
+                    </td>
+                  </tr>
+                </table>
+                <p style="margin:28px 0 0; color:#9AABB3; font-size:12px; line-height:1.6;">
+                  Si vous n'êtes pas à l'origine de cette demande, ignorez cet email
+                  et vérifiez la sécurité de votre compte.
+                </p>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:20px 36px; border-top:1px solid #EEF2F4;">
+                <p style="margin:0; color:#9AABB3; font-size:12px;">JobTracker · Gérez vos candidatures, simplement.</p>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>

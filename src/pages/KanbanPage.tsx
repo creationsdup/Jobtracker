@@ -7,10 +7,13 @@ import {
 } from '@dnd-kit/core'
 import { SortableContext, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import { useState } from 'react'
-import { Target } from 'lucide-react'
+import { useMemo, useState } from 'react'
+import { Search } from 'lucide-react'
 import { formatDate } from '@/lib/utils'
-import { computeAppScore } from '@/hooks/useGoals'
+import { computeAppScore, computeAppScoreBreakdown } from '@/hooks/useGoals'
+import { GoalBadge } from '@/components/applications/GoalBadge'
+import { CompanyLogo } from '@/components/applications/CompanyLogo'
+import { EmptyDropZone } from '@/components/ui/EmptyDropZone'
 import type { Application, ApplicationStatus, UserGoal } from '@/lib/types'
 import { KANBAN_COLUMNS, STATUS_LABELS } from '@/lib/types'
 
@@ -21,60 +24,65 @@ interface KanbanPageProps {
   goal?: UserGoal | null
   onStatusChange: (id: string, status: ApplicationStatus) => Promise<string | null>
   onOpenDetail: (app: Application) => void
-  onAdd: () => void
+  resolveLogo: (company: string) => string | undefined
+  /** Affiche le titre de page + la barre de recherche (désactivé quand intégré dans une autre page) */
+  standalone?: boolean
 }
 
-// ─── Goal badge ───────────────────────────────────────────────────────────────
-
-function GoalBadge({ score }: { score: number }) {
-  const color = score >= 75 ? '#059669' : score >= 40 ? '#d97706' : '#dc2626'
-  const bg    = score >= 75 ? '#d1fae5' : score >= 40 ? '#fef3c7' : '#fee2e2'
-  return (
-    <span
-      className="flex items-center gap-0.5 text-[10px] font-semibold px-1.5 py-0.5 rounded-full flex-shrink-0"
-      style={{ color, background: bg }}
-      title="Alignement avec votre objectif de recherche"
-    >
-      <Target size={8} />
-      {score}%
-    </span>
-  )
+const COLUMN_TINT: Record<ApplicationStatus, { bg: string; accent: string }> = {
+  WISHLIST:       { bg: 'var(--color-bg-light)',         accent: 'var(--color-muted)' },
+  APPLIED:        { bg: 'var(--color-cerulean-light)',   accent: 'var(--color-accent)' },
+  PHONE_SCREEN:   { bg: 'var(--color-cerulean-light)',   accent: 'var(--color-accent)' },
+  INTERVIEW:      { bg: 'var(--color-amber-light)',      accent: 'var(--color-warning)' },
+  TECHNICAL_TEST: { bg: 'var(--color-amber-light)',      accent: 'var(--color-warning)' },
+  OFFER:          { bg: 'var(--color-green-light)',      accent: 'var(--color-success)' },
+  ACCEPTED:       { bg: 'var(--color-green-light)',      accent: 'var(--color-success)' },
+  REJECTED:       { bg: 'var(--color-red-light)',        accent: 'var(--color-danger)' },
+  WITHDRAWN:      { bg: 'var(--color-red-light)',        accent: 'var(--color-danger)' },
 }
 
 // ─── Sortable Card ────────────────────────────────────────────────────────────
 
-function SortableCard({ app, goal, onOpen }: { app: Application; goal?: UserGoal | null; onOpen: () => void }) {
+function SortableCard({ app, goal, onOpen, logoUrl }: { app: Application; goal?: UserGoal | null; onOpen: () => void; logoUrl?: string }) {
   const score = computeAppScore(goal ?? null, app)
+  const scoreCriteria = computeAppScoreBreakdown(goal ?? null, app)
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: app.id })
 
   return (
     <div
       ref={setNodeRef}
-      style={{ transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.4 : 1 }}
+      style={{
+        transform: CSS.Transform.toString(transform),
+        transition,
+        opacity: isDragging ? 0.4 : 1,
+        background: '#ffffff',
+        border: '1px solid rgba(148, 163, 184, 0.25)',
+        boxShadow: 'var(--shadow-soft)',
+      }}
       {...attributes}
       {...listeners}
-      className="rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-3 shadow-[var(--shadow)] cursor-grab active:cursor-grabbing select-none transition-shadow hover:shadow-[var(--shadow-md)]"
+      className="rounded-[var(--radius-lg)] px-3.5 py-3.5 cursor-grab active:cursor-grabbing select-none transition-shadow hover:shadow-[var(--shadow-md)]"
       onClick={onOpen}
     >
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <p className="font-semibold text-sm leading-tight line-clamp-2">{app.position}</p>
-          <p className="text-xs text-[var(--color-muted)] truncate mt-0.5">{app.company}</p>
+      <div className="flex items-start gap-2.5">
+        <CompanyLogo company={app.company} logoUrl={logoUrl} size={32} />
+        <div className="min-w-0 flex-1">
+          <p className="font-semibold text-sm leading-snug text-[var(--color-text)] break-words" title={app.position}>{app.position}</p>
+          <p className="text-xs text-[var(--color-muted)] mt-1 truncate" title={app.company}>{app.company}</p>
         </div>
+      </div>
+      <div className="flex items-center gap-2 mt-3 text-[11px] text-[var(--color-muted)]">
+        <span className="truncate">{app.location ?? '—'}</span>
         {app.appliedAt && (
-          <p className="text-[10px] text-[var(--color-muted)] shrink-0 whitespace-nowrap">{formatDate(app.appliedAt)}</p>
+          <>
+            <span className="flex-shrink-0">·</span>
+            <span className="flex-shrink-0 whitespace-nowrap">{formatDate(app.appliedAt)}</span>
+          </>
         )}
       </div>
-      <div className="flex items-center justify-between gap-2 mt-3 pt-2 border-t border-[var(--color-border)]">
-        {app.location ? (
-          <p className="text-[10px] text-[var(--color-muted)] truncate">{app.location}</p>
-        ) : (
-          <span className="text-[10px] text-[var(--color-muted)]">Sans lieu</span>
-        )}
-        <div className="flex items-center gap-1.5">
-          {score !== null && <GoalBadge score={score} />}
-          <span className="text-[10px] font-medium text-[var(--color-muted)]">Ouvrir</span>
-        </div>
+      <div className="flex items-center justify-between gap-2 mt-2.5 pt-2.5 border-t" style={{ borderColor: 'var(--color-border)' }}>
+        {score !== null ? <GoalBadge score={score} criteria={scoreCriteria} /> : <span />}
+        <span className="text-[11px] font-semibold" style={{ color: 'var(--color-accent)' }}>Voir →</span>
       </div>
     </div>
   )
@@ -83,39 +91,42 @@ function SortableCard({ app, goal, onOpen }: { app: Application; goal?: UserGoal
 // ─── Column ───────────────────────────────────────────────────────────────────
 
 function KanbanColumn({
-  status, apps, goal, onOpen,
+  status, apps, goal, onOpen, resolveLogo,
 }: {
   status: ApplicationStatus
   apps: Application[]
   goal?: UserGoal | null
   onOpen: (app: Application) => void
+  resolveLogo: (company: string) => string | undefined
 }) {
-  const COLUMN_COLORS: Partial<Record<ApplicationStatus, string>> = {
-    WISHLIST: 'border-t-slate-400',
-    APPLIED: 'border-t-blue-400',
-    INTERVIEW: 'border-t-amber-400',
-    OFFER: 'border-t-green-400',
-    REJECTED: 'border-t-red-400',
-  }
   const { setNodeRef } = useDroppable({ id: status })
+  const tint = COLUMN_TINT[status]
 
   return (
-    <div className="flex flex-col gap-3 flex-1 min-w-0">
-      <div className={`card border-t-2 ${COLUMN_COLORS[status] ?? 'border-t-gray-300'} px-3 py-2.5 flex items-center justify-between`}>
-        <span className="text-sm font-semibold">{STATUS_LABELS[status]}</span>
-        <span className="text-xs text-[var(--color-muted)] bg-[var(--color-bg)] px-1.5 py-0.5 rounded-full">{apps.length}</span>
+    <div
+      className="flex flex-col gap-3 w-[270px] min-w-[270px] flex-shrink-0 rounded-[var(--radius-lg)] p-2.5"
+      style={{ background: tint.bg, border: '1px solid rgba(148, 163, 184, 0.18)' }}
+    >
+      <div
+        className="px-3.5 py-2.5 flex items-center justify-between rounded-[12px] bg-white"
+        style={{ border: '1px solid rgba(148, 163, 184, 0.2)' }}
+      >
+        <span className="flex items-center gap-2 text-[13px] font-bold" style={{ color: 'var(--color-text)' }}>
+          <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: tint.accent }} />
+          {STATUS_LABELS[status]}
+        </span>
+        <span
+          className="text-[11px] font-bold px-1.5 py-0.5 rounded-full min-w-[20px] text-center"
+          style={{ background: 'var(--color-bg)', color: 'var(--color-muted)' }}
+        >{apps.length}</span>
       </div>
 
       <SortableContext items={apps.map(a => a.id)} strategy={verticalListSortingStrategy}>
-        <div ref={setNodeRef} className="flex flex-col gap-3 min-h-[80px]">
+        <div ref={setNodeRef} className="flex flex-col gap-2.5 min-h-[80px]">
           {apps.map(app => (
-            <SortableCard key={app.id} app={app} goal={goal} onOpen={() => onOpen(app)} />
+            <SortableCard key={app.id} app={app} goal={goal} onOpen={() => onOpen(app)} logoUrl={resolveLogo(app.company)} />
           ))}
-          {apps.length === 0 && (
-            <div className="rounded-[var(--radius)] border-2 border-dashed border-[var(--color-border)] h-20 flex items-center justify-center bg-[var(--color-surface)]">
-              <p className="text-[11px] text-[var(--color-muted)]">Glissez ici</p>
-            </div>
-          )}
+          {apps.length === 0 && <EmptyDropZone />}
         </div>
       </SortableContext>
     </div>
@@ -124,15 +135,22 @@ function KanbanColumn({
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
-export function KanbanPage({ applications, goal, onStatusChange, onOpenDetail, onAdd }: KanbanPageProps) {
+export function KanbanPage({ applications, goal, onStatusChange, onOpenDetail, resolveLogo, standalone = true }: KanbanPageProps) {
   const [activeApp, setActiveApp] = useState<Application | null>(null)
+  const [search, setSearch] = useState('')
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
   )
 
+  const visibleApplications = useMemo(() => {
+    const q = search.trim().toLowerCase()
+    if (!q) return applications
+    return applications.filter((a) => a.company.toLowerCase().includes(q) || a.position.toLowerCase().includes(q))
+  }, [applications, search])
+
   const grouped = KANBAN_COLUMNS.reduce<Record<ApplicationStatus, Application[]>>((acc, col) => {
-    acc[col] = applications.filter(a => a.status === col)
+    acc[col] = visibleApplications.filter(a => a.status === col)
     return acc
   }, {} as Record<ApplicationStatus, Application[]>)
 
@@ -160,10 +178,23 @@ export function KanbanPage({ applications, goal, onStatusChange, onOpenDetail, o
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold">Kanban</h2>
-        <button className="btn btn-primary btn-sm" onClick={onAdd}>+ Candidature</button>
-      </div>
+      {standalone && (
+        <div className="flex flex-col gap-4">
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight" style={{ color: 'var(--color-primary)', letterSpacing: '-0.02em' }}>Pipeline</h1>
+            <p className="text-[13px] mt-0.5" style={{ color: 'var(--color-muted)' }}>Vue kanban de votre avancement</p>
+          </div>
+          <div className="relative max-w-sm">
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-muted)] pointer-events-none" />
+            <input
+              className="input pl-9"
+              placeholder="Rechercher une candidature..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </div>
+        </div>
+      )}
 
       <DndContext
         sensors={sensors}
@@ -171,7 +202,7 @@ export function KanbanPage({ applications, goal, onStatusChange, onOpenDetail, o
         onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
       >
-        <div className="flex gap-4 pb-4 min-w-0">
+        <div className="flex gap-4 pb-4 overflow-x-auto">
           {KANBAN_COLUMNS.map(col => (
             <KanbanColumn
               key={col}
@@ -179,15 +210,19 @@ export function KanbanPage({ applications, goal, onStatusChange, onOpenDetail, o
               apps={grouped[col] ?? []}
               goal={goal}
               onOpen={onOpenDetail}
+              resolveLogo={resolveLogo}
             />
           ))}
         </div>
 
         <DragOverlay>
           {activeApp && (
-            <div className="rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-3 shadow-xl opacity-90 rotate-1 cursor-grabbing">
-              <p className="font-semibold text-sm">{activeApp.position}</p>
-              <p className="text-xs text-[var(--color-muted)] mt-0.5">{activeApp.company}</p>
+            <div className="rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-3 shadow-xl opacity-90 rotate-1 cursor-grabbing flex items-start gap-3">
+              <CompanyLogo company={activeApp.company} logoUrl={resolveLogo(activeApp.company)} size={32} />
+              <div className="min-w-0">
+                <p className="font-semibold text-sm">{activeApp.position}</p>
+                <p className="text-xs text-[var(--color-muted)] mt-0.5">{activeApp.company}</p>
+              </div>
             </div>
           )}
         </DragOverlay>

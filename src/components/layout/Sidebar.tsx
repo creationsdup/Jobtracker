@@ -1,12 +1,12 @@
 import { NavLink } from 'react-router-dom'
-import {
-  LayoutDashboard, Briefcase, BookOpen,
-  FileText, Target, X,
-} from 'lucide-react'
-import { cn, getInitial } from '@/lib/utils'
-import { useUIStore } from '@/store/uiStore'
+import { useEffect, useState } from 'react'
+import { LayoutDashboard, Briefcase, Target, BookOpen, LogOut, Menu } from 'lucide-react'
+import { getInitial } from '@/lib/utils'
 import { JobTrackerLogo } from '@/components/ui/JobTrackerLogo'
+import { SidebarItem } from './SidebarItem'
 import { useProfile } from '@/hooks/useProfile'
+import { useTranslation } from '@/lib/i18n/I18nContext'
+import type { TranslationKey } from '@/lib/i18n/translations'
 
 interface SidebarProps {
   userId: string
@@ -15,203 +15,127 @@ interface SidebarProps {
   onLogout: () => void
 }
 
-const MAIN_NAV = [
-  { to: '/',             label: 'Tableau de bord', icon: LayoutDashboard },
-  { to: '/applications', label: 'Candidatures',    icon: Briefcase },
-  { to: '/goals',        label: 'Objectifs',       icon: Target },
-  { to: '/library',      label: 'Expériences',     icon: BookOpen },
-  { to: '/resumes',      label: 'CV Builder',      icon: FileText },
+export const NAV_LINKS: { to: string; labelKey: TranslationKey; icon: typeof LayoutDashboard }[] = [
+  { to: '/',             labelKey: 'sidebar.dashboard',    icon: LayoutDashboard },
+  { to: '/applications', labelKey: 'sidebar.applications', icon: Briefcase },
+  { to: '/goals',        labelKey: 'sidebar.goals',        icon: Target },
+  { to: '/library',      labelKey: 'sidebar.library',      icon: BookOpen },
 ]
 
+const COLLAPSE_KEY = 'jobtracker-sidebar-collapsed'
+
 export function Sidebar({ userId, userEmail, applicationsCount, onLogout }: SidebarProps) {
-  const { sidebarOpen, sidebarCollapsed, setSidebarOpen, toggleSidebarCollapsed } = useUIStore()
   const { profile } = useProfile(userId, userEmail)
+  const { t, setLocale } = useTranslation()
   const displayName = profile?.fullName?.trim() || userEmail.split('@')[0]
-  const avatarLabel = profile?.fullName?.trim() || userEmail
+
+  // The DB-stored preference (synced across devices) wins over the local guess.
+  useEffect(() => {
+    if (profile?.language) setLocale(profile.language)
+  }, [profile?.language, setLocale])
+
+  const [collapsed, setCollapsed] = useState(() => {
+    try {
+      return localStorage.getItem(COLLAPSE_KEY) === '1'
+    } catch {
+      return false
+    }
+  })
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(COLLAPSE_KEY, collapsed ? '1' : '0')
+    } catch { /* ignore */ }
+  }, [collapsed])
 
   return (
-    <>
-      {sidebarOpen && (
-        <div
-          className="fixed inset-0 bg-black/40 z-40 md:hidden"
-          onClick={() => setSidebarOpen(false)}
-        />
-      )}
+    <aside
+      className="hidden md:flex flex-col flex-shrink-0 h-screen sticky top-0 transition-[width] duration-200 ease-out"
+      style={{
+        width: collapsed ? '68px' : 'var(--sidebar-w)',
+        background: 'linear-gradient(175deg, var(--color-nav-bg) 0%, var(--color-nav-bg-end) 100%)',
+      }}
+    >
+      {/* ── Logo + hamburger ── */}
+      <div className={`flex items-center pt-6 pb-5 ${collapsed ? 'flex-col gap-3 px-3' : 'justify-between px-5'}`}>
+        <NavLink to="/" className="flex items-center gap-2.5 no-underline overflow-hidden">
+          <JobTrackerLogo size={30} />
+          {!collapsed && (
+            <span className="font-bold text-[15px] text-white tracking-tight whitespace-nowrap" style={{ letterSpacing: '-0.02em' }}>
+              JobTracker
+            </span>
+          )}
+        </NavLink>
+        <button
+          onClick={() => setCollapsed((v) => !v)}
+          className="flex items-center justify-center w-8 h-8 rounded-[10px] border-0 cursor-pointer transition-colors hover:bg-white/[0.1] flex-shrink-0"
+          style={{ color: 'rgba(255,255,255,0.6)' }}
+          title={collapsed ? t('sidebar.expand') : t('sidebar.collapse')}
+          aria-label={collapsed ? t('sidebar.expand') : t('sidebar.collapse')}
+        >
+          <Menu size={17} />
+        </button>
+      </div>
 
-      <aside
-        className={cn(
-          'fixed top-0 left-0 h-screen w-[var(--sidebar-w)] flex flex-col z-50 overflow-hidden',
-          'transition-transform duration-250 ease-in-out',
-          sidebarOpen ? 'translate-x-0' : '-translate-x-full',
-          sidebarCollapsed ? 'md:-translate-x-full' : 'md:translate-x-0',
-        )}
-        style={{ background: 'linear-gradient(160deg, #6c3de0 0%, #4f46e5 50%, #312e81 100%)' }}
-      >
-        <div className="pointer-events-none absolute -right-16 -top-14 h-52 w-52 rounded-full bg-white/10" />
-        <div className="pointer-events-none absolute -left-12 bottom-24 h-36 w-36 rounded-full bg-white/8" />
-        <div className="pointer-events-none absolute right-5 bottom-40 h-16 w-16 rounded-full bg-white/12" />
+      <div className="mx-5 h-px" style={{ background: 'var(--color-nav-divider)' }} />
 
-        {/* Header */}
-        <div className="relative px-5 pt-5 pb-4" style={{ borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2.5">
-              <JobTrackerLogo size={44} />
-              <span className="text-white font-bold text-base tracking-tight">JobTracker</span>
-            </div>
-            <button className="md:hidden p-1 text-white/50 hover:text-white" onClick={() => setSidebarOpen(false)}>
-              <X size={16} />
-            </button>
-          </div>
-          <p className="text-[11px] mt-0.5" style={{ color: 'rgba(255,255,255,0.4)' }}>
-            Gérez vos candidatures
-          </p>
-        </div>
+      {/* ── Nav ── */}
+      <nav className="flex-1 flex flex-col gap-1 px-3.5 pt-5 overflow-y-auto no-scrollbar">
+        {NAV_LINKS.map(({ to, labelKey, icon }) => (
+          <SidebarItem
+            key={to}
+            to={to}
+            label={t(labelKey)}
+            icon={icon}
+            end={to === '/'}
+            badge={labelKey === 'sidebar.applications' ? applicationsCount : undefined}
+            collapsed={collapsed}
+          />
+        ))}
+      </nav>
 
-        {/* Nav */}
-        <nav className="relative flex-1 overflow-y-auto px-3 py-4 flex flex-col gap-5">
-
-          {/* Principal */}
-          <div className="flex flex-col gap-0.5">
-            <p className="shell-section-title px-2 mb-1">
-              Principal
-            </p>
-            {MAIN_NAV.map(({ to, label, icon: Icon }) => (
-              <NavLink
-                key={to}
-                to={to}
-                end={to === '/'}
-                onClick={() => setSidebarOpen(false)}
-                className={({ isActive }) =>
-                  cn(
-                    'flex items-center gap-2.5 px-3 py-2.5 text-sm font-medium no-underline transition-colors duration-100 relative rounded-[14px]',
-                    isActive
-                      ? 'text-white'
-                      : 'hover:text-white/85',
-                  )
-                }
-                style={({ isActive }) => isActive
-                  ? {
-                      background: 'rgba(255,255,255,0.13)',
-                      color: 'white',
-                      boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.14)',
-                    }
-                  : { color: 'rgba(255,255,255,0.68)' }
-                }
-              >
-                <Icon size={15} />
-                <span className="flex-1">{label}</span>
-                {label === 'Candidatures' && applicationsCount > 0 && (
-                  <span
-                    className="text-[10px] font-bold px-1.5 py-0.5 rounded-full"
-                    style={{ background: 'var(--color-violet-accent)', color: 'white' }}
-                  >
-                    {applicationsCount}
-                  </span>
-                )}
-              </NavLink>
-            ))}
-          </div>
-        </nav>
-
-        {/* Footer */}
-        <div className="relative px-4 py-4" style={{ borderTop: '1px solid rgba(255,255,255,0.08)' }}>
+      {/* ── Profile footer ── */}
+      <div className="px-3.5 py-4">
+        <div className="mx-1.5 mb-3 h-px" style={{ background: 'var(--color-nav-divider)' }} />
+        <div className={`flex items-center gap-2.5 px-2 ${collapsed ? 'flex-col' : ''}`}>
           <NavLink
             to="/profile"
-            onClick={() => setSidebarOpen(false)}
-            className={({ isActive }) =>
-              cn(
-                'flex items-center gap-2.5 mb-2.5 rounded-[18px] px-2.5 py-2.5 no-underline transition-colors',
-                isActive ? 'text-white' : 'text-white/75 hover:text-white',
-              )
-            }
-            style={({ isActive }) => ({
-              background: isActive ? 'rgba(255,255,255,0.13)' : 'rgba(255,255,255,0.06)',
-              boxShadow: isActive ? 'inset 0 0 0 1px rgba(255,255,255,0.12)' : 'inset 0 0 0 1px rgba(255,255,255,0.06)',
-            })}
+            className={`flex items-center gap-2.5 no-underline group ${collapsed ? '' : 'flex-1 min-w-0'}`}
+            title={collapsed ? displayName : undefined}
           >
             {profile?.avatarUrl ? (
               <img
                 src={profile.avatarUrl}
-                alt={avatarLabel}
-                className="w-9 h-9 rounded-full object-cover flex-shrink-0 border border-white/20"
+                alt={displayName}
+                className="w-8 h-8 rounded-full object-cover flex-shrink-0"
+                style={{ boxShadow: '0 0 0 1.5px rgba(255,255,255,0.2)' }}
               />
             ) : (
               <div
-                className="w-9 h-9 rounded-full flex items-center justify-center font-bold text-sm flex-shrink-0 text-white"
-                style={{ background: 'rgba(255,255,255,0.18)' }}
+                className="w-8 h-8 rounded-full flex items-center justify-center text-[12px] font-bold text-white flex-shrink-0"
+                style={{ background: 'var(--color-cerulean)' }}
               >
                 {getInitial(displayName)}
               </div>
             )}
-            <div className="flex-1 min-w-0">
-              <p className="text-xs font-medium truncate">{displayName}</p>
-              <p className="text-[10px] truncate" style={{ color: 'rgba(255,255,255,0.4)' }}>{userEmail}</p>
-            </div>
+            {!collapsed && (
+              <div className="min-w-0 leading-tight">
+                <p className="text-[13px] font-semibold text-white truncate group-hover:underline">{displayName}</p>
+                <p className="text-[11px] text-white/45 truncate">{userEmail}</p>
+              </div>
+            )}
           </NavLink>
           <button
             onClick={onLogout}
-            className="w-full px-3 py-1.5 text-xs font-medium rounded-[var(--radius-sm)] border-0 cursor-pointer transition-opacity hover:opacity-70"
-            style={{ background: 'rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.72)' }}
+            className="flex items-center justify-center w-8 h-8 rounded-full border-0 cursor-pointer transition-all duration-150 hover:bg-white/[0.1] flex-shrink-0"
+            style={{ color: 'rgba(255,255,255,0.5)' }}
+            title={t('sidebar.logout')}
+            aria-label={t('sidebar.logout')}
           >
-            Déconnexion
+            <LogOut size={15} />
           </button>
         </div>
-      </aside>
-
-      <button
-        className="hidden md:flex fixed top-6 z-[60] h-10 w-3 items-center justify-center rounded-r-full border-l-0 text-white transition-[left,background-color,box-shadow,transform] duration-250 ease-in-out hover:translate-x-[1px]"
-        style={{
-          left: sidebarCollapsed ? 0 : 'var(--sidebar-w)',
-          background: sidebarCollapsed ? 'rgba(79,70,229,0.72)' : 'rgba(49,46,129,0.72)',
-          borderColor: 'rgba(255,255,255,0.18)',
-          boxShadow: '0 8px 18px rgba(30,25,102,0.14)',
-          backdropFilter: 'blur(10px)',
-        }}
-        onClick={toggleSidebarCollapsed}
-        aria-label={sidebarCollapsed ? 'Afficher la colonne de gauche' : 'Masquer la colonne de gauche'}
-      >
-        <span className="h-6 w-px bg-white/50" />
-      </button>
-
-      {/* Mobile bottom nav */}
-      <nav
-        className="fixed bottom-0 left-0 right-0 z-50 flex md:hidden"
-        style={{ background: 'var(--color-sidebar)', borderTop: '1px solid rgba(255,255,255,0.1)' }}
-      >
-        {MAIN_NAV.map(({ to, label, icon: Icon }) => (
-          <NavLink
-            key={to}
-            to={to}
-            end={to === '/'}
-            className="flex-1 flex flex-col items-center justify-center py-2 gap-0.5 no-underline"
-            style={({ isActive }) => ({ color: isActive ? 'white' : 'rgba(255,255,255,0.45)' })}
-          >
-            <Icon size={18} />
-            <span style={{ fontSize: 9 }}>{label.split(' ')[0]}</span>
-          </NavLink>
-        ))}
-        <NavLink
-          to="/profile"
-          className="flex-1 flex flex-col items-center justify-center py-2 gap-0.5 no-underline"
-          style={({ isActive }) => ({ color: isActive ? 'white' : 'rgba(255,255,255,0.45)' })}
-        >
-          {profile?.avatarUrl ? (
-            <img
-              src={profile.avatarUrl}
-              alt={avatarLabel}
-              className="w-[18px] h-[18px] rounded-full object-cover border border-white/20"
-            />
-          ) : (
-            <div
-              className="w-[18px] h-[18px] rounded-full flex items-center justify-center text-[10px] font-bold text-white"
-              style={{ background: 'var(--color-violet-accent)' }}
-            >
-              {getInitial(displayName)}
-            </div>
-          )}
-          <span style={{ fontSize: 9 }}>Profil</span>
-        </NavLink>
-      </nav>
-    </>
+      </div>
+    </aside>
   )
 }

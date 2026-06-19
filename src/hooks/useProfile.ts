@@ -17,11 +17,16 @@ export interface Profile {
   skills: string[]
   interests: string[]
   createdAt: string
+  language: 'fr' | 'en'
+  remindersEnabled: boolean
+  reminderThresholdDays: number
 }
 
 export type ProfileUpdate = Partial<Omit<Profile, 'id' | 'email' | 'createdAt'>>
 
 const MISSING_PROFILE_TABLE = 'PGRST205'
+const AVATAR_MAX_BYTES = 5 * 1024 * 1024 // 5 MB
+const AVATAR_ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif']
 
 function storageKey(userId: string) {
   return `jobtracker-profile-fallback:${userId}`
@@ -43,6 +48,9 @@ function buildDefaultProfile(userId: string, fallbackEmail?: string | null): Pro
     skills: [],
     interests: [],
     createdAt: new Date().toISOString(),
+    language: 'fr',
+    remindersEnabled: true,
+    reminderThresholdDays: 7,
   }
 }
 
@@ -64,6 +72,9 @@ async function ensureRemoteProfile(userId: string, fallbackEmail?: string | null
       avatarUrl: base.avatarUrl,
       skills: base.skills,
       interests: base.interests,
+      language: base.language,
+      remindersEnabled: base.remindersEnabled,
+      reminderThresholdDays: base.reminderThresholdDays,
     })
     .select()
     .single()
@@ -89,16 +100,19 @@ function readFallbackProfile(userId: string, fallbackEmail?: string | null): Pro
 }
 
 function writeFallbackProfile(profile: Profile) {
-  window.localStorage.setItem(storageKey(profile.id), JSON.stringify(profile))
+  // Strip data URLs before persisting to localStorage to avoid quota errors
+  const toStore = { ...profile, avatarUrl: profile.avatarUrl?.startsWith('data:') ? null : profile.avatarUrl }
+  window.localStorage.setItem(storageKey(profile.id), JSON.stringify(toStore))
 }
 
-async function fileToDataUrl(file: File): Promise<string> {
-  return await new Promise((resolve, reject) => {
-    const reader = new FileReader()
-    reader.onload = () => resolve(String(reader.result ?? ''))
-    reader.onerror = () => reject(new Error('Impossible de lire le fichier image'))
-    reader.readAsDataURL(file)
-  })
+export function validateAvatarFile(file: File): string | null {
+  if (!AVATAR_ALLOWED_TYPES.includes(file.type)) {
+    return 'Format non supporté. Utilisez JPG, PNG, WebP ou GIF.'
+  }
+  if (file.size > AVATAR_MAX_BYTES) {
+    return 'Image trop volumineuse (max 5 Mo).'
+  }
+  return null
 }
 
 export function useProfile(userId: string | null, fallbackEmail?: string | null) {
@@ -116,6 +130,7 @@ export function useProfile(userId: string | null, fallbackEmail?: string | null)
       .select('*')
       .eq('id', userId)
       .single()
+
     if (error?.code === MISSING_PROFILE_TABLE) {
       setUseLocalFallback(true)
       setProfile(readFallbackProfile(userId, fallbackEmail))
@@ -156,7 +171,9 @@ export function useProfile(userId: string | null, fallbackEmail?: string | null)
 
   const updateProfile = useCallback(async (updates: ProfileUpdate): Promise<string | null> => {
     if (!userId) return 'Non authentifié'
+
     if (useLocalFallback) {
+      setSaving(true)
       const next = {
         ...(profile ?? buildDefaultProfile(userId, fallbackEmail)),
         ...updates,
@@ -164,8 +181,10 @@ export function useProfile(userId: string | null, fallbackEmail?: string | null)
       } as Profile
       writeFallbackProfile(next)
       setProfile(next)
+      setSaving(false)
       return null
     }
+
     setSaving(true)
     const { data, error } = await supabase
       .from('Profile')
@@ -173,6 +192,7 @@ export function useProfile(userId: string | null, fallbackEmail?: string | null)
       .select()
       .single()
     setSaving(false)
+
     if (error?.code === MISSING_PROFILE_TABLE) {
       setUseLocalFallback(true)
       const next = {
@@ -192,34 +212,70 @@ export function useProfile(userId: string | null, fallbackEmail?: string | null)
 
   const uploadAvatar = useCallback(async (file: File): Promise<string | null> => {
     if (!userId) return 'Non authentifié'
-    const localDataUrl = await fileToDataUrl(file)
+
+    const validationError = validateAvatarFile(file)
+    if (validationError) return validationError
 
     if (useLocalFallback) {
-      const next = {
-        ...(profile ?? buildDefaultProfile(userId, fallbackEmail)),
-        avatarUrl: localDataUrl,
-        email: fallbackEmail ?? profile?.email ?? '',
-      } as Profile
-      writeFallbackProfile(next)
-      setProfile(next)
-      return null
+      // WHY: in fallback mode, data URLs can't be stored in localStorage (quota),
+      // so we just block avatar upload and tell the user.
+      return 'Avatar non disponible en mode hors-ligne. Reconnectez-vous pour uploader une photo.'
     }
 
-    const ext = file.name.split('.').pop() || 'png'
+    const ext = file.name.split('.').pop() ?? 'png'
     const path = `${userId}/avatar.${ext}`
     const { error: uploadError } = await supabase.storage
       .from('avatars')
       .upload(path, file, { upsert: true })
 
-    if (uploadError) {
-      const fallbackError = await updateProfile({ avatarUrl: localDataUrl })
-      if (fallbackError) return `${uploadError.message}. Fallback local impossible: ${fallbackError}`
-      return null
-    }
+    if (uploadError) return `Erreur d'upload : ${uploadError.message}`
 
     const { data } = supabase.storage.from('avatars').getPublicUrl(path)
     return updateProfile({ avatarUrl: data.publicUrl })
-  }, [fallbackEmail, profile, updateProfile, useLocalFallback, userId])
+  }, [updateProfile, useLocalFallback, userId])
 
-  return { profile, loading, saving, error, updateProfile, uploadAvatar, refetch: fetchProfile, useLocalFallback }
+  const updatePassword = useCallback(async (password: string): Promise<string | null> => {
+    const { error } = await supabase.auth.updateUser({ password })
+    return error?.message ?? null
+  }, [])
+
+  const updateEmail = useCallback(async (email: string): Promise<string | null> => {
+    const { error } = await supabase.auth.updateUser({ email })
+    return error?.message ?? null
+  }, [])
+
+  const signOut = useCallback(async (): Promise<string | null> => {
+    const { error } = await supabase.auth.signOut()
+    return error?.message ?? null
+  }, [])
+
+  const deleteAccount = useCallback(async (): Promise<string | null> => {
+    const { data: sessionData } = await supabase.auth.getSession()
+    const accessToken = sessionData.session?.access_token
+    if (!accessToken) return 'Non authentifié'
+
+    const { data, error } = await supabase.functions.invoke('delete-account', {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    })
+    if (error) return error.message
+    if (data?.error) return data.error as string
+
+    await supabase.auth.signOut()
+    return null
+  }, [])
+
+  return {
+    profile,
+    loading,
+    saving,
+    error,
+    updateProfile,
+    uploadAvatar,
+    refetch: fetchProfile,
+    useLocalFallback,
+    updatePassword,
+    updateEmail,
+    signOut,
+    deleteAccount,
+  }
 }

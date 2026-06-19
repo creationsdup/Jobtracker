@@ -22,3 +22,6 @@ Thumbs.db
 *.log
 npm-debug.log*
 .superpowers/
+
+# Claude Code local settings (may contain command history with secrets)
+.claude/settings.local.json

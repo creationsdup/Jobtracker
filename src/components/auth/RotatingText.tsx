@@ -1,30 +1,18 @@
 import { useState, useEffect } from 'react'
+import { useTranslation } from '@/lib/i18n/I18nContext'
+import type { TranslationKey } from '@/lib/i18n/translations'
 import styles from './RotatingText.module.css'
 
-const messages = [
-  {
-    title: "Suis ta recherche d'emploi",
-    sub: 'Candidatures, entretiens et relances au même endroit.',
-  },
-  {
-    title: 'Ne rate plus jamais une relance',
-    sub: 'Des rappels automatiques pour chaque étape clé.',
-  },
-  {
-    title: 'Prépare tes entretiens',
-    sub: 'Missions, questions clés et notes centralisées.',
-  },
-  {
-    title: 'Ton CV, toujours prêt',
-    sub: 'Adapte et exporte ton CV en quelques secondes.',
-  },
-  {
-    title: 'Importe une offre en 1 clic',
-    sub: 'Colle un lien LinkedIn ou WTTJ, on fait le reste.',
-  },
+const messageKeys: { title: TranslationKey; sub: TranslationKey }[] = [
+  { title: 'rotating.title1', sub: 'rotating.sub1' },
+  { title: 'rotating.title2', sub: 'rotating.sub2' },
+  { title: 'rotating.title3', sub: 'rotating.sub3' },
+  { title: 'rotating.title4', sub: 'rotating.sub4' },
+  { title: 'rotating.title5', sub: 'rotating.sub5' },
 ]
 
 export function RotatingText() {
+  const { t } = useTranslation()
   const [current, setCurrent] = useState(0)
   const [visible, setVisible] = useState(true)
 
@@ -32,7 +20,7 @@ export function RotatingText() {
     const interval = setInterval(() => {
       setVisible(false)
       setTimeout(() => {
-        setCurrent(prev => (prev + 1) % messages.length)
+        setCurrent(prev => (prev + 1) % messageKeys.length)
         setVisible(true)
       }, 400)
     }, 3500)
@@ -42,11 +30,11 @@ export function RotatingText() {
   return (
     <div className={styles.wrapper}>
       <div className={`${styles.textBlock} ${visible ? styles.visible : styles.hidden}`}>
-        <p className={styles.title}>{messages[current].title}</p>
-        <p className={styles.sub}>{messages[current].sub}</p>
+        <p className={styles.title}>{t(messageKeys[current].title)}</p>
+        <p className={styles.sub}>{t(messageKeys[current].sub)}</p>
       </div>
       <div className={styles.dots}>
-        {messages.map((_, i) => (
+        {messageKeys.map((_, i) => (
           <div
             key={i}
             className={`${styles.dot} ${i === current ? styles.dotActive : ''}`}

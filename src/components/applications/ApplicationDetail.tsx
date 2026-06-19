@@ -1,11 +1,13 @@
 import { useEffect, useRef, useState } from 'react'
-import { X, MapPin, FileText, Link as LinkIcon, Plus, Mail, Pencil, Trash2 } from 'lucide-react'
+import { X, MapPin, FileText, Link as LinkIcon, Plus, Mail, Pencil, Trash2, Send, Target } from 'lucide-react'
 import { StatusBadge } from './StatusBadge'
+import { CompanyLogo } from './CompanyLogo'
 import { formatDate } from '@/lib/utils'
-import type { Application, TimelineStep, StepStatus, ApplicationStatus } from '@/lib/types'
+import type { Application, TimelineStep, StepStatus, ApplicationStatus, UserGoal } from '@/lib/types'
 import { CoverLetterGenerator } from './CoverLetterGenerator'
 import { useProfile } from '@/hooks/useProfile'
 import { useExperiences } from '@/hooks/useExperiences'
+import { computeAppScore, computeAppScoreBreakdown } from '@/hooks/useGoals'
 import { deriveApplicationStatusFromSteps, TIMELINE_PRESETS } from '@/lib/timelineStatus'
 
 interface ApplicationDetailProps {
@@ -19,6 +21,8 @@ interface ApplicationDetailProps {
   onUpdateStep: (stepId: string, data: Partial<Omit<TimelineStep, 'id' | 'applicationId' | 'createdAt'>>) => Promise<string | null>
   onDeleteStep: (stepId: string) => Promise<string | null>
   onStatusChange: (status: ApplicationStatus) => Promise<string | null>
+  resolveLogo?: (company: string) => string | undefined
+  goal?: UserGoal | null
 }
 
 const DOT_STYLES: Record<StepStatus, string> = {
@@ -35,6 +39,10 @@ const DOT_CHARS: Record<StepStatus, string> = {
   CANCELLED: '✕',
 }
 
+function findPresetIcon(title: string): string {
+  return TIMELINE_PRESETS.find((p) => p.title === title)?.icon ?? '📌'
+}
+
 export function ApplicationDetail({
   application,
   userEmail,
@@ -46,7 +54,11 @@ export function ApplicationDetail({
   onUpdateStep,
   onDeleteStep,
   onStatusChange,
+  resolveLogo,
+  goal,
 }: ApplicationDetailProps) {
+  const score = computeAppScore(goal ?? null, application)
+  const scoreCriteria = computeAppScoreBreakdown(goal ?? null, application)
   const [addingStep, setAddingStep] = useState(false)
   const [editingStepId, setEditingStepId] = useState<string | null>(null)
   const [savingStepId, setSavingStepId] = useState<string | null>(null)
@@ -144,6 +156,18 @@ export function ApplicationDetail({
     return null
   }
 
+  async function handleRelance() {
+    setStepError(null)
+    const today = new Date().toISOString().split('T')[0]
+    await submitStep({
+      title: 'Relance envoyée',
+      date: today,
+      time: null,
+      status: 'COMPLETED',
+      notes: null,
+    })
+  }
+
   async function handlePresetSelect(preset: (typeof TIMELINE_PRESETS)[number]) {
     setStepError(null)
     if (preset.title === 'Étape libre') {
@@ -227,56 +251,94 @@ export function ApplicationDetail({
 
   return (
     <div
-      className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+      className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 animate-fade-in"
       onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
     >
-      <div className="bg-[var(--color-surface)] rounded-[var(--radius)] w-full max-w-4xl max-h-[90vh] overflow-y-auto shadow-[var(--shadow-lg)]">
-        <div className="flex items-start justify-between px-6 pt-5">
-          <div>
-            <h3 className="text-lg font-bold">{application.position}</h3>
-            <p className="text-sm text-[var(--color-muted)]">{application.company}</p>
+      <div className="absolute inset-y-0 right-0 w-full max-w-2xl bg-[var(--color-surface)] shadow-[var(--shadow-lg)] flex flex-col h-full animate-slide-in-right">
+        <div className="flex items-start justify-between px-6 pt-5 pb-5 border-b border-[var(--color-border)] flex-shrink-0">
+          <div className="flex items-center gap-3">
+            <CompanyLogo company={application.company} logoUrl={resolveLogo?.(application.company) ?? null} size={44} />
+            <div>
+              <h3 className="text-lg font-bold">{application.position}</h3>
+              <p className="text-sm text-[var(--color-muted)]">{application.company}</p>
+            </div>
           </div>
-          <button className="btn btn-ghost p-1" onClick={onClose}><X size={18} /></button>
+          <div className="flex items-center gap-1 flex-shrink-0">
+            <button className="btn btn-secondary btn-sm" onClick={() => setCoverLetterOpen(true)}>
+              <Mail size={13} />
+              Lettre IA
+            </button>
+            <button className="btn btn-secondary btn-sm" onClick={onEdit}>
+              <Pencil size={13} />
+              Modifier
+            </button>
+            <div className="w-px h-5 bg-[var(--color-border)] mx-1" />
+            <button className="btn btn-ghost btn-sm p-2 text-[var(--color-danger)] hover:text-[var(--color-danger-dark)]" onClick={onDelete} title="Supprimer">
+              <Trash2 size={14} />
+            </button>
+            <button className="btn btn-ghost p-1" onClick={onClose}><X size={18} /></button>
+          </div>
         </div>
 
-        <div className="px-6 pb-6 flex flex-col gap-6 mt-4">
+        <div className="flex-1 overflow-y-auto px-6 pb-6 flex flex-col gap-6 mt-5">
           {/* Meta */}
-          <div className="flex items-start justify-between gap-4">
-            <div className="flex flex-wrap gap-2 items-center">
-              <StatusBadge status={application.status} />
-              {application.location && (
-                <span className="flex items-center gap-1 text-xs text-[var(--color-muted)]">
-                  <MapPin size={11} />{application.location}
-                </span>
-              )}
-              {application.contractType && (
-                <span className="flex items-center gap-1 text-xs text-[var(--color-muted)]">
-                  <FileText size={11} />{application.contractType}
-                </span>
-              )}
-              {application.jobUrl && (
-                <a
-                  href={application.jobUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="btn btn-secondary btn-sm flex items-center gap-1"
-                >
-                  <LinkIcon size={11} />Voir l'offre
-                </a>
-              )}
-            </div>
-            <div className="flex gap-2 flex-shrink-0">
-              <button className="btn btn-secondary btn-sm" onClick={() => setCoverLetterOpen(true)}>
-                <Mail size={13} />
-                Lettre IA
-              </button>
-              <button className="btn btn-secondary btn-sm" onClick={onEdit}>Modifier</button>
-              <button className="btn btn-danger btn-sm" onClick={onDelete}>Supprimer</button>
-            </div>
+          <div className="flex flex-wrap gap-2 items-center">
+            <StatusBadge status={application.status} />
+            {application.location && (
+              <span className="flex items-center gap-1 text-xs text-[var(--color-muted)]">
+                <MapPin size={11} />{application.location}
+              </span>
+            )}
+            {application.contractType && (
+              <span
+                className="flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full"
+                style={{ background: 'var(--color-cerulean-light)', color: 'var(--color-accent)' }}
+              >
+                <FileText size={11} />{application.contractType}
+              </span>
+            )}
+            {application.jobUrl && (
+              <a
+                href={application.jobUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="btn btn-secondary btn-sm flex items-center gap-1"
+              >
+                <LinkIcon size={11} />Voir l'offre
+              </a>
+            )}
           </div>
 
+          {score !== null && (
+            <div className="flex flex-col gap-2 rounded-[var(--radius-sm)] bg-[var(--color-bg)] p-3">
+              <div className="flex items-center justify-between">
+                <h4 className="text-sm font-semibold flex items-center gap-1.5">
+                  <Target size={13} />
+                  Correspondance avec votre objectif
+                </h4>
+                <span
+                  className="text-sm font-bold"
+                  style={{ color: score >= 75 ? '#059669' : score >= 40 ? '#d97706' : '#dc2626' }}
+                >
+                  {score}%
+                </span>
+              </div>
+              <ul className="flex flex-col gap-1">
+                {scoreCriteria.map((c) => (
+                  <li key={c.label} className="flex items-center gap-2 text-xs" style={{ color: c.matched ? 'var(--color-ink)' : 'var(--color-muted)' }}>
+                    <span style={{ color: c.matched ? '#059669' : '#dc2626' }}>{c.matched ? '✓' : '✗'}</span>
+                    {c.label}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
           {application.notes && (
-            <p className="text-sm text-[var(--color-muted)] bg-[var(--color-bg)] rounded-[var(--radius-sm)] p-3">{application.notes}</p>
+            <div className="flex flex-col gap-1.5">
+              <h4 className="text-sm font-semibold">Notes</h4>
+              <p className="text-sm text-[var(--color-muted)] bg-[var(--color-bg)] rounded-[var(--radius-sm)] p-3">{application.notes}</p>
+            </div>
           )}
 
           {/* Timeline */}
@@ -288,22 +350,33 @@ export function ApplicationDetail({
                   {steps.length} étape{steps.length > 1 ? 's' : ''}
                 </span>
               </div>
-              <button
-                type="button"
-                className="inline-flex items-center gap-2 rounded-[var(--radius-sm)] bg-[var(--color-primary)] px-3 py-2 text-xs font-semibold text-white shadow-[0_12px_24px_rgba(59,130,246,0.22)] transition hover:bg-[var(--color-primary-dark)]"
-                onClick={() => {
-                  setPickerOpen((current) => !current)
-                  setCustomStepOpen(false)
-                  setStepError(null)
-                }}
-              >
-                <Plus size={13} />
-                Ajouter
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  className="inline-flex items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--color-border)] bg-white px-3 py-2 text-xs font-semibold text-[var(--color-ink)] transition hover:bg-[var(--color-bg)] disabled:opacity-50"
+                  onClick={() => void handleRelance()}
+                  disabled={addingStep}
+                >
+                  <Send size={13} />
+                  Relancer
+                </button>
+                <button
+                  type="button"
+                  className="inline-flex items-center gap-2 rounded-[var(--radius-sm)] bg-[var(--color-primary)] px-3 py-2 text-xs font-semibold text-white shadow-[0_12px_24px_rgba(59,130,246,0.22)] transition hover:bg-[var(--color-primary-dark)]"
+                  onClick={() => {
+                    setPickerOpen((current) => !current)
+                    setCustomStepOpen(false)
+                    setStepError(null)
+                  }}
+                >
+                  <Plus size={13} />
+                  Ajouter
+                </button>
+              </div>
             </div>
 
             {pickerOpen && (
-              <div className="mb-5 rounded-[var(--radius)] border border-[rgba(60,52,137,0.12)] bg-white/85 p-4 shadow-[0_16px_36px_rgba(31,27,77,0.08)] backdrop-blur-sm">
+              <div className="mb-5 rounded-[var(--radius)] border border-[rgba(60,52,137,0.12)] bg-white/85 p-4 shadow-[0_16px_36px_rgba(31,27,77,0.08)] backdrop-blur-sm animate-fade-slide-down">
                 <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
                   {TIMELINE_PRESETS.map((preset) => (
                     <button
@@ -323,7 +396,7 @@ export function ApplicationDetail({
                 </div>
 
                 {customStepOpen && (
-                  <form ref={formRef} onSubmit={handleAddStep} className="mt-4 flex flex-col gap-3 rounded-[var(--radius-sm)] border border-[rgba(60,52,137,0.12)] bg-[var(--color-bg)]/85 p-4">
+                  <form ref={formRef} onSubmit={handleAddStep} className="mt-4 flex flex-col gap-3 rounded-[var(--radius-sm)] border border-[rgba(60,52,137,0.12)] bg-[var(--color-bg)]/85 p-4 animate-fade-slide-down">
                     <div className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--color-muted)]">
                       Étape libre
                     </div>
@@ -342,11 +415,9 @@ export function ApplicationDetail({
                       <select className="input text-xs" name="nextStatus" defaultValue="">
                         <option value="">Statut inchangé</option>
                         <option value="APPLIED">Postulée</option>
-                        <option value="PHONE_SCREEN">Pré-sélection</option>
                         <option value="INTERVIEW">Entretien</option>
                         <option value="OFFER">Offre</option>
                         <option value="REJECTED">Refusée</option>
-                        <option value="WITHDRAWN">Abandonnée</option>
                       </select>
                     </div>
                     <textarea className="input text-xs resize-y" name="notes" rows={2} placeholder="Notes..." />
@@ -389,7 +460,7 @@ export function ApplicationDetail({
                         <form
                           ref={editFormRef}
                           onSubmit={(e) => void handleUpdateStep(e, step)}
-                          className="flex flex-col gap-3 rounded-[var(--radius-sm)] border border-[rgba(60,52,137,0.12)] bg-[var(--color-bg)]/85 p-4"
+                          className="flex flex-col gap-3 rounded-[var(--radius-sm)] border border-[rgba(60,52,137,0.12)] bg-[var(--color-bg)]/85 p-4 animate-fade-slide-down"
                         >
                           <div className="grid gap-3 md:grid-cols-2">
                             <input className="input text-xs" name="title" defaultValue={step.title} required />
@@ -406,11 +477,9 @@ export function ApplicationDetail({
                             <select className="input text-xs" name="nextStatus" defaultValue="">
                               <option value="">Statut inchangé</option>
                               <option value="APPLIED">Postulée</option>
-                              <option value="PHONE_SCREEN">Pré-sélection</option>
                               <option value="INTERVIEW">Entretien</option>
                               <option value="OFFER">Offre</option>
                               <option value="REJECTED">Refusée</option>
-                              <option value="WITHDRAWN">Abandonnée</option>
                             </select>
                           </div>
                           <textarea className="input text-xs resize-y" name="notes" rows={2} defaultValue={step.notes ?? ''} />
@@ -434,7 +503,10 @@ export function ApplicationDetail({
                         <>
                           <div className="flex items-start justify-between gap-3">
                             <div>
-                              <div className="font-semibold text-sm">{step.title}</div>
+                              <div className="font-semibold text-sm flex items-center gap-1.5">
+                                <span className="text-base leading-none">{findPresetIcon(step.title)}</span>
+                                {step.title}
+                              </div>
                               <div className="text-xs text-[var(--color-muted)] mt-0.5">
                                 {formatDate(step.date)}{step.time ? ` à ${step.time}` : ''}
                               </div>

@@ -37,14 +37,14 @@ export function ActivityChart({ data }: ActivityChartProps) {
                 width={BAR_W}
                 height={barH}
                 rx={4}
-                fill={d.isMax ? '#534AB7' : '#EEEDFE'}
+                fill={d.isMax ? '#007EA7' : '#E0F4FB'}
               />
               <text
                 x={x + BAR_W / 2}
                 y={BAR_MAX_H + LABEL_H}
                 textAnchor="middle"
                 fontSize={10}
-                fill="#B4B2A9"
+                fill="#5B6B73"
               >
                 {d.day}
               </text>

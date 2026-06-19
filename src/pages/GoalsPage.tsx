@@ -19,13 +19,6 @@ const TIMELINE_OPTIONS = [
   { value: '12m', label: 'Long terme',   sub: '> 6 mois' },
 ]
 
-const DEFAULT_ACTIONS = [
-  { id: '1', label: 'Optimiser mon CV principal',                 done: false },
-  { id: '2', label: 'Envoyer 10 candidatures cette semaine',      done: false },
-  { id: '3', label: 'Développer mes compétences clés',            done: false },
-  { id: '4', label: 'Contacter 5 recruteurs sur LinkedIn',        done: false },
-  { id: '5', label: 'Préparer des réponses aux questions types',  done: false },
-]
 
 // ─── Utilities ────────────────────────────────────────────────────────────────
 
@@ -168,12 +161,12 @@ function TagInput({ tags, placeholder, onChange }: { tags: string[]; placeholder
 
   return (
     <div
-      className="flex flex-wrap gap-1.5 p-2.5 rounded-lg border cursor-text min-h-[40px] transition-colors focus-within:border-indigo-400"
+      className="flex flex-wrap gap-1.5 p-2.5 rounded-lg border cursor-text min-h-[40px] transition-colors focus-within:border-sky-400"
       style={{ borderColor: 'var(--color-border)', background: 'var(--color-surface)' }}
       onClick={() => ref.current?.focus()}
     >
       {tags.map((t) => (
-        <span key={t} className="flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-700">
+        <span key={t} className="flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-sky-100 text-sky-800">
           {t}
           <button type="button" className="opacity-60 hover:opacity-100" onClick={(e) => { e.stopPropagation(); onChange(tags.filter((x) => x !== t)) }}>
             <X size={10} />
@@ -207,8 +200,8 @@ function GoalObjectiveHeader({ goal, onEdit }: { goal: UserGoal | null; onEdit: 
     <div
       className="rounded-2xl p-5 flex items-start justify-between gap-4"
       style={{
-        background: 'linear-gradient(135deg, #6c3de0 0%, #4f46e5 100%)',
-        boxShadow: '0 8px 32px rgba(99, 60, 220, 0.25)',
+        background: 'linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-dark) 100%)',
+        boxShadow: '0 8px 32px rgba(0, 59, 92, 0.25)',
       }}
     >
       <div className="flex items-start gap-3 flex-1 min-w-0">
@@ -248,8 +241,7 @@ interface StratCardProps {
 function StratCard({ icon: Icon, label, color, bg, children }: StratCardProps) {
   return (
     <div
-      className="rounded-xl p-4 border"
-      style={{ background: 'var(--color-surface)', borderColor: 'var(--color-border)', boxShadow: 'var(--shadow)' }}
+      className="card p-4"
     >
       <div className="flex items-center gap-2 mb-3">
         <div className="w-6 h-6 rounded-lg flex items-center justify-center" style={{ background: bg }}>
@@ -283,17 +275,17 @@ function StrategyGrid({ goal }: { goal: UserGoal | null }) {
     <div className="grid grid-cols-2 gap-3">
       {/* Postes ciblés — full width */}
       <div className="col-span-2">
-        <StratCard icon={Target} label="Postes ciblés" color="#6366f1" bg="#eef2ff">
+        <StratCard icon={Target} label="Postes ciblés" color="#007EA7" bg="#E0F4FB">
           {positions.length
             ? <div className="flex flex-wrap gap-1.5">
-                {positions.map((p) => <Chip key={p} label={p} color="#6366f1" bg="#eef2ff" />)}
+                {positions.map((p) => <Chip key={p} label={p} color="#007EA7" bg="#E0F4FB" />)}
               </div>
             : <EmptyChip />}
         </StratCard>
       </div>
 
       {/* Délai */}
-      <StratCard icon={Clock} label="Délai" color="#6366f1" bg="#eef2ff">
+      <StratCard icon={Clock} label="Délai" color="#007EA7" bg="#E0F4FB">
         {goal?.target_date
           ? <p className="text-sm font-semibold" style={{ color: 'var(--color-ink)' }}>
               avant {formatDateShort(goal.target_date)}
@@ -343,74 +335,13 @@ function StrategyGrid({ goal }: { goal: UserGoal | null }) {
   )
 }
 
-// ─── Section: Action Plan ─────────────────────────────────────────────────────
-
-interface ActionItem { id: string; label: string; done: boolean }
-
-function ActionPlan({ actions, onToggle }: { actions: ActionItem[]; onToggle: (id: string) => void }) {
-  const done = actions.filter((a) => a.done).length
-  const pct  = Math.round((done / actions.length) * 100)
-
-  return (
-    <div
-      className="rounded-2xl border p-5"
-      style={{ background: 'var(--color-surface)', borderColor: 'var(--color-border)', boxShadow: 'var(--shadow)' }}
-    >
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-2">
-          <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: '#eef2ff' }}>
-            <CheckCircle2 size={14} style={{ color: '#6366f1' }} />
-          </div>
-          <span className="text-sm font-semibold" style={{ color: 'var(--color-ink)' }}>Plan d'action</span>
-        </div>
-        <span className="text-xs font-bold px-2 py-0.5 rounded-full" style={{ background: '#eef2ff', color: '#6366f1' }}>
-          {done}/{actions.length}
-        </span>
-      </div>
-
-      {/* Progress bar */}
-      <div className="h-1.5 rounded-full overflow-hidden mb-4" style={{ background: 'var(--color-border)' }}>
-        <div
-          className="h-full rounded-full transition-all duration-700"
-          style={{ width: `${pct}%`, background: 'linear-gradient(90deg, #6c3de0, #4f46e5)' }}
-        />
-      </div>
-
-      <div className="flex flex-col gap-2">
-        {actions.map((a) => (
-          <button
-            key={a.id}
-            type="button"
-            onClick={() => onToggle(a.id)}
-            className="flex items-center gap-3 p-2.5 rounded-xl text-left transition-colors hover:bg-gray-50 group"
-          >
-            <div className={cn(
-              'w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-all',
-              a.done
-                ? 'bg-indigo-500 border-indigo-500'
-                : 'border-gray-300 group-hover:border-indigo-400',
-            )}>
-              {a.done && <CheckCircle2 size={12} className="text-white" strokeWidth={3} />}
-            </div>
-            <span className={cn(
-              'text-sm transition-all',
-              a.done ? 'line-through opacity-40' : '',
-            )} style={{ color: 'var(--color-ink)' }}>
-              {a.label}
-            </span>
-          </button>
-        ))}
-      </div>
-    </div>
-  )
-}
 
 // ─── Section: Global Score ────────────────────────────────────────────────────
 
 function GlobalScoreCard({ score }: { score: ScoreBreakdown }) {
   const color =
     score.global >= 75 ? '#10b981' :
-    score.global >= 50 ? '#6366f1' :
+    score.global >= 50 ? '#007EA7' :
     score.global >= 25 ? '#f59e0b' : '#ef4444'
 
   const label =
@@ -420,8 +351,7 @@ function GlobalScoreCard({ score }: { score: ScoreBreakdown }) {
 
   return (
     <div
-      className="rounded-2xl border p-5"
-      style={{ background: 'var(--color-surface)', borderColor: 'var(--color-border)', boxShadow: 'var(--shadow)' }}
+      className="card p-5"
     >
       <div className="flex items-center gap-2 mb-4">
         <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: '#fef3c7' }}>
@@ -441,7 +371,7 @@ function GlobalScoreCard({ score }: { score: ScoreBreakdown }) {
       </div>
 
       <div className="flex flex-col gap-3">
-        <MetricBar label="CV adapté"          value={score.cv}           color="#6366f1" icon={FileText}   />
+        <MetricBar label="CV adapté"          value={score.cv}           color="#007EA7" icon={FileText}   />
         <MetricBar label="Candidatures"        value={score.applications} color="#0891b2" icon={TrendingUp}  />
         <MetricBar label="Matching offres"     value={score.matching}     color="#10b981" icon={Zap}         />
         <MetricBar label="Réseau ciblé"        value={score.network}      color="#d97706" icon={Users}       />
@@ -465,15 +395,14 @@ function QuantifiedGoals({ goal, applications }: { goal: UserGoal | null; applic
   const offers     = applications.filter((a) => ['OFFER', 'ACCEPTED'].includes(a.status)).length
 
   const ROWS = [
-    { label: 'Candidatures / mois', current: thisMonth, goal: target,                       color: '#6366f1', icon: TrendingUp },
+    { label: 'Candidatures / mois', current: thisMonth, goal: target,                       color: '#007EA7', icon: TrendingUp },
     { label: 'Entretiens obtenus',  current: interviews, goal: Math.max(3, Math.round(target * 0.3)), color: '#0891b2', icon: Users     },
     { label: 'Offres reçues',       current: offers,     goal: Math.max(1, Math.round(target * 0.1)), color: '#10b981', icon: Award     },
   ]
 
   return (
     <div
-      className="rounded-2xl border p-5"
-      style={{ background: 'var(--color-surface)', borderColor: 'var(--color-border)', boxShadow: 'var(--shadow)' }}
+      className="card p-5"
     >
       <div className="flex items-center gap-2 mb-4">
         <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: '#d1fae5' }}>
@@ -519,8 +448,7 @@ function WeeklyProgressChart({ applications }: { applications: Application[] }) 
 
   return (
     <div
-      className="rounded-2xl border p-5"
-      style={{ background: 'var(--color-surface)', borderColor: 'var(--color-border)', boxShadow: 'var(--shadow)' }}
+      className="card p-5"
     >
       <div className="flex items-center gap-2 mb-4">
         <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: '#e0f2fe' }}>
@@ -548,13 +476,13 @@ function WeeklyProgressChart({ applications }: { applications: Application[] }) 
                   style={{
                     height: w.count === 0 ? 3 : h,
                     background: isLast
-                      ? 'linear-gradient(180deg, #6c3de0, #4f46e5)'
+                      ? '#007EA7'
                       : 'var(--color-border)',
                     opacity: w.count === 0 ? 0.4 : 1,
                   }}
                 />
               </div>
-              <span className="text-[9px] font-medium text-center leading-tight" style={{ color: isLast ? '#6366f1' : 'var(--color-muted)' }}>
+              <span className="text-[9px] font-medium text-center leading-tight" style={{ color: isLast ? '#007EA7' : 'var(--color-muted)' }}>
                 {w.label}
               </span>
             </div>
@@ -578,7 +506,7 @@ function buildSuggestions(goal: UserGoal | null, score: ScoreBreakdown, alignmen
       icon: FileText,
       text: 'Votre profil de recherche est incomplet. Définissez le poste visé pour améliorer votre score CV.',
       cta: 'Définir l\'objectif',
-      color: '#6366f1', bg: '#eef2ff',
+      color: '#007EA7', bg: '#E0F4FB',
     })
   }
   if (score.applications < 40) {
@@ -636,8 +564,7 @@ function AISuggestions({ goal, score, alignment }: { goal: UserGoal | null; scor
 
   return (
     <div
-      className="rounded-2xl border p-5"
-      style={{ background: 'var(--color-surface)', borderColor: 'var(--color-border)', boxShadow: 'var(--shadow)' }}
+      className="card p-5"
     >
       <div className="flex items-center gap-2 mb-4">
         <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: '#fef3c7' }}>
@@ -707,8 +634,8 @@ function EditGoalModal({ goal, saving, onSave, onClose }: EditGoalModalProps) {
         {/* Modal header */}
         <div className="flex items-center justify-between px-6 py-4 border-b" style={{ borderColor: 'var(--color-border)' }}>
           <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: '#eef2ff' }}>
-              <Target size={14} style={{ color: '#6366f1' }} />
+            <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: '#E0F4FB' }}>
+              <Target size={14} style={{ color: '#007EA7' }} />
             </div>
             <span className="font-semibold text-sm" style={{ color: 'var(--color-ink)' }}>Modifier mon objectif</span>
           </div>
@@ -749,11 +676,11 @@ function EditGoalModal({ goal, saving, onSave, onClose }: EditGoalModalProps) {
                   className={cn(
                     'flex flex-col items-start px-3 py-2 rounded-xl border text-left transition-all',
                     timeline === opt.value
-                      ? 'border-indigo-500 bg-indigo-50'
-                      : 'border-[var(--color-border)] hover:border-indigo-300',
+                      ? 'border-sky-600 bg-sky-50'
+                      : 'border-[var(--color-border)] hover:border-sky-400',
                   )}
                 >
-                  <span className="text-xs font-semibold" style={{ color: timeline === opt.value ? '#6366f1' : 'var(--color-ink)' }}>
+                  <span className="text-xs font-semibold" style={{ color: timeline === opt.value ? '#007EA7' : 'var(--color-ink)' }}>
                     {opt.label}
                   </span>
                   <span className="text-[10px] mt-0.5" style={{ color: 'var(--color-muted)' }}>{opt.sub}</span>
@@ -777,7 +704,7 @@ function EditGoalModal({ goal, saving, onSave, onClose }: EditGoalModalProps) {
                     onClick={() => setContracts(active ? contracts.filter((x) => x !== c) : [...contracts, c])}
                     className={cn(
                       'px-3 py-1.5 rounded-full text-xs font-medium border transition-all',
-                      active ? 'border-indigo-500 bg-indigo-50 text-indigo-700' : 'border-[var(--color-border)] hover:border-indigo-300',
+                      active ? 'border-sky-600 bg-sky-50 text-sky-800' : 'border-[var(--color-border)] hover:border-sky-400',
                     )}
                     style={active ? {} : { color: 'var(--color-muted)' }}
                   >
@@ -840,9 +767,9 @@ function EmptyState({ onEdit }: { onEdit: () => void }) {
     <div className="flex-1 flex flex-col items-center justify-center gap-5 py-20">
       <div
         className="w-20 h-20 rounded-full flex items-center justify-center"
-        style={{ background: '#eef2ff' }}
+        style={{ background: '#E0F4FB' }}
       >
-        <Target size={36} style={{ color: '#6366f1' }} />
+        <Target size={36} style={{ color: '#007EA7' }} />
       </div>
       <div className="text-center">
         <h2 className="text-lg font-bold mb-1" style={{ color: 'var(--color-ink)' }}>
@@ -854,7 +781,7 @@ function EmptyState({ onEdit }: { onEdit: () => void }) {
       </div>
       <button onClick={onEdit} className="btn btn-primary flex items-center gap-2">
         <Plus size={15} />
-        Créer mon objectif
+        Créer votre objectif
       </button>
     </div>
   )
@@ -889,7 +816,7 @@ export function GoalsPage({ userId, applications }: GoalsPageProps) {
     return (
       <div className="flex items-center justify-center py-24">
         <div className="flex flex-col items-center gap-3">
-          <div className="w-8 h-8 rounded-full border-2 border-indigo-500 border-t-transparent animate-spin" />
+          <div className="w-8 h-8 rounded-full border-2 border-sky-600 border-t-transparent animate-spin" />
           <p className="text-sm" style={{ color: 'var(--color-muted)' }}>Chargement…</p>
         </div>
       </div>
@@ -898,6 +825,11 @@ export function GoalsPage({ userId, applications }: GoalsPageProps) {
 
   return (
     <>
+      <div className="mb-5">
+        <h1 className="text-2xl font-bold tracking-tight" style={{ color: 'var(--color-primary)', letterSpacing: '-0.02em' }}>Objectifs</h1>
+        <p className="text-[13px] mt-0.5" style={{ color: 'var(--color-muted)' }}>Définissez votre stratégie et suivez vos progrès</p>
+      </div>
+
       {/* Status row */}
       {(saved || error) && (
         <div className="flex items-center gap-3 mb-4">

@@ -1,65 +1,62 @@
 :root {
-  /* ── Sidebar ── */
-  --color-sidebar: #1E1966;
-  --color-sidebar-accent: #7F77DD;
-  --color-sidebar-active-bg: rgba(127, 119, 221, 0.20);
-  --color-sidebar-hover-bg: rgba(255, 255, 255, 0.05);
-  --color-sidebar-text: rgba(255, 255, 255, 0.55);
-  --color-sidebar-text-hover: rgba(255, 255, 255, 0.85);
-  --color-sidebar-text-active: #ffffff;
-  --color-sidebar-divider: rgba(255, 255, 255, 0.08);
+  /* ── Nav / Header ── */
+  --color-nav-bg: #003B5C;
+  --color-nav-bg-end: #002A40;
+  --color-nav-text: rgba(255, 255, 255, 0.65);
+  --color-nav-text-hover: rgba(255, 255, 255, 0.92);
+  --color-nav-text-active: #ffffff;
+  --color-nav-active-bg: rgba(0, 126, 167, 0.35);
+  --color-nav-divider: rgba(255, 255, 255, 0.1);
 
   /* ── Content area ── */
-  --color-content-bg: #F2EDE3;
-  --color-shell-gradient-start: #f6f2ea;
-  --color-shell-gradient-end: #ebe6fb;
-  --color-shell-orb-primary: rgba(108, 61, 224, 0.14);
-  --color-shell-orb-secondary: rgba(79, 70, 229, 0.12);
-  --color-shell-line: rgba(60, 52, 137, 0.08);
-  --color-shell-glass: rgba(255, 255, 255, 0.88);
-  --color-shell-glass-strong: rgba(255, 255, 255, 0.96);
+  --color-content-bg: #F7FAFC;
+  --color-shell-line: rgba(0, 59, 92, 0.06);
+  --color-shell-glass: rgba(255, 255, 255, 0.98);
+  --color-shell-glass-strong: #ffffff;
 
-  /* ── Violet palette ── */
-  --color-violet-light: #EEEDFE;
-  --color-violet-mid: #7F77DD;
-  --color-violet-accent: #7F77DD;
-  --color-violet-dark: #3C3489;
-  --color-violet-text: #534AB7;
-  --color-violet-deep: #1E1966;
+  /* ── Brand palette ── */
+  --color-deep-space: #003B5C;
+  --color-deep-space-hover: #002A40;
+  --color-deep-space-light: #EAF6FB;
+  --color-cerulean: #007EA7;
+  --color-cerulean-light: #E0F4FB;
+  --color-sky: #00A8E8;
+  --color-purple: #7C3AED;
+  --color-purple-light: #EDE9FE;
 
   /* ── Amber palette ── */
-  --color-amber-light: #FAEEDA;
-  --color-amber-text: #633806;
-  --color-amber: #EF9F27;
+  --color-amber-light: #FEF3C7;
+  --color-amber-text: #92400E;
+  --color-amber: #F59E0B;
 
   /* ── Green palette ── */
-  --color-green-light: #E1F5EE;
-  --color-green-text: #085041;
-  --color-green: #1D9E75;
+  --color-green-light: #D1FAE5;
+  --color-green-text: #065F46;
+  --color-green: #059669;
 
   /* ── Red palette ── */
-  --color-red-light: #FAECE7;
-  --color-red-text: #712B13;
-  --color-red: #D85A30;
+  --color-red-light: #FEE2E2;
+  --color-red-text: #991B1B;
+  --color-red: #EF4444;
 
-  /* ── Status accents (used by StatCard + ProgressWidget) ── */
-  --stat-wishlist-accent: #9ca3af;
-  --stat-wishlist-badge-bg: #f3f4f6;
-  --stat-wishlist-badge-fg: #374151;
+  /* ── Status accents ── */
+  --stat-wishlist-accent: #94A3B8;
+  --stat-wishlist-badge-bg: #F1F5F9;
+  --stat-wishlist-badge-fg: #475569;
 
-  --stat-applied-accent: #534AB7;
-  --stat-applied-badge-bg: var(--color-violet-light);
-  --stat-applied-badge-fg: var(--color-violet-text);
+  --stat-applied-accent: #007EA7;
+  --stat-applied-badge-bg: #E0F4FB;
+  --stat-applied-badge-fg: #003B5C;
 
-  --stat-interview-accent: #EF9F27;
-  --stat-interview-badge-bg: var(--color-amber-light);
-  --stat-interview-badge-fg: var(--color-amber-text);
+  --stat-interview-accent: #F59E0B;
+  --stat-interview-badge-bg: #FEF3C7;
+  --stat-interview-badge-fg: #92400E;
 
-  --stat-offer-accent: #1D9E75;
-  --stat-offer-badge-bg: var(--color-green-light);
-  --stat-offer-badge-fg: var(--color-green-text);
+  --stat-offer-accent: #059669;
+  --stat-offer-badge-bg: #D1FAE5;
+  --stat-offer-badge-fg: #065F46;
 
-  --stat-rejected-accent: #D85A30;
-  --stat-rejected-badge-bg: var(--color-red-light);
-  --stat-rejected-badge-fg: var(--color-red-text);
+  --stat-rejected-accent: #EF4444;
+  --stat-rejected-badge-bg: #FEE2E2;
+  --stat-rejected-badge-fg: #991B1B;
 }

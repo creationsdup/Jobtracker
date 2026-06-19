@@ -22,27 +22,39 @@ export interface GoalAlignment {
   offTargetApps: Application[]
 }
 
-export function computeAppScore(goal: UserGoal | null, app: Application): number | null {
-  if (!goal) return null
+export interface ScoreCriterion {
+  label: string
+  matched: boolean
+}
+
+// Détaille les critères de l'objectif qui composent le score de correspondance,
+// pour pouvoir expliquer à l'utilisateur pourquoi une candidature obtient X%.
+export function computeAppScoreBreakdown(goal: UserGoal | null, app: Application): ScoreCriterion[] {
+  if (!goal) return []
 
   const positions = goal.target_positions?.map((p) => p.toLowerCase().trim()) ?? []
   const zones     = goal.zones?.map((z) => z.toLowerCase().trim()) ?? []
   const contracts = goal.contract_types?.map((c) => c.toLowerCase().trim()) ?? []
   const companies = goal.target_companies?.map((c) => c.toLowerCase().trim()) ?? []
 
-  const criteria: boolean[] = []
+  const items: ScoreCriterion[] = []
 
   if (positions.length > 0)
-    criteria.push(positions.some((p) => app.position.toLowerCase().includes(p)))
+    items.push({ label: 'Poste recherché', matched: positions.some((p) => app.position.toLowerCase().includes(p)) })
   if (zones.length > 0)
-    criteria.push(!!app.location && zones.some((z) => app.location!.toLowerCase().includes(z)))
+    items.push({ label: 'Zone géographique', matched: !!app.location && zones.some((z) => app.location!.toLowerCase().includes(z)) })
   if (contracts.length > 0)
-    criteria.push(!!app.contractType && contracts.includes(app.contractType.toLowerCase().trim()))
+    items.push({ label: 'Type de contrat', matched: !!app.contractType && contracts.includes(app.contractType.toLowerCase().trim()) })
   if (companies.length > 0)
-    criteria.push(companies.some((c) => app.company.toLowerCase().includes(c)))
+    items.push({ label: 'Entreprise ciblée', matched: companies.some((c) => app.company.toLowerCase().includes(c)) })
 
-  if (criteria.length === 0) return null
-  return Math.round((criteria.filter(Boolean).length / criteria.length) * 100)
+  return items
+}
+
+export function computeAppScore(goal: UserGoal | null, app: Application): number | null {
+  const items = computeAppScoreBreakdown(goal, app)
+  if (items.length === 0) return null
+  return Math.round((items.filter((i) => i.matched).length / items.length) * 100)
 }
 
 export function computeAlignment(goal: UserGoal | null, applications: Application[]): GoalAlignment {

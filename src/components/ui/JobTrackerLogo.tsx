@@ -17,8 +17,8 @@ export function JobTrackerLogo({ size = 36, onColor = false }: JobTrackerLogoPro
     >
       <defs>
         <linearGradient id={id} x1="0" y1="0" x2="36" y2="36" gradientUnits="userSpaceOnUse">
-          <stop offset="0%" stopColor="#7c3aed" />
-          <stop offset="100%" stopColor="#4f46e5" />
+          <stop offset="0%" stopColor="#007EA7" />
+          <stop offset="100%" stopColor="#003459" />
         </linearGradient>
       </defs>
 

@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 import { X, ChevronLeft, ChevronRight } from 'lucide-react'
 import type { Application, ApplicationStatus } from '@/lib/types'
+import { guessCompanyWebsiteFromJobUrl } from '@/lib/jobBoards'
+import { guessCompanyDomain } from '@/lib/ai'
 import { JobOfferImporter } from './JobOfferImporter'
 import { ApplicationFormStepOffer, type ApplicationFormData } from './steps/ApplicationFormStepOffer'
 import { ApplicationFormStepTracking } from './steps/ApplicationFormStepTracking'
@@ -16,6 +18,9 @@ interface ApplicationFormProps {
   initial?: Application | null
   userId: string
   onSave: (data: Omit<Application, 'id' | 'createdAt' | 'updatedAt'>) => Promise<void>
+  onSaveCompanyWebsite: (company: string, website: string) => Promise<string | null>
+  existingCompanyWebsite?: string | null
+  lookupCompanyDomain: (company: string) => string | undefined
   externalError?: string | null
   onClose: () => void
 }
@@ -23,6 +28,7 @@ interface ApplicationFormProps {
 function buildFormData(
   initial: Application | null | undefined,
   imported: Partial<Omit<Application, 'id' | 'createdAt' | 'updatedAt'>> | null,
+  existingCompanyWebsite: string | null | undefined,
 ): ApplicationFormData {
   const source = imported ?? initial
   return {
@@ -31,18 +37,20 @@ function buildFormData(
     location: source?.location ?? '',
     contractType: source?.contractType ?? '',
     jobUrl: source?.jobUrl ?? '',
+    companyWebsite: existingCompanyWebsite ?? '',
     status: source?.status ?? 'WISHLIST',
     appliedAt: source?.appliedAt ?? '',
     notes: source?.notes ?? '',
   }
 }
 
-export function ApplicationForm({ initial, userId, onSave, externalError, onClose }: ApplicationFormProps) {
+export function ApplicationForm({ initial, userId, onSave, onSaveCompanyWebsite, existingCompanyWebsite, lookupCompanyDomain, externalError, onClose }: ApplicationFormProps) {
   const [saving, setSaving] = useState(false)
   const [importerOpen, setImporterOpen] = useState(false)
   const [importedData, setImportedData] = useState<Partial<Omit<Application, 'id' | 'createdAt' | 'updatedAt'>> | null>(null)
   const [step, setStep] = useState(1)
-  const [formData, setFormData] = useState<ApplicationFormData>(() => buildFormData(initial, importedData))
+  const [formData, setFormData] = useState<ApplicationFormData>(() => buildFormData(initial, importedData, existingCompanyWebsite))
+  const [aiLogoLookupLoading, setAiLogoLookupLoading] = useState(false)
 
   const isEditMode = !!initial
 
@@ -53,12 +61,40 @@ export function ApplicationForm({ initial, userId, onSave, externalError, onClos
   }, [onClose])
 
   function patchFormData(patch: Partial<ApplicationFormData>) {
-    setFormData((prev) => ({ ...prev, ...patch }))
+    setFormData((prev) => {
+      const next = { ...prev, ...patch }
+      if (patch.jobUrl !== undefined && !prev.companyWebsite.trim()) {
+        const guessed = guessCompanyWebsiteFromJobUrl(patch.jobUrl)
+        if (guessed) next.companyWebsite = guessed
+      }
+      if (patch.company !== undefined && !prev.companyWebsite.trim()) {
+        const known = lookupCompanyDomain(patch.company.trim())
+        if (known) next.companyWebsite = known
+      }
+      return next
+    })
   }
 
-  function handleImport(data: Partial<Omit<Application, 'id' | 'createdAt' | 'updatedAt'>>) {
+  // Si la saisie ne correspond à aucune entrée connue de la banque de logos, demande à l'IA
+  // de reconnaître l'entreprise (sigle, marque) et trouver son domaine, puis l'enregistre dans
+  // le catalogue partagé pour que les prochaines saisies (par n'importe quel utilisateur) soient
+  // instantanées.
+  async function handleCompanyBlur() {
+    const company = formData.company.trim()
+    if (!company || formData.companyWebsite.trim() || lookupCompanyDomain(company)) return
+    setAiLogoLookupLoading(true)
+    const domain = await guessCompanyDomain(company)
+    setAiLogoLookupLoading(false)
+    if (!domain) return
+    setFormData((prev) => (prev.companyWebsite.trim() || prev.company.trim() !== company ? prev : { ...prev, companyWebsite: domain }))
+    await onSaveCompanyWebsite(company, domain)
+  }
+
+  function handleImport(data: Partial<Omit<Application, 'id' | 'createdAt' | 'updatedAt'>> & { companyWebsite?: string | null }) {
     setImportedData(data)
-    setFormData(buildFormData(initial, data))
+    const guessedWebsite = data.jobUrl ? guessCompanyWebsiteFromJobUrl(data.jobUrl) : null
+    const resolvedWebsite = data.companyWebsite || guessedWebsite || existingCompanyWebsite
+    setFormData(buildFormData(initial, data, resolvedWebsite))
     setImporterOpen(false)
   }
 
@@ -84,6 +120,8 @@ export function ApplicationForm({ initial, userId, onSave, externalError, onClos
   async function handleSubmit() {
     if (!step1Valid) { setStep(1); return }
     setSaving(true)
+    const website = formData.companyWebsite.trim()
+    if (website) await onSaveCompanyWebsite(formData.company.trim(), website)
     await onSave({
       userId,
       company: formData.company.trim(),
@@ -94,7 +132,6 @@ export function ApplicationForm({ initial, userId, onSave, externalError, onClos
       status: formData.status as ApplicationStatus,
       notes: formData.notes.trim() || null,
       appliedAt: formData.appliedAt || null,
-      resumeId: initial?.resumeId ?? null,
     })
     setSaving(false)
   }
@@ -103,7 +140,7 @@ export function ApplicationForm({ initial, userId, onSave, externalError, onClos
     <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50" onClick={(e) => { if (e.target === e.currentTarget) onClose() }}>
       <div className="absolute inset-y-0 right-0 w-full max-w-xl bg-[var(--color-surface)] shadow-[var(--shadow-lg)] flex flex-col h-full">
         <div className="flex items-center justify-between px-8 pt-7 pb-5 border-b border-[var(--color-border)]">
-          <h3 className="text-xl font-bold">{initial ? 'Modifier la candidature' : 'Nouvelle candidature'}</h3>
+          <h3 className="text-lg font-bold">{initial ? 'Modifier la candidature' : 'Nouvelle candidature'}</h3>
           <button className="btn btn-ghost p-1" onClick={onClose}><X size={18} /></button>
         </div>
 
@@ -140,6 +177,8 @@ export function ApplicationForm({ initial, userId, onSave, externalError, onClos
               onChange={patchFormData}
               showImport={!initial}
               onImportClick={() => setImporterOpen(true)}
+              onCompanyBlur={handleCompanyBlur}
+              aiLogoLookupLoading={aiLogoLookupLoading}
             />
           )}
           {step === 2 && (

@@ -111,46 +111,47 @@ export function LibraryPage({ userId, userEmail }: LibraryPageProps) {
   )
 
   const stats = [
-    { label: 'Expériences', value: allExperiences.length, icon: <Briefcase size={14} />, tone: 'var(--color-violet-deep)' },
+    { label: 'Expériences', value: allExperiences.length, icon: <Briefcase size={14} />, tone: 'var(--color-deep-space)' },
     { label: 'Formations', value: educationExperiences.length, icon: <BookMarked size={14} />, tone: 'var(--color-amber-text)' },
     { label: 'Compétences', value: profile?.skills?.length ?? 0, icon: <Sparkles size={14} />, tone: 'var(--color-green-text)' },
     { label: "Centres d'intérêt", value: profile?.interests?.length ?? 0, icon: <Shapes size={14} />, tone: 'var(--color-red-text)' },
   ]
 
   return (
-    <div className="flex flex-col gap-5 px-1 md:px-2 xl:px-4 py-2 md:py-4">
+    <div className="flex flex-col gap-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight" style={{ color: 'var(--color-primary)', letterSpacing: '-0.02em' }}>Bibliothèque</h1>
+          <p className="text-[13px] mt-0.5" style={{ color: 'var(--color-muted)' }}>Expériences, formations et compétences</p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <button className="btn btn-secondary flex items-center gap-2 text-sm" onClick={() => setImporterOpen(true)}>
+            <FileUp size={15} />
+            Importer un CV
+          </button>
+          <button
+            className="btn btn-primary flex items-center gap-2 text-sm"
+            onClick={() => {
+              setEditingExperience(null)
+              setEditorOpen(true)
+            }}
+          >
+            <Plus size={15} />
+            Ajouter une entrée
+          </button>
+        </div>
+      </div>
+
       <section className="card px-5 py-5 md:px-7 md:py-7">
         <div className="flex flex-col gap-5">
-          <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-            <div className="max-w-2xl">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--color-violet-text)]">
-                Bibliothèque candidat
-              </p>
-              <h1 className="mt-2 text-xl md:text-2xl font-bold text-[var(--color-violet-deep)]">
-                Centralise tout ce qui alimente ton CV
-              </h1>
-              <p className="mt-2 text-sm text-[var(--color-muted)]">
-                Expériences, formations, compétences et centres d&apos;intérêt au même endroit pour préparer plus vite
-                chaque candidature.
-              </p>
-            </div>
-
-            <div className="flex flex-wrap gap-2">
-              <button className="btn btn-primary flex items-center gap-2 text-sm" onClick={() => setImporterOpen(true)}>
-                <FileUp size={15} />
-                Importer un CV
-              </button>
-              <button
-                className="btn btn-secondary flex items-center gap-2 text-sm"
-                onClick={() => {
-                  setEditingExperience(null)
-                  setEditorOpen(true)
-                }}
-              >
-                <Plus size={15} />
-                Ajouter une entrée
-              </button>
-            </div>
+          <div className="max-w-2xl">
+            <h2 className="text-lg md:text-xl font-bold text-[var(--color-deep-space)]">
+              Centralisez tout ce qui alimente vos CV
+            </h2>
+            <p className="mt-2 text-sm text-[var(--color-muted)]">
+              Expériences, formations, compétences et centres d'intérêt au même endroit pour préparer plus vite
+              chaque candidature.
+            </p>
           </div>
 
           <div className="grid grid-cols-2 xl:grid-cols-4 gap-3">
@@ -183,10 +184,10 @@ export function LibraryPage({ userId, userEmail }: LibraryPageProps) {
                 <button
                   key={id}
                   className={`px-3 py-2 rounded-full text-xs font-semibold transition-colors ${
-                    tab === id ? 'text-white' : 'text-[var(--color-violet-deep)]'
+                    tab === id ? 'text-white' : 'text-[var(--color-deep-space)]'
                   }`}
                   style={{
-                    background: tab === id ? 'linear-gradient(135deg, #6c3de0 0%, #4f46e5 100%)' : 'rgba(255,255,255,0.84)',
+                    background: tab === id ? 'var(--color-primary)' : '#ffffff',
                     border: tab === id ? 'none' : '1px solid var(--color-border)',
                   }}
                   onClick={() => setTab(id)}
@@ -204,7 +205,7 @@ export function LibraryPage({ userId, userEmail }: LibraryPageProps) {
           <div className="flex flex-col gap-4">
             <SectionHeader
               title="Expériences"
-              description="Tes missions, projets et expériences professionnelles."
+              description="Vos missions, projets et expériences professionnelles."
             >
               <select
                 className="input sm:w-56"
@@ -223,7 +224,7 @@ export function LibraryPage({ userId, userEmail }: LibraryPageProps) {
             <ExperienceList
               items={filteredExperiences}
               emptyTitle="Aucune expérience trouvée"
-              emptyText="Ajoute tes expériences pour enrichir tes candidatures et tes CV."
+              emptyText="Ajoutez vos expériences pour enrichir vos candidatures et vos CV."
               onEdit={(exp) => {
                 setEditingExperience(exp)
                 setEditorOpen(true)
@@ -245,7 +246,7 @@ export function LibraryPage({ userId, userEmail }: LibraryPageProps) {
             <ExperienceList
               items={filteredEducation}
               emptyTitle="Aucune formation trouvée"
-              emptyText="Ajoute tes diplômes et formations pour compléter ton profil."
+              emptyText="Ajoutez vos diplômes et formations pour compléter votre profil."
               onEdit={(exp) => {
                 setEditingExperience(exp)
                 setEditorOpen(true)
@@ -272,7 +273,7 @@ export function LibraryPage({ userId, userEmail }: LibraryPageProps) {
             <ChipSection
               items={filteredSkills}
               emptyTitle="Aucune compétence"
-              emptyText="Ajoute tes compétences clés pour les réutiliser dans tes CV et candidatures."
+              emptyText="Ajoutez vos compétences clés pour les réutiliser dans vos CV et candidatures."
               color="var(--color-green-light)"
               textColor="var(--color-green-text)"
               categoryLabel="Compétence"
@@ -285,8 +286,8 @@ export function LibraryPage({ userId, userEmail }: LibraryPageProps) {
         <section className="card px-5 py-5 md:px-7 md:py-7">
           <div className="flex flex-col gap-4">
             <SectionHeader
-              title="Centres d&apos;intérêt"
-              description="Activités personnelles, passions et sujets qui te définissent."
+              title="Centres d'intérêt"
+              description="Activités personnelles, passions et sujets qui vous définissent."
             >
               <button className="btn btn-secondary btn-sm" onClick={() => setListEditor('interests')}>
                 <Pencil size={13} />
@@ -297,7 +298,7 @@ export function LibraryPage({ userId, userEmail }: LibraryPageProps) {
             <ChipSection
               items={filteredInterests}
               emptyTitle="Aucun centre d'intérêt"
-              emptyText="Ajoute quelques centres d’intérêt pour humaniser ton profil quand c’est pertinent."
+              emptyText="Ajoutez quelques centres d’intérêt pour humaniser votre profil lorsque c’est pertinent."
               color="var(--color-red-light)"
               textColor="var(--color-red-text)"
               categoryLabel="Centre d'intérêt"
@@ -373,7 +374,7 @@ function SummaryCard({
         {icon}
         {label}
       </div>
-      <div className="text-[1.7rem] leading-none font-bold text-[var(--color-violet-deep)]">{value}</div>
+      <div className="text-[1.7rem] leading-none font-bold text-[var(--color-deep-space)]">{value}</div>
     </div>
   )
 }
@@ -390,7 +391,7 @@ function SectionHeader({
   return (
     <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
       <div className="max-w-2xl">
-        <h2 className="text-lg font-semibold leading-tight text-[var(--color-violet-deep)]">{title}</h2>
+        <h2 className="text-lg font-semibold leading-tight text-[var(--color-deep-space)]">{title}</h2>
         <p className="mt-1 text-sm leading-6 text-[var(--color-muted)]">{description}</p>
       </div>
       {children ? <div className="flex-shrink-0">{children}</div> : null}
@@ -440,10 +441,10 @@ function ExperienceList({
                   <span className="badge bg-green-100 text-green-700">En cours</span>
                 )}
                 {exp.subsection && (
-                  <span className="badge bg-[var(--color-violet-light)] text-[var(--color-violet-text)]">{exp.subsection}</span>
+                  <span className="badge bg-[var(--color-deep-space-light)] text-[var(--color-cerulean)]">{exp.subsection}</span>
                 )}
               </div>
-              <div className="font-semibold text-base leading-tight text-[var(--color-violet-deep)]">{exp.title}</div>
+              <div className="font-semibold text-base leading-tight text-[var(--color-deep-space)]">{exp.title}</div>
               <div className="text-sm font-medium text-[var(--color-ink)] mt-1">{exp.organization}</div>
               <div className="text-xs leading-5 text-[var(--color-muted)] mt-1">
                 {formatDate(exp.startDate)} — {exp.current ? "aujourd'hui" : exp.endDate ? formatDate(exp.endDate) : ''}
@@ -468,7 +469,7 @@ function ExperienceList({
               <button
                 className="btn btn-danger btn-sm"
                 onClick={async () => {
-                  if (!window.confirm('Supprimer cette entrée ?')) return
+                  if (!window.confirm('Supprimer cette entrée ? Cette action est irréversible.')) return
                   await onDelete(exp.id)
                 }}
               >

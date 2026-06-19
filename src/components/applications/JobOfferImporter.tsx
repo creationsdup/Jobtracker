@@ -11,15 +11,20 @@ interface ParsedOffer {
   location: string | null
   contractType: string | null
   notes: string | null
+  companyWebsite: string | null
   jobUrl: string
 }
 
 interface JobOfferImporterProps {
-  onImport: (data: Partial<Omit<Application, 'id' | 'createdAt' | 'updatedAt'>>) => void
+  onImport: (data: Partial<Omit<Application, 'id' | 'createdAt' | 'updatedAt'>> & { companyWebsite?: string | null }) => void
   onClose: () => void
 }
 
+const VALID_CONTRACT_TYPES = ['CDI', 'CDD', 'STAGE', 'ALTERNANCE'] as const
+
 const SYSTEM_PROMPT = `Tu es un assistant qui analyse des offres d'emploi.
+Le texte fourni est soit le contenu extrait d'une page d'offre d'emploi, soit (si l'extraction a échoué) une simple URL — dans ce dernier cas, infère les informations les plus probables à partir de l'URL.
+Le texte peut aussi contenir une liste de "Domaines liés trouvés sur la page" : si présente, identifie lequel correspond le plus probablement au site officiel de l'entreprise (pas un réseau social, pas un outil de candidature tiers type Workday/Greenhouse/Lever sauf s'il n'y a pas d'autre option).
 Extrait les informations clés de l'offre fournie.
 Réponds UNIQUEMENT avec un JSON valide, sans markdown ni texte autour.
 Format attendu :
@@ -27,9 +32,17 @@ Format attendu :
   "company": "string",
   "position": "string",
   "location": "string | null",
-  "contractType": "string | null",
-  "notes": "string (résumé court de 2-3 phrases de l'offre)"
-}`
+  "contractType": "CDI" | "CDD" | "STAGE" | "ALTERNANCE" | null,
+  "notes": "string (résumé court de 2-3 phrases de l'offre)",
+  "companyWebsite": "string | null (domaine du site officiel de l'entreprise, ex: \\"decathlon.com\\", ou null si non identifiable)"
+}
+Pour "contractType", utilise UNIQUEMENT une de ces 4 valeurs exactes, ou null si le type de contrat n'est pas mentionné dans l'offre. N'invente jamais d'autre valeur.`
+
+function normalizeContractType(value: string | null): string | null {
+  if (!value) return null
+  const upper = value.trim().toUpperCase()
+  return VALID_CONTRACT_TYPES.includes(upper as typeof VALID_CONTRACT_TYPES[number]) ? upper : null
+}
 
 export function JobOfferImporter({ onImport, onClose }: JobOfferImporterProps) {
   const [url, setUrl] = useState('')
@@ -46,8 +59,10 @@ export function JobOfferImporter({ onImport, onClose }: JobOfferImporterProps) {
       const parsed = await generateStructuredData<Omit<ParsedOffer, 'jobUrl'>>(
         SYSTEM_PROMPT,
         `Analyse cette offre d'emploi à partir de cette URL et infère les champs utiles si le contenu n'est pas directement accessible: ${url}`,
+        1400,
+        url,
       )
-      setParsed({ ...parsed, jobUrl: url })
+      setParsed({ ...parsed, contractType: normalizeContractType(parsed.contractType), jobUrl: url })
       setStep('preview')
     } catch (e) {
       setErrorMsg(e instanceof Error ? e.message : "Impossible d'analyser cette offre. Vérifiez l'URL et réessayez.")
@@ -64,6 +79,7 @@ export function JobOfferImporter({ onImport, onClose }: JobOfferImporterProps) {
       contractType: parsed.contractType,
       notes: parsed.notes,
       jobUrl: parsed.jobUrl,
+      companyWebsite: parsed.companyWebsite,
       status: 'WISHLIST',
     })
     onClose()
@@ -123,6 +139,7 @@ export function JobOfferImporter({ onImport, onClose }: JobOfferImporterProps) {
               <Row label="Poste" value={parsed.position} />
               <Row label="Lieu" value={parsed.location} />
               <Row label="Contrat" value={parsed.contractType} />
+              <Row label="Site web" value={parsed.companyWebsite} />
               {parsed.notes && (
                 <div>
                   <p className="text-[10px] font-semibold text-[var(--color-muted)] mb-0.5">Résumé</p>

@@ -15,7 +15,7 @@ export function getAiConfigurationHint(): string {
   return 'Déployez la fonction Supabase ai-assistant avec OPENAI_API_KEY, ou ajoutez VITE_OPENAI_API_KEY en local.'
 }
 
-async function callEdgeFunction<T>(payload: { systemPrompt: string; userContent: string; maxTokens: number; json: boolean }): Promise<T | null> {
+async function callEdgeFunction<T>(payload: { systemPrompt: string; userContent: string; maxTokens: number; json: boolean; url?: string }): Promise<T | null> {
   const { data, error } = await supabase.functions.invoke('ai-assistant', {
     body: payload,
   })
@@ -24,8 +24,13 @@ async function callEdgeFunction<T>(payload: { systemPrompt: string; userContent:
   return (data ?? null) as T | null
 }
 
-export async function generateStructuredData<T>(systemPrompt: string, userContent: string, maxTokens = 1400): Promise<T> {
-  const edgeResult = await callEdgeFunction<T>({ systemPrompt, userContent, maxTokens, json: true })
+/**
+ * `url`, si fourni, est scrapé côté edge function (sans contrainte CORS) et son contenu
+ * remplace `userContent` pour l'analyse. Si le scraping échoue ou que l'edge function
+ * n'est pas disponible, `userContent` est utilisé tel quel (le modèle infère depuis l'URL seule).
+ */
+export async function generateStructuredData<T>(systemPrompt: string, userContent: string, maxTokens = 1400, url?: string): Promise<T> {
+  const edgeResult = await callEdgeFunction<T>({ systemPrompt, userContent, maxTokens, json: true, url })
   if (edgeResult) return edgeResult
 
   const apiKey = getOpenAIApiKey()
@@ -64,6 +69,32 @@ export async function generateStructuredData<T>(systemPrompt: string, userConten
   }
 
   return JSON.parse(content) as T
+}
+
+/**
+ * Identifie le nom de domaine du site officiel d'une entreprise à partir de son nom, sigle ou
+ * marque commerciale (ex: "SNCF" -> "sncf.com"). Alimente la banque de logos partagée
+ * (`company_domains`) quand la saisie de l'utilisateur ne correspond à aucune entrée connue.
+ */
+export async function guessCompanyDomain(companyName: string): Promise<string | null> {
+  const trimmed = companyName.trim()
+  if (!trimmed) return null
+
+  try {
+    const result = await generateStructuredData<{ domain: string | null }>(
+      'Tu identifies le nom de domaine du site web officiel d\'une entreprise à partir de son nom, sigle ou marque commerciale (ex: "SNCF" -> "sncf.com", "EDF" -> "edf.fr"). Réponds uniquement avec un JSON {"domain": "exemple.com"} contenant un nom de domaine nu (sans https://, sans www.), ou {"domain": null} si tu n\'es pas raisonnablement certain de l\'entreprise ou de son domaine.',
+      trimmed,
+      200,
+    )
+    const domain = result?.domain
+    if (typeof domain !== 'string') return null
+
+    const cleaned = domain.trim().toLowerCase().replace(/^https?:\/\//, '').replace(/^www\./, '').replace(/\/.*$/, '')
+    if (!cleaned || !cleaned.includes('.') || /\s/.test(cleaned)) return null
+    return cleaned
+  } catch {
+    return null
+  }
 }
 
 export async function generateText(systemPrompt: string, userContent: string, maxTokens = 1200): Promise<string> {

@@ -22,7 +22,6 @@ export interface Application {
   contractType: string | null
   notes: string | null
   appliedAt: string | null
-  resumeId: string | null
   createdAt: string
   updatedAt: string
 }
@@ -60,18 +59,6 @@ export interface Experience {
   description: string | null
   skills: string[]
   subsection: string | null
-  createdAt: string
-}
-
-// ─── Resume ──────────────────────────────────────────────────────────────────
-
-export interface Resume {
-  id: string
-  userId: string
-  name: string
-  targetPosition: string | null
-  experienceIds: string[]
-  customSections: Record<string, unknown>
   createdAt: string
 }
 
@@ -124,3 +111,9 @@ export const KANBAN_COLUMNS: ApplicationStatus[] = [
   'OFFER',
   'REJECTED',
 ]
+
+// WHY: the Postgres "ApplicationStatus" enum only has 5 values (SAVED/APPLIED/INTERVIEW/OFFER/REJECTED).
+// PHONE_SCREEN, TECHNICAL_TEST, ACCEPTED and WITHDRAWN are collapsed to one of these on save
+// (see lib/applicationStatus.ts), so offering them in filters/selects is misleading — use this
+// list anywhere a user picks or filters by status.
+export const APPLICABLE_STATUSES: ApplicationStatus[] = KANBAN_COLUMNS
