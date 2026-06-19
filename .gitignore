@@ -25,3 +25,6 @@ npm-debug.log*
 
 # Claude Code local settings (may contain command history with secrets)
 .claude/settings.local.json
+
+# Git worktrees for isolated feature work
+.worktrees/
