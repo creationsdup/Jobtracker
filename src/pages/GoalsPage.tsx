@@ -4,7 +4,7 @@ import {
   CheckCircle2, AlertCircle, Lightbulb, Layers, ThumbsUp, ThumbsDown, GraduationCap,
 } from 'lucide-react'
 import { useGoals, type GoalUpdate } from '@/hooks/useGoals'
-import { calculateJobMatch, applicationToJobMatchInput } from '@/lib/jobMatching'
+import { calculateJobMatch, applicationToJobMatchInput, levelFor } from '@/lib/jobMatching'
 import { matchLevelColor } from '@/utils/statusLabels'
 import type { Application, UserGoal } from '@/lib/types'
 import type { MatchLevel, MatchResult } from '@/types/jobMatching'
@@ -266,7 +266,7 @@ function GlobalCoherenceCard({ matches }: { matches: MatchResult[] }) {
         </p>
       ) : (
         <div className="flex items-center gap-4">
-          <p className="text-3xl font-bold" style={{ color: matchLevelColor(matches[0] ? (avg >= 75 ? 'Très cohérent' : avg >= 60 ? 'Cohérent' : avg >= 45 ? 'Moyen' : avg >= 30 ? 'Peu cohérent' : 'Hors cible') : 'Moyen').fg }}>
+          <p className="text-3xl font-bold" style={{ color: matchLevelColor(levelFor(avg)).fg }}>
             {avg}%
           </p>
           <p className="text-xs" style={{ color: 'var(--color-muted)' }}>

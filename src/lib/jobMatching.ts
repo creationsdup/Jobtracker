@@ -205,7 +205,7 @@ const WEIGHTS: CategoryScores = {
   title: 0.25, contract: 0.15, location: 0.15, company: 0.15, sector: 0.10, keywords: 0.15, experience: 0.05,
 }
 
-function levelFor(score: number): MatchLevel {
+export function levelFor(score: number): MatchLevel {
   if (score >= 75) return 'Très cohérent'
   if (score >= 60) return 'Cohérent'
   if (score >= 45) return 'Moyen'
@@ -239,6 +239,9 @@ export function calculateJobMatch(job: JobMatchInput, objective: UserGoal): Matc
   const weightedSum = (Object.keys(WEIGHTS) as (keyof CategoryScores)[])
     .reduce((sum, key) => sum + categoryScores[key] * WEIGHTS[key], 0)
 
+  // WHY: excluded keywords are penalized twice on purpose — once inside scoreKeywords
+  // (dampens that one category) and again here as a flat penalty on the total, so a
+  // single bad keyword hit visibly drags down the overall score, not just one of 7 bars.
   const excludedHits = objective.keywords_excluded.filter((k) => containsPhrase(text, k)).length
   const globalPenalty = Math.min(15, excludedHits * 5)
   const totalScore = Math.max(5, Math.min(100, Math.round(weightedSum) - globalPenalty))
