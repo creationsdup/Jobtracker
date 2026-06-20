@@ -1,9 +1,11 @@
+import { useState } from 'react'
 import { Pencil, Trash2 } from 'lucide-react'
 import { StatusBadge } from './StatusBadge'
-import { GoalBadge } from './GoalBadge'
+import { MatchScoreBadge } from './MatchScoreBadge'
+import { MatchDetailsModal } from './MatchDetailsModal'
 import { CompanyLogo } from './CompanyLogo'
 import { formatDate } from '@/lib/utils'
-import { computeAppScore, computeAppScoreBreakdown } from '@/hooks/useGoals'
+import { calculateJobMatch, applicationToJobMatchInput } from '@/lib/jobMatching'
 import type { Application, UserGoal } from '@/lib/types'
 
 interface CandidateTableProps {
@@ -16,6 +18,8 @@ interface CandidateTableProps {
 }
 
 export function CandidateTable({ applications, goal, onOpenDetail, onEdit, onDelete, resolveLogo }: CandidateTableProps) {
+  const [detailsFor, setDetailsFor] = useState<ReturnType<typeof calculateJobMatch> | null>(null)
+
   return (
     <div className="card overflow-hidden">
       <table className="w-full text-left border-collapse table-fixed">
@@ -43,8 +47,7 @@ export function CandidateTable({ applications, goal, onOpenDetail, onEdit, onDel
         </thead>
         <tbody>
           {applications.map((app) => {
-            const score = computeAppScore(goal ?? null, app)
-            const scoreCriteria = computeAppScoreBreakdown(goal ?? null, app)
+            const match = goal ? calculateJobMatch(applicationToJobMatchInput(app), goal) : null
             return (
               <tr
                 key={app.id}
@@ -66,7 +69,9 @@ export function CandidateTable({ applications, goal, onOpenDetail, onEdit, onDel
                 <td className="px-3 py-3.5 text-[13px] truncate" style={{ color: 'var(--color-muted)' }}>
                   {formatDate(app.appliedAt ?? app.createdAt)}
                 </td>
-                <td className="px-3 py-3.5">{score !== null ? <GoalBadge score={score} criteria={scoreCriteria} /> : <span className="text-[12px]" style={{ color: 'var(--color-subtle)' }}>—</span>}</td>
+                <td className="px-3 py-3.5">
+                  {match ? <MatchScoreBadge result={match} onClick={() => setDetailsFor(match)} /> : <span className="text-[12px]" style={{ color: 'var(--color-subtle)' }}>—</span>}
+                </td>
                 <td className="px-2 py-3.5 text-right" onClick={(e) => e.stopPropagation()}>
                   <div className="flex items-center justify-end gap-1">
                     <button
@@ -94,6 +99,7 @@ export function CandidateTable({ applications, goal, onOpenDetail, onEdit, onDel
           })}
         </tbody>
       </table>
+      {detailsFor && <MatchDetailsModal result={detailsFor} onClose={() => setDetailsFor(null)} />}
     </div>
   )
 }
