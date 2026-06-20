@@ -24,6 +24,7 @@ export function ProfilePage({ userId, userEmail }: ProfilePageProps) {
   // Personal info
   const [firstName, setFirstName] = useState('')
   const [lastName, setLastName]   = useState('')
+  const [birthDate, setBirthDate] = useState('')
   const [infoDirty, setInfoDirty] = useState(false)
   const [infoSaving, setInfoSaving] = useState(false)
   const [infoSaved, setInfoSaved]   = useState(false)
@@ -57,15 +58,20 @@ export function ProfilePage({ userId, userEmail }: ProfilePageProps) {
     const parts = (profile.fullName ?? '').trim().split(/\s+/)
     setFirstName(parts[0] ?? '')
     setLastName(parts.slice(1).join(' '))
+    setBirthDate(profile.birthDate ?? '')
     setInfoDirty(false)
   }, [profile])
 
   async function handleSaveInfo(e: React.FormEvent) {
     e.preventDefault()
     setInfoError(null)
+    if (birthDate && new Date(birthDate) > new Date()) {
+      setInfoError(t('login.birthDateFuture'))
+      return
+    }
     setInfoSaving(true)
     const fullName = [firstName.trim(), lastName.trim()].filter(Boolean).join(' ')
-    const err = await updateProfile({ fullName })
+    const err = await updateProfile({ fullName, birthDate: birthDate || null })
     setInfoSaving(false)
     if (err) { setInfoError(err); return }
     setInfoSaved(true)
@@ -258,6 +264,17 @@ export function ProfilePage({ userId, userEmail }: ProfilePageProps) {
                   onChange={v => { setLastName(v); setInfoDirty(true) }}
                   placeholder={t('settings.lastNamePlaceholder')}
                   autoComplete="family-name"
+                />
+              </div>
+
+              <div className="mt-4">
+                <InputField
+                  label={t('settings.birthDate')}
+                  value={birthDate}
+                  onChange={v => { setBirthDate(v); setInfoDirty(true) }}
+                  type="date"
+                  max={new Date().toISOString().slice(0, 10)}
+                  autoComplete="bday"
                 />
               </div>
 
@@ -559,16 +576,17 @@ function LocaleButton({ active, onClick, disabled, children }: {
   )
 }
 
-function InputField({ label, value, onChange, placeholder, type = 'text', readonly, hint, autoComplete, required }: {
+function InputField({ label, value, onChange, placeholder, type = 'text', readonly, hint, autoComplete, required, max }: {
   label: string
   value: string
   onChange: (v: string) => void
   placeholder?: string
-  type?: 'text' | 'email' | 'url' | 'tel'
+  type?: 'text' | 'email' | 'url' | 'tel' | 'date'
   readonly?: boolean
   hint?: string
   autoComplete?: string
   required?: boolean
+  max?: string
 }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -580,6 +598,7 @@ function InputField({ label, value, onChange, placeholder, type = 'text', readon
         placeholder={placeholder}
         readOnly={readonly}
         autoComplete={autoComplete}
+        max={max}
         required={required}
         style={{
           height: 46,
