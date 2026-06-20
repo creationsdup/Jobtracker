@@ -2,7 +2,7 @@ import { useMemo, useRef, useState } from 'react'
 import {
   Target, MapPin, Briefcase, Clock, Building2, Pencil, X, Plus,
   CheckCircle2, AlertCircle, Lightbulb, Layers, ThumbsUp, ThumbsDown, GraduationCap,
-  Star, Trash2,
+  Star, Trash2, BarChart3,
 } from 'lucide-react'
 import { useGoals, type GoalUpdate } from '@/hooks/useGoals'
 import { calculateJobMatch, applicationToJobMatchInput, levelFor } from '@/lib/jobMatching'
@@ -328,28 +328,137 @@ function RecommendationsCard({ goal, matches }: { goal: UserGoal | null; matches
   )
 }
 
+// ─── Vue d'ensemble : analyse globale multi-objectifs ───────────────────────
+
+interface GoalSummary {
+  goal: UserGoal
+  matches: MatchResult[]
+  avg: number | null
+}
+
+function summarizeGoals(goals: UserGoal[], applications: Application[]): GoalSummary[] {
+  return goals.map((goal) => {
+    const matches = computeMatches(goal, applications)
+    const avg = matches.length === 0 ? null : Math.round(matches.reduce((s, m) => s + m.totalScore, 0) / matches.length)
+    return { goal, matches, avg }
+  })
+}
+
+// A non-active goal must clearly outscore the active one (not just tie within
+// noise) before we suggest switching — otherwise this would flap on small samples.
+const RECOMMENDATION_MARGIN = 5
+
+function buildSwitchRecommendation(summaries: GoalSummary[], activeGoal: UserGoal | null): string | null {
+  if (!activeGoal) return null
+  const activeSummary = summaries.find((s) => s.goal.id === activeGoal.id) ?? null
+  const activeAvg = activeSummary?.avg ?? null
+
+  const best = summaries
+    .filter((s) => s.goal.id !== activeGoal.id && s.avg !== null)
+    .sort((a, b) => (b.avg as number) - (a.avg as number))[0]
+
+  if (!best || best.avg === null) return null
+  if (activeAvg !== null && best.avg <= activeAvg + RECOMMENDATION_MARGIN) return null
+
+  return activeAvg === null
+    ? `Vos candidatures sont mieux alignées avec l'objectif « ${goalLabel(best.goal)} » (${best.avg}%) — votre objectif actif « ${goalLabel(activeGoal)} » n'a pas encore de candidatures évaluées.`
+    : `Vos candidatures sont mieux alignées avec l'objectif « ${goalLabel(best.goal)} » (${best.avg}%) que votre objectif actif « ${goalLabel(activeGoal)} » (${activeAvg}%). Envisagez de l'activer.`
+}
+
+function GoalComparisonCard({ summaries, activeGoalId }: { summaries: GoalSummary[]; activeGoalId: string | null }) {
+  return (
+    <CardShell icon={Layers} iconColor="var(--color-accent)" iconBg="var(--color-status-applied-bg)" title="Comparatif par objectif">
+      {summaries.length === 0 ? (
+        <p className="text-sm italic" style={{ color: 'var(--color-muted)' }}>Aucun objectif défini.</p>
+      ) : (
+        <div className="flex flex-col gap-2.5">
+          {summaries.map(({ goal, avg, matches }) => (
+            <div key={goal.id} className="flex items-center justify-between gap-3 p-2.5 rounded-xl" style={{ background: 'var(--color-bg)' }}>
+              <div className="flex items-center gap-1.5 min-w-0">
+                {goal.id === activeGoalId && <Star size={12} fill="var(--color-warning)" style={{ color: 'var(--color-warning)' }} />}
+                <span className="text-sm font-medium truncate" style={{ color: 'var(--color-ink)' }}>{goalLabel(goal)}</span>
+              </div>
+              <div className="flex items-center gap-3 flex-shrink-0">
+                <span className="text-xs" style={{ color: 'var(--color-muted)' }}>
+                  {matches.length} candidature{matches.length > 1 ? 's' : ''}
+                </span>
+                {avg === null ? (
+                  <span className="text-xs italic" style={{ color: 'var(--color-muted)' }}>—</span>
+                ) : (
+                  <span className="text-sm font-bold" style={{ color: matchLevelColor(levelFor(avg)).fg }}>{avg}%</span>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </CardShell>
+  )
+}
+
+function OverviewPanel({ goals, activeGoal, applications }: { goals: UserGoal[]; activeGoal: UserGoal | null; applications: Application[] }) {
+  const summaries = useMemo(() => summarizeGoals(goals, applications), [goals, applications])
+  const allMatches = useMemo(() => summaries.flatMap((s) => s.matches), [summaries])
+  const recommendation = useMemo(() => buildSwitchRecommendation(summaries, activeGoal), [summaries, activeGoal])
+
+  return (
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+      <div className="lg:col-span-2">
+        <GoalComparisonCard summaries={summaries} activeGoalId={activeGoal?.id ?? null} />
+      </div>
+      <div className="lg:col-span-2">
+        <DistributionCard matches={allMatches} />
+      </div>
+      {recommendation && (
+        <div className="lg:col-span-2">
+          <CardShell icon={Lightbulb} iconColor="var(--color-warning)" iconBg="var(--color-status-interview-bg)" title="Recommandation">
+            <div className="flex items-start gap-2.5 p-3 rounded-xl" style={{ background: 'var(--color-bg)' }}>
+              <AlertCircle size={14} className="flex-shrink-0 mt-0.5" style={{ color: 'var(--color-accent)' }} />
+              <p className="text-xs leading-relaxed" style={{ color: 'var(--color-ink)' }}>{recommendation}</p>
+            </div>
+          </CardShell>
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ─── Goal Tabs ────────────────────────────────────────────────────────────────
 
 function goalLabel(goal: UserGoal): string {
   return goal.target_title || goal.target_roles[0] || 'Objectif sans titre'
 }
 
-function GoalTabs({ goals, selectedId, activeId, onSelect, onCreateNew }: {
+function GoalTabs({ goals, mode, selectedId, activeId, onSelectOverview, onSelectGoal, onCreateNew }: {
   goals: UserGoal[]
+  mode: 'overview' | 'goal'
   selectedId: string | null
   activeId: string | null
-  onSelect: (id: string) => void
+  onSelectOverview: () => void
+  onSelectGoal: (id: string) => void
   onCreateNew: () => void
 }) {
   return (
     <div className="flex flex-wrap items-center gap-2 mb-4">
+      <button
+        type="button"
+        onClick={onSelectOverview}
+        className={cn(
+          'flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border transition-all',
+          mode === 'overview' ? 'border-sky-600 bg-sky-50 text-sky-800' : 'border-[var(--color-border)] hover:border-sky-400',
+        )}
+        style={mode === 'overview' ? {} : { color: 'var(--color-muted)' }}
+      >
+        <BarChart3 size={12} />
+        Vue d'ensemble
+      </button>
       {goals.map((g) => {
-        const selected = g.id === selectedId
+        const selected = mode === 'goal' && g.id === selectedId
         return (
           <button
             key={g.id}
             type="button"
-            onClick={() => onSelect(g.id)}
+            onClick={() => onSelectGoal(g.id)}
             className={cn(
               'flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border transition-all max-w-[220px]',
               selected ? 'border-sky-600 bg-sky-50 text-sky-800' : 'border-[var(--color-border)] hover:border-sky-400',
@@ -428,7 +537,9 @@ function EditGoalModal({ goal, isActive, saving, onSave, onActivate, onDelete, o
             <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: 'var(--color-status-applied-bg)' }}>
               <Target size={14} style={{ color: 'var(--color-accent)' }} />
             </div>
-            <span className="font-semibold text-sm" style={{ color: 'var(--color-ink)' }}>Modifier mon objectif</span>
+            <span className="font-semibold text-sm" style={{ color: 'var(--color-ink)' }}>
+              {goal ? 'Modifier mon objectif' : 'Nouveau objectif'}
+            </span>
           </div>
           <button onClick={onClose} className="w-7 h-7 rounded-lg flex items-center justify-center hover:bg-gray-100 transition-colors">
             <X size={15} style={{ color: 'var(--color-muted)' }} />
@@ -623,6 +734,7 @@ interface GoalsPageProps {
 
 export function GoalsPage({ userId, applications }: GoalsPageProps) {
   const { goals, activeGoal, loading, saving, createGoal, saveGoal, setActiveGoal, deleteGoal } = useGoals(userId)
+  const [viewMode, setViewMode] = useState<'overview' | 'goal'>('goal')
   const [selectedGoalId, setSelectedGoalId] = useState<string | null>(null)
   const [creatingNew, setCreatingNew] = useState(false)
   const [editing, setEditing] = useState(false)
@@ -708,24 +820,30 @@ export function GoalsPage({ userId, applications }: GoalsPageProps) {
         <>
           <GoalTabs
             goals={goals}
+            mode={viewMode}
             selectedId={viewedGoal?.id ?? null}
             activeId={activeGoal?.id ?? null}
-            onSelect={(id) => { setCreatingNew(false); setSelectedGoalId(id) }}
-            onCreateNew={() => { setCreatingNew(true); setEditing(true) }}
+            onSelectOverview={() => setViewMode('overview')}
+            onSelectGoal={(id) => { setViewMode('goal'); setCreatingNew(false); setSelectedGoalId(id) }}
+            onCreateNew={() => { setViewMode('goal'); setCreatingNew(true); setEditing(true) }}
           />
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-            <div className="lg:col-span-2">
-              <MainObjectiveCard goal={viewedGoal} onEdit={() => setEditing(true)} />
+          {viewMode === 'overview' ? (
+            <OverviewPanel goals={goals} activeGoal={activeGoal} applications={applications} />
+          ) : (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+              <div className="lg:col-span-2">
+                <MainObjectiveCard goal={viewedGoal} onEdit={() => setEditing(true)} />
+              </div>
+              <SearchCriteriaCard goal={viewedGoal} />
+              <div className="flex flex-col gap-5">
+                <GlobalCoherenceCard matches={matches} />
+                <DistributionCard matches={matches} />
+              </div>
+              <div className="lg:col-span-2">
+                <RecommendationsCard goal={viewedGoal} matches={matches} />
+              </div>
             </div>
-            <SearchCriteriaCard goal={viewedGoal} />
-            <div className="flex flex-col gap-5">
-              <GlobalCoherenceCard matches={matches} />
-              <DistributionCard matches={matches} />
-            </div>
-            <div className="lg:col-span-2">
-              <RecommendationsCard goal={viewedGoal} matches={matches} />
-            </div>
-          </div>
+          )}
         </>
       )}
 
