@@ -1,12 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
-import { X, MapPin, FileText, Link as LinkIcon, Plus, Mail, Pencil, Trash2, Send, Target } from 'lucide-react'
+import { X, MapPin, FileText, Link as LinkIcon, Plus, Mail, Pencil, Trash2, Send, Target, ChevronDown } from 'lucide-react'
 import { StatusBadge } from './StatusBadge'
 import { CompanyLogo } from './CompanyLogo'
 import { formatDate } from '@/lib/utils'
 import type { Application, TimelineStep, StepStatus, ApplicationStatus, UserGoal } from '@/lib/types'
 import { CoverLetterGenerator } from './CoverLetterGenerator'
 import { MatchScoreBadge } from './MatchScoreBadge'
-import { MatchDetailsModal } from './MatchDetailsModal'
+import { MatchDetailsContent } from './MatchDetailsContent'
 import { useProfile } from '@/hooks/useProfile'
 import { useExperiences } from '@/hooks/useExperiences'
 import { calculateJobMatch, applicationToJobMatchInput } from '@/lib/jobMatching'
@@ -60,7 +60,7 @@ export function ApplicationDetail({
   goal,
 }: ApplicationDetailProps) {
   const match = goal ? calculateJobMatch(applicationToJobMatchInput(application), goal) : null
-  const [showMatchDetails, setShowMatchDetails] = useState(false)
+  const [matchExpanded, setMatchExpanded] = useState(false)
   const [addingStep, setAddingStep] = useState(false)
   const [editingStepId, setEditingStepId] = useState<string | null>(null)
   const [savingStepId, setSavingStepId] = useState<string | null>(null)
@@ -312,12 +312,32 @@ export function ApplicationDetail({
           </div>
 
           {match && (
-            <div className="flex items-center justify-between rounded-[var(--radius-sm)] bg-[var(--color-bg)] p-3">
-              <h4 className="text-sm font-semibold flex items-center gap-1.5">
-                <Target size={13} />
-                Correspondance avec votre objectif
-              </h4>
-              <MatchScoreBadge result={match} onClick={() => setShowMatchDetails(true)} />
+            <div className="rounded-[var(--radius-sm)] bg-[var(--color-bg)] p-3">
+              <div
+                role="button"
+                tabIndex={0}
+                className="w-full flex items-center justify-between cursor-pointer"
+                onClick={() => setMatchExpanded((v) => !v)}
+                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setMatchExpanded((v) => !v) } }}
+                aria-expanded={matchExpanded}
+              >
+                <h4 className="text-sm font-semibold flex items-center gap-1.5">
+                  <Target size={13} />
+                  Correspondance avec votre objectif
+                </h4>
+                <div className="flex items-center gap-1.5">
+                  <MatchScoreBadge result={match} onClick={() => setMatchExpanded((v) => !v)} />
+                  <ChevronDown
+                    size={14}
+                    style={{ color: 'var(--color-muted)', transform: matchExpanded ? 'rotate(180deg)' : undefined, transition: 'transform 150ms' }}
+                  />
+                </div>
+              </div>
+              {matchExpanded && (
+                <div className="mt-3 pt-3 border-t" style={{ borderColor: 'var(--color-border)' }}>
+                  <MatchDetailsContent result={match} showHeader={false} />
+                </div>
+              )}
             </div>
           )}
 
@@ -539,10 +559,6 @@ export function ApplicationDetail({
           experiences={experiences}
           onClose={() => setCoverLetterOpen(false)}
         />
-      )}
-
-      {showMatchDetails && match && (
-        <MatchDetailsModal result={match} onClose={() => setShowMatchDetails(false)} />
       )}
     </div>
   )
