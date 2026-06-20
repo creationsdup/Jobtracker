@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { getInitial } from '@/lib/utils'
 import { extractDomain } from '@/lib/url'
+import { faviconProviders, resolveFaviconUrl, type FaviconProbe } from '@/lib/favicon'
 
 interface CompanyLogoProps {
   company: string
@@ -11,11 +12,14 @@ interface CompanyLogoProps {
   fallbackFg?: string
 }
 
-function faviconProviders(domain: string): string[] {
-  return [
-    `https://icon.horse/icon/${domain}`,
-    `https://www.google.com/s2/favicons?domain=${domain}&sz=128`,
-  ]
+// Vérifie la taille réelle de la réponse avant de l'accepter — icon.horse renvoie un
+// HTTP 200 avec une image valide même quand il n'a pas le vrai favicon (un avatar-lettre
+// généré, ~1Ko), donc onError seul ne suffit pas à le détecter.
+const probeFavicon: FaviconProbe = async (url) => {
+  const res = await fetch(url)
+  if (!res.ok) return { ok: false, size: 0 }
+  const blob = await res.blob()
+  return { ok: true, size: blob.size }
 }
 
 // Affiche le favicon du site web réel de l'entreprise (saisi par l'utilisateur, stocké dans
@@ -30,12 +34,22 @@ export function CompanyLogo({
   fallbackFg = 'var(--color-deep-space)',
 }: CompanyLogoProps) {
   const domain = logoUrl ? extractDomain(logoUrl) : null
-  const providers = domain ? faviconProviders(domain) : []
-  const [providerIndex, setProviderIndex] = useState(0)
+  const [resolvedUrl, setResolvedUrl] = useState<string | null>(null)
+  const [imgFailed, setImgFailed] = useState(false)
 
-  useEffect(() => { setProviderIndex(0) }, [domain])
+  useEffect(() => {
+    setResolvedUrl(null)
+    setImgFailed(false)
+    if (!domain) return
 
-  if (!domain || providerIndex >= providers.length) {
+    let cancelled = false
+    resolveFaviconUrl(faviconProviders(domain), probeFavicon).then((url) => {
+      if (!cancelled) setResolvedUrl(url)
+    })
+    return () => { cancelled = true }
+  }, [domain])
+
+  if (!resolvedUrl || imgFailed) {
     return (
       <div
         className={`flex items-center justify-center font-bold rounded-[10px] flex-shrink-0 ${className ?? ''}`}
@@ -54,14 +68,14 @@ export function CompanyLogo({
 
   return (
     <img
-      key={`${domain}-${providerIndex}`}
-      src={providers[providerIndex]}
+      key={resolvedUrl}
+      src={resolvedUrl}
       alt=""
       width={size}
       height={size}
       className={`rounded-[10px] object-contain bg-white flex-shrink-0 ${className ?? ''}`}
       style={{ width: size, height: size }}
-      onError={() => setProviderIndex((i) => i + 1)}
+      onError={() => setImgFailed(true)}
     />
   )
 }
