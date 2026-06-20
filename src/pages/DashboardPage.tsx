@@ -177,7 +177,7 @@ export function DashboardPage({ userId, userEmail, applications, loading, onOpen
   const { profile } = useProfile(userId, userEmail)
   const { t, locale } = useTranslation()
   const pipelineStats = useDashboardStats(applications)
-  const { goal } = useGoals(userId)
+  const { activeGoal: goal } = useGoals(userId)
 
   const dateLocale = locale === 'en' ? 'en-US' : 'fr-FR'
   const [today, setToday] = useState(() =>

@@ -2,6 +2,7 @@ import { useMemo, useRef, useState } from 'react'
 import {
   Target, MapPin, Briefcase, Clock, Building2, Pencil, X, Plus,
   CheckCircle2, AlertCircle, Lightbulb, Layers, ThumbsUp, ThumbsDown, GraduationCap,
+  Star, Trash2,
 } from 'lucide-react'
 import { useGoals, type GoalUpdate } from '@/hooks/useGoals'
 import { calculateJobMatch, applicationToJobMatchInput, levelFor } from '@/lib/jobMatching'
@@ -327,16 +328,65 @@ function RecommendationsCard({ goal, matches }: { goal: UserGoal | null; matches
   )
 }
 
+// ─── Goal Tabs ────────────────────────────────────────────────────────────────
+
+function goalLabel(goal: UserGoal): string {
+  return goal.target_title || goal.target_roles[0] || 'Objectif sans titre'
+}
+
+function GoalTabs({ goals, selectedId, activeId, onSelect, onCreateNew }: {
+  goals: UserGoal[]
+  selectedId: string | null
+  activeId: string | null
+  onSelect: (id: string) => void
+  onCreateNew: () => void
+}) {
+  return (
+    <div className="flex flex-wrap items-center gap-2 mb-4">
+      {goals.map((g) => {
+        const selected = g.id === selectedId
+        return (
+          <button
+            key={g.id}
+            type="button"
+            onClick={() => onSelect(g.id)}
+            className={cn(
+              'flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border transition-all max-w-[220px]',
+              selected ? 'border-sky-600 bg-sky-50 text-sky-800' : 'border-[var(--color-border)] hover:border-sky-400',
+            )}
+            style={selected ? {} : { color: 'var(--color-muted)' }}
+          >
+            {g.id === activeId && <Star size={11} fill="var(--color-warning)" style={{ color: 'var(--color-warning)' }} />}
+            <span className="truncate">{goalLabel(g)}</span>
+          </button>
+        )
+      })}
+      <button
+        type="button"
+        onClick={onCreateNew}
+        className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border border-dashed transition-all hover:border-sky-400"
+        style={{ color: 'var(--color-muted)', borderColor: 'var(--color-border)' }}
+      >
+        <Plus size={12} />
+        Nouvel objectif
+      </button>
+    </div>
+  )
+}
+
 // ─── Edit Modal ───────────────────────────────────────────────────────────────
 
 interface EditGoalModalProps {
   goal: UserGoal | null
+  isActive: boolean
   saving: boolean
   onSave: (u: GoalUpdate) => void
+  onActivate: () => void
+  onDelete: () => void
   onClose: () => void
 }
 
-function EditGoalModal({ goal, saving, onSave, onClose }: EditGoalModalProps) {
+function EditGoalModal({ goal, isActive, saving, onSave, onActivate, onDelete, onClose }: EditGoalModalProps) {
   const [targetTitle, setTargetTitle] = useState(goal?.target_title ?? '')
   const [roles, setRoles] = useState<string[]>(goal?.target_roles ?? [])
   const [contracts, setContracts] = useState<string[]>(goal?.contract_types ?? [])
@@ -511,11 +561,31 @@ function EditGoalModal({ goal, saving, onSave, onClose }: EditGoalModalProps) {
           </div>
         </div>
 
-        <div className="px-6 py-4 border-t flex justify-end gap-3" style={{ borderColor: 'var(--color-border)' }}>
-          <button onClick={onClose} className="btn btn-secondary text-sm">Annuler</button>
-          <button onClick={handleSave} disabled={saving} className="btn btn-primary text-sm">
-            {saving ? 'Enregistrement…' : 'Enregistrer'}
-          </button>
+        <div className="px-6 py-4 border-t flex items-center justify-between gap-3" style={{ borderColor: 'var(--color-border)' }}>
+          <div>
+            {goal && (
+              <button
+                onClick={onDelete}
+                disabled={saving}
+                className="flex items-center gap-1.5 text-xs font-semibold text-[var(--color-danger)] hover:text-[var(--color-danger-dark)] transition-colors"
+              >
+                <Trash2 size={13} />
+                Supprimer cet objectif
+              </button>
+            )}
+          </div>
+          <div className="flex items-center gap-3">
+            {goal && !isActive && (
+              <button onClick={onActivate} disabled={saving} className="btn btn-secondary text-sm flex items-center gap-1.5">
+                <Star size={13} />
+                Définir comme actif
+              </button>
+            )}
+            <button onClick={onClose} className="btn btn-secondary text-sm">Annuler</button>
+            <button onClick={handleSave} disabled={saving} className="btn btn-primary text-sm">
+              {saving ? 'Enregistrement…' : 'Enregistrer'}
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -552,21 +622,49 @@ interface GoalsPageProps {
 }
 
 export function GoalsPage({ userId, applications }: GoalsPageProps) {
-  const { goal, loading, saving, saveGoal } = useGoals(userId)
+  const { goals, activeGoal, loading, saving, createGoal, saveGoal, setActiveGoal, deleteGoal } = useGoals(userId)
+  const [selectedGoalId, setSelectedGoalId] = useState<string | null>(null)
   const [editing, setEditing] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [saved, setSaved] = useState(false)
 
-  const matches = useMemo(() => computeMatches(goal, applications), [goal, applications])
-  const hasGoal = !!(goal?.target_title || goal?.target_roles.length || goal?.contract_types.length || goal?.locations.length)
+  // The goal whose 5 cards are currently shown — defaults to the active
+  // (scoring) goal, but the user can browse other goals without activating them.
+  const viewedGoal = goals.find((g) => g.id === selectedGoalId) ?? activeGoal ?? null
+
+  const matches = useMemo(() => computeMatches(viewedGoal, applications), [viewedGoal, applications])
 
   async function handleSave(updates: GoalUpdate) {
     setError(null)
-    const err = await saveGoal(updates)
-    if (err) { setError(err); return }
+    if (viewedGoal) {
+      const err = await saveGoal(viewedGoal.id, updates)
+      if (err) { setError(err); return }
+    } else {
+      const { id, error: createError } = await createGoal(updates)
+      if (createError) { setError(createError); return }
+      if (id) setSelectedGoalId(id)
+    }
     setEditing(false)
     setSaved(true)
     setTimeout(() => setSaved(false), 2500)
+  }
+
+  async function handleActivate() {
+    if (!viewedGoal) return
+    setError(null)
+    const err = await setActiveGoal(viewedGoal.id)
+    if (err) setError(err)
+  }
+
+  async function handleDelete() {
+    if (!viewedGoal) return
+    if (!window.confirm(`Supprimer l'objectif « ${goalLabel(viewedGoal)} » ? Cette action est irréversible.`)) return
+    setError(null)
+    const deletedId = viewedGoal.id
+    const err = await deleteGoal(deletedId)
+    if (err) { setError(err); return }
+    if (selectedGoalId === deletedId) setSelectedGoalId(null)
+    setEditing(false)
   }
 
   if (loading) {
@@ -599,26 +697,43 @@ export function GoalsPage({ userId, applications }: GoalsPageProps) {
         </div>
       )}
 
-      {!hasGoal && !editing ? (
+      {goals.length === 0 && !editing ? (
         <EmptyState onEdit={() => setEditing(true)} />
       ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-          <div className="lg:col-span-2">
-            <MainObjectiveCard goal={goal} onEdit={() => setEditing(true)} />
+        <>
+          <GoalTabs
+            goals={goals}
+            selectedId={viewedGoal?.id ?? null}
+            activeId={activeGoal?.id ?? null}
+            onSelect={setSelectedGoalId}
+            onCreateNew={() => { setSelectedGoalId(null); setEditing(true) }}
+          />
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+            <div className="lg:col-span-2">
+              <MainObjectiveCard goal={viewedGoal} onEdit={() => setEditing(true)} />
+            </div>
+            <SearchCriteriaCard goal={viewedGoal} />
+            <div className="flex flex-col gap-5">
+              <GlobalCoherenceCard matches={matches} />
+              <DistributionCard matches={matches} />
+            </div>
+            <div className="lg:col-span-2">
+              <RecommendationsCard goal={viewedGoal} matches={matches} />
+            </div>
           </div>
-          <SearchCriteriaCard goal={goal} />
-          <div className="flex flex-col gap-5">
-            <GlobalCoherenceCard matches={matches} />
-            <DistributionCard matches={matches} />
-          </div>
-          <div className="lg:col-span-2">
-            <RecommendationsCard goal={goal} matches={matches} />
-          </div>
-        </div>
+        </>
       )}
 
       {editing && (
-        <EditGoalModal goal={goal} saving={saving} onSave={handleSave} onClose={() => setEditing(false)} />
+        <EditGoalModal
+          goal={viewedGoal}
+          isActive={!!viewedGoal && viewedGoal.id === activeGoal?.id}
+          saving={saving}
+          onSave={handleSave}
+          onActivate={handleActivate}
+          onDelete={handleDelete}
+          onClose={() => setEditing(false)}
+        />
       )}
     </>
   )

@@ -79,6 +79,7 @@ export interface UserGoal {
   scoring_priorities: string | null
   target_date: string | null
   personal_target: number | null
+  is_active: boolean
   created_at: string
   updated_at: string
 }

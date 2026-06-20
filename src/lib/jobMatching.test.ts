@@ -81,6 +81,7 @@ const objective: UserGoal = {
   scoring_priorities: null,
   target_date: '2027-06-01',
   personal_target: 10,
+  is_active: true,
   created_at: '', updated_at: '',
 }
 

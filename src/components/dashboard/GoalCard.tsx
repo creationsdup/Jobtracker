@@ -45,7 +45,7 @@ interface GoalCardProps {
 }
 
 export function GoalCard({ userId, applications }: GoalCardProps) {
-  const { goal, loading, saving, saveGoal } = useGoals(userId)
+  const { activeGoal: goal, loading, saving, saveGoal } = useGoals(userId)
   const [target, setTarget] = useState(GOAL_TARGET)
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(String(target))
@@ -93,7 +93,7 @@ export function GoalCard({ userId, applications }: GoalCardProps) {
                 const v = parseInt(draft, 10)
                 if (v > 0) {
                   setTarget(v)
-                  void saveGoal({ personal_target: v })
+                  if (goal) void saveGoal(goal.id, { personal_target: v })
                 }
                 setEditing(false)
               }}
