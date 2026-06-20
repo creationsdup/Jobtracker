@@ -20,6 +20,7 @@ export interface Profile {
   language: 'fr' | 'en'
   remindersEnabled: boolean
   reminderThresholdDays: number
+  birthDate: string | null
 }
 
 export type ProfileUpdate = Partial<Omit<Profile, 'id' | 'email' | 'createdAt'>>
@@ -36,6 +37,7 @@ function buildDefaultProfile(userId: string, fallbackEmail?: string | null): Pro
   return {
     id: userId,
     fullName: '',
+    birthDate: null,
     email: fallbackEmail ?? '',
     phone: null,
     location: null,
@@ -54,14 +56,23 @@ function buildDefaultProfile(userId: string, fallbackEmail?: string | null): Pro
   }
 }
 
-async function ensureRemoteProfile(userId: string, fallbackEmail?: string | null) {
+interface SignupMetadata {
+  firstName?: string
+  lastName?: string
+  birthDate?: string | null
+}
+
+async function ensureRemoteProfile(userId: string, fallbackEmail?: string | null, metadata?: SignupMetadata) {
   const base = buildDefaultProfile(userId, fallbackEmail)
+  const fullName = [metadata?.firstName?.trim(), metadata?.lastName?.trim()].filter(Boolean).join(' ')
+
   const { data, error } = await supabase
     .from('Profile')
     .upsert({
       id: base.id,
       email: base.email,
-      fullName: base.fullName,
+      fullName: fullName || base.fullName,
+      birthDate: metadata?.birthDate ?? base.birthDate,
       phone: base.phone,
       location: base.location,
       title: base.title,
@@ -151,7 +162,14 @@ export function useProfile(userId: string | null, fallbackEmail?: string | null)
       return
     }
 
-    const ensured = await ensureRemoteProfile(userId, fallbackEmail)
+    const { data: sessionData } = await supabase.auth.getSession()
+    const rawMetadata = sessionData.session?.user.user_metadata ?? {}
+    const metadata: SignupMetadata = {
+      firstName: typeof rawMetadata.firstName === 'string' ? rawMetadata.firstName : undefined,
+      lastName: typeof rawMetadata.lastName === 'string' ? rawMetadata.lastName : undefined,
+      birthDate: typeof rawMetadata.birthDate === 'string' ? rawMetadata.birthDate : null,
+    }
+    const ensured = await ensureRemoteProfile(userId, fallbackEmail, metadata)
     if (ensured.error?.code === MISSING_PROFILE_TABLE) {
       setUseLocalFallback(true)
       setProfile(readFallbackProfile(userId, fallbackEmail))
@@ -234,14 +252,14 @@ export function useProfile(userId: string | null, fallbackEmail?: string | null)
     return updateProfile({ avatarUrl: data.publicUrl })
   }, [updateProfile, useLocalFallback, userId])
 
-  const updatePassword = useCallback(async (password: string): Promise<string | null> => {
+  const updatePassword = useCallback(async (password: string) => {
     const { error } = await supabase.auth.updateUser({ password })
-    return error?.message ?? null
+    return error
   }, [])
 
-  const updateEmail = useCallback(async (email: string): Promise<string | null> => {
+  const updateEmail = useCallback(async (email: string) => {
     const { error } = await supabase.auth.updateUser({ email })
-    return error?.message ?? null
+    return error
   }, [])
 
   const signOut = useCallback(async (): Promise<string | null> => {
