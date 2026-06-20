@@ -293,13 +293,14 @@ function DistributionCard({ matches }: { matches: MatchResult[] }) {
         <div className="flex flex-col gap-2.5">
           {counts.map(({ level, count }) => {
             const { fg } = matchLevelColor(level)
+            const pct = Math.round((count / matches.length) * 100)
             return (
               <div key={level} className="flex items-center gap-2.5">
                 <span className="text-xs font-medium w-28 flex-shrink-0" style={{ color: 'var(--color-muted)' }}>{level}</span>
                 <div className="flex-1 h-2 rounded-full overflow-hidden" style={{ background: 'var(--color-border)' }}>
                   <div className="h-full rounded-full" style={{ width: `${(count / max) * 100}%`, background: fg }} />
                 </div>
-                <span className="text-xs font-bold w-6 text-right" style={{ color: 'var(--color-ink)' }}>{count}</span>
+                <span className="text-xs font-bold w-20 text-right" style={{ color: 'var(--color-ink)' }}>{count} ({pct}%)</span>
               </div>
             )
           })}
@@ -342,6 +343,25 @@ function summarizeGoals(goals: UserGoal[], applications: Application[]): GoalSum
     const avg = matches.length === 0 ? null : Math.round(matches.reduce((s, m) => s + m.totalScore, 0) / matches.length)
     return { goal, matches, avg }
   })
+}
+
+// computeMatches filters the same `applications` array identically for every
+// goal, so summaries[*].matches are index-aligned to the same candidature —
+// zipping across goals and keeping the best score counts each candidature
+// once instead of once per goal.
+function bestMatchPerApplication(summaries: GoalSummary[]): MatchResult[] {
+  if (summaries.length === 0) return []
+  const count = summaries[0].matches.length
+  const result: MatchResult[] = []
+  for (let i = 0; i < count; i++) {
+    let best = summaries[0].matches[i]
+    for (let g = 1; g < summaries.length; g++) {
+      const candidate = summaries[g].matches[i]
+      if (candidate.totalScore > best.totalScore) best = candidate
+    }
+    result.push(best)
+  }
+  return result
 }
 
 // A non-active goal must clearly outscore the active one (not just tie within
@@ -398,7 +418,7 @@ function GoalComparisonCard({ summaries, activeGoalId }: { summaries: GoalSummar
 
 function OverviewPanel({ goals, activeGoal, applications }: { goals: UserGoal[]; activeGoal: UserGoal | null; applications: Application[] }) {
   const summaries = useMemo(() => summarizeGoals(goals, applications), [goals, applications])
-  const allMatches = useMemo(() => summaries.flatMap((s) => s.matches), [summaries])
+  const allMatches = useMemo(() => bestMatchPerApplication(summaries), [summaries])
   const recommendation = useMemo(() => buildSwitchRecommendation(summaries, activeGoal), [summaries, activeGoal])
 
   return (
