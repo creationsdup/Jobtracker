@@ -25,3 +25,23 @@ export const STATUS_COLORS: Record<StatusKey, StatusColor> = {
   refused:   { bg: '#FEE2E2', text: '#991B1B', accent: '#DC2626' },
   rejected:  { bg: '#FEE2E2', text: '#991B1B', accent: '#DC2626' },
 }
+
+// ─── Match Level Colors ──────────────────────────────────────────────────────
+
+import type { MatchLevel } from '@/types/jobMatching'
+
+export interface MatchLevelColor {
+  fg: string
+  bg: string
+}
+
+// Single source for the 5-tier match-level color ramp, used by MatchScoreBadge and MatchDetailsModal.
+export function matchLevelColor(level: MatchLevel): MatchLevelColor {
+  switch (level) {
+    case 'Très cohérent':  return { fg: '#059669', bg: '#d1fae5' }
+    case 'Cohérent':       return { fg: '#0284c7', bg: '#e0f2fe' }
+    case 'Moyen':          return { fg: '#d97706', bg: '#fef3c7' }
+    case 'Peu cohérent':   return { fg: '#ea580c', bg: '#ffedd5' }
+    case 'Hors cible':     return { fg: '#dc2626', bg: '#fee2e2' }
+  }
+}
