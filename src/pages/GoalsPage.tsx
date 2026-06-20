@@ -624,13 +624,17 @@ interface GoalsPageProps {
 export function GoalsPage({ userId, applications }: GoalsPageProps) {
   const { goals, activeGoal, loading, saving, createGoal, saveGoal, setActiveGoal, deleteGoal } = useGoals(userId)
   const [selectedGoalId, setSelectedGoalId] = useState<string | null>(null)
+  const [creatingNew, setCreatingNew] = useState(false)
   const [editing, setEditing] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [saved, setSaved] = useState(false)
 
   // The goal whose 5 cards are currently shown — defaults to the active
   // (scoring) goal, but the user can browse other goals without activating them.
-  const viewedGoal = goals.find((g) => g.id === selectedGoalId) ?? activeGoal ?? null
+  // `creatingNew` must short-circuit this: selectedGoalId is null both before
+  // any goal has loaded AND while deliberately creating a fresh one, and only
+  // the latter should render as "no goal" instead of falling back to active.
+  const viewedGoal = creatingNew ? null : (goals.find((g) => g.id === selectedGoalId) ?? activeGoal ?? null)
 
   const matches = useMemo(() => computeMatches(viewedGoal, applications), [viewedGoal, applications])
 
@@ -642,6 +646,7 @@ export function GoalsPage({ userId, applications }: GoalsPageProps) {
     } else {
       const { id, error: createError } = await createGoal(updates)
       if (createError) { setError(createError); return }
+      setCreatingNew(false)
       if (id) setSelectedGoalId(id)
     }
     setEditing(false)
@@ -705,8 +710,8 @@ export function GoalsPage({ userId, applications }: GoalsPageProps) {
             goals={goals}
             selectedId={viewedGoal?.id ?? null}
             activeId={activeGoal?.id ?? null}
-            onSelect={setSelectedGoalId}
-            onCreateNew={() => { setSelectedGoalId(null); setEditing(true) }}
+            onSelect={(id) => { setCreatingNew(false); setSelectedGoalId(id) }}
+            onCreateNew={() => { setCreatingNew(true); setEditing(true) }}
           />
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
             <div className="lg:col-span-2">
@@ -732,7 +737,7 @@ export function GoalsPage({ userId, applications }: GoalsPageProps) {
           onSave={handleSave}
           onActivate={handleActivate}
           onDelete={handleDelete}
-          onClose={() => setEditing(false)}
+          onClose={() => { setEditing(false); setCreatingNew(false) }}
         />
       )}
     </>
