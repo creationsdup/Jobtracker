@@ -5,9 +5,11 @@ import { CompanyLogo } from './CompanyLogo'
 import { formatDate } from '@/lib/utils'
 import type { Application, TimelineStep, StepStatus, ApplicationStatus, UserGoal } from '@/lib/types'
 import { CoverLetterGenerator } from './CoverLetterGenerator'
+import { MatchScoreBadge } from './MatchScoreBadge'
+import { MatchDetailsModal } from './MatchDetailsModal'
 import { useProfile } from '@/hooks/useProfile'
 import { useExperiences } from '@/hooks/useExperiences'
-import { computeAppScore, computeAppScoreBreakdown } from '@/hooks/useGoals'
+import { calculateJobMatch, applicationToJobMatchInput } from '@/lib/jobMatching'
 import { deriveApplicationStatusFromSteps, TIMELINE_PRESETS } from '@/lib/timelineStatus'
 
 interface ApplicationDetailProps {
@@ -57,8 +59,8 @@ export function ApplicationDetail({
   resolveLogo,
   goal,
 }: ApplicationDetailProps) {
-  const score = computeAppScore(goal ?? null, application)
-  const scoreCriteria = computeAppScoreBreakdown(goal ?? null, application)
+  const match = goal ? calculateJobMatch(applicationToJobMatchInput(application), goal) : null
+  const [showMatchDetails, setShowMatchDetails] = useState(false)
   const [addingStep, setAddingStep] = useState(false)
   const [editingStepId, setEditingStepId] = useState<string | null>(null)
   const [savingStepId, setSavingStepId] = useState<string | null>(null)
@@ -309,28 +311,13 @@ export function ApplicationDetail({
             )}
           </div>
 
-          {score !== null && (
-            <div className="flex flex-col gap-2 rounded-[var(--radius-sm)] bg-[var(--color-bg)] p-3">
-              <div className="flex items-center justify-between">
-                <h4 className="text-sm font-semibold flex items-center gap-1.5">
-                  <Target size={13} />
-                  Correspondance avec votre objectif
-                </h4>
-                <span
-                  className="text-sm font-bold"
-                  style={{ color: score >= 75 ? '#059669' : score >= 40 ? '#d97706' : '#dc2626' }}
-                >
-                  {score}%
-                </span>
-              </div>
-              <ul className="flex flex-col gap-1">
-                {scoreCriteria.map((c) => (
-                  <li key={c.label} className="flex items-center gap-2 text-xs" style={{ color: c.matched ? 'var(--color-ink)' : 'var(--color-muted)' }}>
-                    <span style={{ color: c.matched ? '#059669' : '#dc2626' }}>{c.matched ? '✓' : '✗'}</span>
-                    {c.label}
-                  </li>
-                ))}
-              </ul>
+          {match && (
+            <div className="flex items-center justify-between rounded-[var(--radius-sm)] bg-[var(--color-bg)] p-3">
+              <h4 className="text-sm font-semibold flex items-center gap-1.5">
+                <Target size={13} />
+                Correspondance avec votre objectif
+              </h4>
+              <MatchScoreBadge result={match} onClick={() => setShowMatchDetails(true)} />
             </div>
           )}
 
@@ -552,6 +539,10 @@ export function ApplicationDetail({
           experiences={experiences}
           onClose={() => setCoverLetterOpen(false)}
         />
+      )}
+
+      {showMatchDetails && match && (
+        <MatchDetailsModal result={match} onClose={() => setShowMatchDetails(false)} />
       )}
     </div>
   )
