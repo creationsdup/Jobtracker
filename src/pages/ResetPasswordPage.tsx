@@ -1,14 +1,15 @@
 import { useState } from 'react'
 import { JobTrackerLogo } from '../components/ui/JobTrackerLogo'
 import { useTranslation } from '@/lib/i18n/I18nContext'
+import { getAuthErrorMessage } from '@/lib/authErrors'
 import styles from './LoginPage.module.css'
 
 interface ResetPasswordPageProps {
-  onSubmit: (password: string) => Promise<unknown>
+  onSubmit: (password: string) => Promise<{ message: string; code?: string } | null>
 }
 
 export function ResetPasswordPage({ onSubmit }: ResetPasswordPageProps) {
-  const { t } = useTranslation()
+  const { t, locale } = useTranslation()
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
@@ -24,7 +25,7 @@ export function ResetPasswordPage({ onSubmit }: ResetPasswordPageProps) {
     setLoading(true)
     const err = await onSubmit(password)
     setLoading(false)
-    if (err) { setError((err as { message: string }).message); return }
+    if (err) { setError(getAuthErrorMessage(err, locale)); return }
     setDone(true)
   }
 

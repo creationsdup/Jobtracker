@@ -2,17 +2,18 @@ import { useState } from 'react'
 import { RotatingText } from '../components/auth/RotatingText'
 import { JobTrackerLogo } from '../components/ui/JobTrackerLogo'
 import { useTranslation } from '@/lib/i18n/I18nContext'
+import { getAuthErrorMessage } from '@/lib/authErrors'
 import styles from './LoginPage.module.css'
 
 interface LoginPageProps {
-  onSignIn: (email: string, password: string) => Promise<unknown>
-  onSignUp: (email: string, password: string) => Promise<unknown>
+  onSignIn: (email: string, password: string) => Promise<{ message: string; code?: string } | null>
+  onSignUp: (email: string, password: string) => Promise<{ error: { message: string; code?: string } | null; needsConfirmation: boolean }>
   onSignInWithGoogle: () => Promise<unknown>
   onForgotPassword: (email: string) => Promise<unknown>
 }
 
 export function LoginPage({ onSignIn, onSignUp, onSignInWithGoogle, onForgotPassword }: LoginPageProps) {
-  const { t } = useTranslation()
+  const { t, locale } = useTranslation()
   const [mode, setMode] = useState<'login' | 'signup' | 'forgot'>('login')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -20,11 +21,12 @@ export function LoginPage({ onSignIn, onSignUp, onSignInWithGoogle, onForgotPass
   const [loading, setLoading] = useState(false)
   const [googleLoading, setGoogleLoading] = useState(false)
   const [resetSent, setResetSent] = useState(false)
+  const [confirmationSent, setConfirmationSent] = useState(false)
 
   async function handleGoogle() {
     setGoogleLoading(true)
     const err = await onSignInWithGoogle()
-    if (err) setError((err as { message: string }).message)
+    if (err) setError(getAuthErrorMessage(err as { message: string }, locale))
     setGoogleLoading(false)
   }
 
@@ -32,6 +34,7 @@ export function LoginPage({ onSignIn, onSignUp, onSignInWithGoogle, onForgotPass
     setMode(next)
     setError(null)
     setResetSent(false)
+    setConfirmationSent(false)
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -42,15 +45,21 @@ export function LoginPage({ onSignIn, onSignUp, onSignInWithGoogle, onForgotPass
     if (mode === 'forgot') {
       const err = await onForgotPassword(email)
       setLoading(false)
-      if (err) { setError((err as { message: string }).message); return }
+      if (err) { setError(getAuthErrorMessage(err as { message: string }, locale)); return }
       setResetSent(true)
       return
     }
 
-    const err = mode === 'login'
-      ? await onSignIn(email, password)
-      : await onSignUp(email, password)
-    if (err) setError((err as { message: string }).message)
+    if (mode === 'signup') {
+      const { error: err, needsConfirmation } = await onSignUp(email, password)
+      setLoading(false)
+      if (err) { setError(getAuthErrorMessage(err, locale)); return }
+      if (needsConfirmation) setConfirmationSent(true)
+      return
+    }
+
+    const err = await onSignIn(email, password)
+    if (err) setError(getAuthErrorMessage(err, locale))
     setLoading(false)
   }
 
@@ -133,6 +142,10 @@ export function LoginPage({ onSignIn, onSignUp, onSignInWithGoogle, onForgotPass
           {mode === 'forgot' && resetSent ? (
             <div className={styles.successBox}>
               {t('login.resetSent')} <strong>{email}</strong>. {t('login.resetSentHint')}
+            </div>
+          ) : mode === 'signup' && confirmationSent ? (
+            <div className={styles.successBox}>
+              {t('login.confirmationSent')} <strong>{email}</strong>. {t('login.confirmationSentHint')}
             </div>
           ) : (
             <form onSubmit={handleSubmit} className={styles.form}>

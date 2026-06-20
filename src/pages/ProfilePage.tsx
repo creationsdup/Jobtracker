@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { Eye, EyeOff, Loader2, CheckCircle2, AlertCircle, Trash2, Camera } from 'lucide-react'
 import { useProfile } from '@/hooks/useProfile'
 import { useTranslation } from '@/lib/i18n/I18nContext'
+import { getAuthErrorMessage } from '@/lib/authErrors'
 import type { Locale } from '@/lib/i18n/translations'
 
 interface ProfilePageProps {
@@ -80,7 +81,7 @@ export function ProfilePage({ userId, userEmail }: ProfilePageProps) {
     setPwdSaving(true)
     const error = await updatePassword(newPwd)
     setPwdSaving(false)
-    if (error) { setPwdError(error); return }
+    if (error) { setPwdError(getAuthErrorMessage(error, locale)); return }
     setPwdSaved(true)
     setNewPwd('')
     setConfirmPwd('')
@@ -98,7 +99,7 @@ export function ProfilePage({ userId, userEmail }: ProfilePageProps) {
     setEmailSaving(true)
     const error = await updateEmail(trimmed)
     setEmailSaving(false)
-    if (error) { setEmailError(error); return }
+    if (error) { setEmailError(getAuthErrorMessage(error, locale)); return }
     setEmailSent(true)
     setNewEmail('')
   }
@@ -145,7 +146,7 @@ export function ProfilePage({ userId, userEmail }: ProfilePageProps) {
   if (loading) {
     return (
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '96px 0' }}>
-        <Loader2 size={20} className="animate-spin" style={{ color: '#007EA7' }} />
+        <Loader2 size={20} className="animate-spin" style={{ color: 'var(--color-accent)' }} />
       </div>
     )
   }
@@ -156,10 +157,10 @@ export function ProfilePage({ userId, userEmail }: ProfilePageProps) {
 
         {/* ── Header ── */}
         <div style={{ paddingBottom: 4 }}>
-          <h1 style={{ fontSize: 28, fontWeight: 700, color: '#00171F', margin: 0, letterSpacing: '-0.03em' }}>
+          <h1 style={{ fontSize: 28, fontWeight: 700, color: 'var(--color-ink)', margin: 0, letterSpacing: '-0.03em' }}>
             {t('settings.title')}
           </h1>
-          <p style={{ fontSize: 15, color: '#5B6B73', marginTop: 8, lineHeight: 1.5 }}>
+          <p style={{ fontSize: 15, color: 'var(--color-muted)', marginTop: 8, lineHeight: 1.5 }}>
             {t('settings.subtitle')}
           </p>
         </div>
@@ -178,7 +179,7 @@ export function ProfilePage({ userId, userEmail }: ProfilePageProps) {
                   <div style={{
                     width: 76, height: 76, borderRadius: '50%',
                     overflow: 'hidden', flexShrink: 0,
-                    boxShadow: '0 0 0 2px #EEF2F4',
+                    boxShadow: '0 0 0 2px var(--color-bg)',
                   }}>
                     {profile?.avatarUrl ? (
                       <img
@@ -189,9 +190,9 @@ export function ProfilePage({ userId, userEmail }: ProfilePageProps) {
                     ) : (
                       <div style={{
                         width: '100%', height: '100%',
-                        background: '#003459',
+                        background: 'var(--color-primary)',
                         display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        color: '#fff', fontSize: 26, fontWeight: 700, userSelect: 'none',
+                        color: 'var(--color-surface)', fontSize: 26, fontWeight: 700, userSelect: 'none',
                       }}>
                         {(firstName[0] ?? userEmail[0] ?? '?').toUpperCase()}
                       </div>
@@ -230,14 +231,14 @@ export function ProfilePage({ userId, userEmail }: ProfilePageProps) {
                 </div>
 
                 <div>
-                  <p style={{ fontSize: 15, fontWeight: 500, color: '#00171F', margin: 0 }}>
+                  <p style={{ fontSize: 15, fontWeight: 500, color: 'var(--color-ink)', margin: 0 }}>
                     {[firstName, lastName].filter(Boolean).join(' ') || userEmail.split('@')[0]}
                   </p>
-                  <p style={{ fontSize: 13, color: '#9AABB3', marginTop: 4 }}>
+                  <p style={{ fontSize: 13, color: 'var(--color-subtle)', marginTop: 4 }}>
                     {t('settings.avatarHint')}
                   </p>
                   {avatarError && (
-                    <p style={{ fontSize: 13, color: '#C64545', marginTop: 5 }}>{avatarError}</p>
+                    <p style={{ fontSize: 13, color: 'var(--color-danger)', marginTop: 5 }}>{avatarError}</p>
                   )}
                 </div>
               </div>
@@ -279,12 +280,12 @@ export function ProfilePage({ userId, userEmail }: ProfilePageProps) {
                 <div style={{ marginTop: 22 }}>
                   {/* Current email — readonly display */}
                   <div style={{ marginBottom: 18 }}>
-                    <p style={{ fontSize: 14, fontWeight: 500, color: '#374151', marginBottom: 8 }}>{t('settings.currentEmail')}</p>
+                    <p style={{ fontSize: 14, fontWeight: 500, color: 'var(--color-ink-secondary)', marginBottom: 8 }}>{t('settings.currentEmail')}</p>
                     <p style={{
                       height: 46, display: 'flex', alignItems: 'center',
                       padding: '0 16px', borderRadius: 12,
-                      border: '1px solid #EEF2F4', background: '#F8FAFB',
-                      fontSize: 14, color: '#7A8A92', fontFamily: 'Inter, sans-serif',
+                      border: '1px solid var(--color-bg)', background: 'var(--color-bg)',
+                      fontSize: 14, color: 'var(--color-muted)', fontFamily: 'Inter, sans-serif',
                     }}>
                       {userEmail}
                     </p>
@@ -305,7 +306,7 @@ export function ProfilePage({ userId, userEmail }: ProfilePageProps) {
                 {emailSent && (
                   <div style={{
                     display: 'flex', alignItems: 'flex-start', gap: 10,
-                    background: '#F0FDF4', color: '#166534',
+                    background: 'var(--color-success-bg)', color: 'var(--color-success-fg)',
                     border: '1px solid rgba(22,101,52,0.15)',
                     borderRadius: 10, padding: '12px 16px',
                     fontSize: 13, marginTop: 16, lineHeight: 1.6,
@@ -376,10 +377,10 @@ export function ProfilePage({ userId, userEmail }: ProfilePageProps) {
                 <CardTitle>{t('settings.notifications')}</CardTitle>
                 <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, marginTop: 18 }}>
                   <div>
-                    <p style={{ fontSize: 14, fontWeight: 500, color: '#00171F', margin: 0 }}>
+                    <p style={{ fontSize: 14, fontWeight: 500, color: 'var(--color-ink)', margin: 0 }}>
                       {t('settings.remindersEnabled')}
                     </p>
-                    <p style={{ fontSize: 13, color: '#9AABB3', marginTop: 4, lineHeight: 1.5 }}>
+                    <p style={{ fontSize: 13, color: 'var(--color-subtle)', marginTop: 4, lineHeight: 1.5 }}>
                       {t('settings.remindersHint')}
                     </p>
                   </div>
@@ -388,15 +389,15 @@ export function ProfilePage({ userId, userEmail }: ProfilePageProps) {
 
                 {profile?.remindersEnabled && (
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 16 }}>
-                    <span style={{ fontSize: 14, color: '#374151' }}>{t('settings.reminderThreshold')}</span>
+                    <span style={{ fontSize: 14, color: 'var(--color-ink-secondary)' }}>{t('settings.reminderThreshold')}</span>
                     <select
                       value={profile?.reminderThresholdDays ?? 7}
                       onChange={e => handleThresholdChange(Number(e.target.value))}
                       disabled={prefsSaving}
                       style={{
                         height: 38, padding: '0 12px', borderRadius: 10,
-                        border: '1px solid #DCE3E8', background: '#fff',
-                        fontSize: 14, color: '#00171F', fontFamily: 'Inter, sans-serif',
+                        border: '1px solid var(--color-border)', background: 'var(--color-surface)',
+                        fontSize: 14, color: 'var(--color-ink)', fontFamily: 'Inter, sans-serif',
                         cursor: prefsSaving ? 'wait' : 'pointer',
                       }}
                     >
@@ -404,20 +405,20 @@ export function ProfilePage({ userId, userEmail }: ProfilePageProps) {
                         <option key={days} value={days}>{days}</option>
                       ))}
                     </select>
-                    <span style={{ fontSize: 14, color: '#374151' }}>{t('settings.days')}</span>
+                    <span style={{ fontSize: 14, color: 'var(--color-ink-secondary)' }}>{t('settings.days')}</span>
                   </div>
                 )}
               </div>
 
-              <div style={{ height: 1, background: '#EEF2F4' }} />
+              <div style={{ height: 1, background: 'var(--color-bg)' }} />
 
               {/* Language */}
               <div>
                 <CardTitle>{t('settings.language')}</CardTitle>
-                <p style={{ fontSize: 13, color: '#9AABB3', marginTop: 6, marginBottom: 16, lineHeight: 1.5 }}>
+                <p style={{ fontSize: 13, color: 'var(--color-subtle)', marginTop: 6, marginBottom: 16, lineHeight: 1.5 }}>
                   {t('settings.languageHint')}
                 </p>
-                <div style={{ display: 'inline-flex', borderRadius: 12, border: '1px solid #DCE3E8', padding: 3, gap: 2 }}>
+                <div style={{ display: 'inline-flex', borderRadius: 12, border: '1px solid var(--color-border)', padding: 3, gap: 2 }}>
                   <LocaleButton active={locale === 'fr'} onClick={() => handleLanguageChange('fr')} disabled={prefsSaving}>
                     {t('settings.languageFr')}
                   </LocaleButton>
@@ -433,7 +434,7 @@ export function ProfilePage({ userId, userEmail }: ProfilePageProps) {
           <Card>
             <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
               <CardTitle>{t('settings.dangerZone')}</CardTitle>
-              <p style={{ fontSize: 14, color: '#5B6B73', lineHeight: 1.6, marginTop: 12 }}>
+              <p style={{ fontSize: 14, color: 'var(--color-muted)', lineHeight: 1.6, marginTop: 12 }}>
                 {t('settings.dangerZoneText')}
               </p>
               <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 'auto', paddingTop: 22 }}>
@@ -450,7 +451,7 @@ export function ProfilePage({ userId, userEmail }: ProfilePageProps) {
                     cursor: 'pointer',
                     border: '1px solid rgba(224,90,90,0.22)',
                     background: 'rgba(224,90,90,0.06)',
-                    color: '#C64545',
+                    color: 'var(--color-danger)',
                     transition: 'background 0.15s',
                     flexShrink: 0,
                   }}
@@ -486,8 +487,8 @@ export function ProfilePage({ userId, userEmail }: ProfilePageProps) {
 function Card({ children }: { children: React.ReactNode }) {
   return (
     <div style={{
-      background: '#ffffff',
-      border: '1px solid #EEF2F4',
+      background: 'var(--color-surface)',
+      border: '1px solid var(--color-bg)',
       borderRadius: 18,
       padding: 28,
       boxShadow: '0 2px 10px rgba(0,0,0,0.03)',
@@ -499,7 +500,7 @@ function Card({ children }: { children: React.ReactNode }) {
 
 function CardTitle({ children }: { children: React.ReactNode }) {
   return (
-    <h2 style={{ fontSize: 18, fontWeight: 600, color: '#00171F', margin: 0, letterSpacing: '-0.01em' }}>
+    <h2 style={{ fontSize: 18, fontWeight: 600, color: 'var(--color-ink)', margin: 0, letterSpacing: '-0.01em' }}>
       {children}
     </h2>
   )
@@ -515,14 +516,14 @@ function Toggle({ checked, onChange, disabled }: { checked: boolean; onChange: (
       disabled={disabled}
       style={{
         width: 42, height: 24, borderRadius: 999, border: 'none', flexShrink: 0,
-        background: checked ? '#003459' : '#DCE3E8',
+        background: checked ? 'var(--color-primary)' : 'var(--color-border)',
         position: 'relative', cursor: disabled ? 'wait' : 'pointer',
         transition: 'background 0.15s',
       }}
     >
       <span style={{
         position: 'absolute', top: 3, left: checked ? 21 : 3,
-        width: 18, height: 18, borderRadius: '50%', background: '#fff',
+        width: 18, height: 18, borderRadius: '50%', background: 'var(--color-surface)',
         transition: 'left 0.15s', boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
       }} />
     </button>
@@ -548,8 +549,8 @@ function LocaleButton({ active, onClick, disabled, children }: {
         fontWeight: 500,
         fontFamily: 'Inter, sans-serif',
         cursor: disabled ? 'wait' : 'pointer',
-        background: active ? '#003459' : 'transparent',
-        color: active ? '#fff' : '#5B6B73',
+        background: active ? 'var(--color-primary)' : 'transparent',
+        color: active ? 'var(--color-surface)' : 'var(--color-muted)',
         transition: 'background 0.15s, color 0.15s',
       }}
     >
@@ -571,7 +572,7 @@ function InputField({ label, value, onChange, placeholder, type = 'text', readon
 }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-      <label style={{ fontSize: 14, fontWeight: 500, color: '#374151' }}>{label}</label>
+      <label style={{ fontSize: 14, fontWeight: 500, color: 'var(--color-ink-secondary)' }}>{label}</label>
       <input
         type={type}
         value={value}
@@ -584,9 +585,9 @@ function InputField({ label, value, onChange, placeholder, type = 'text', readon
           height: 46,
           padding: '0 16px',
           borderRadius: 12,
-          border: '1px solid #DCE3E8',
-          background: readonly ? '#F8FAFB' : '#fff',
-          color: readonly ? '#7A8A92' : '#00171F',
+          border: '1px solid var(--color-border)',
+          background: readonly ? 'var(--color-bg)' : 'var(--color-surface)',
+          color: readonly ? 'var(--color-muted)' : 'var(--color-ink)',
           fontSize: 14,
           fontFamily: 'Inter, sans-serif',
           outline: 'none',
@@ -597,16 +598,16 @@ function InputField({ label, value, onChange, placeholder, type = 'text', readon
         }}
         onFocus={e => {
           if (!readonly) {
-            e.currentTarget.style.borderColor = '#00A8E8'
+            e.currentTarget.style.borderColor = 'var(--color-highlight)'
             e.currentTarget.style.boxShadow = '0 0 0 3px rgba(0,168,232,0.10)'
           }
         }}
         onBlur={e => {
-          e.currentTarget.style.borderColor = '#DCE3E8'
+          e.currentTarget.style.borderColor = 'var(--color-border)'
           e.currentTarget.style.boxShadow = 'none'
         }}
       />
-      {hint && <p style={{ fontSize: 12, color: '#9AABB3', margin: 0 }}>{hint}</p>}
+      {hint && <p style={{ fontSize: 12, color: 'var(--color-subtle)', margin: 0 }}>{hint}</p>}
     </div>
   )
 }
@@ -624,7 +625,7 @@ function PwdField({ label, value, show, onToggle, onChange, placeholder, autoCom
 }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-      <label style={{ fontSize: 14, fontWeight: 500, color: '#374151' }}>{label}</label>
+      <label style={{ fontSize: 14, fontWeight: 500, color: 'var(--color-ink-secondary)' }}>{label}</label>
       <div style={{ position: 'relative' }}>
         <input
           type={show ? 'text' : 'password'}
@@ -636,9 +637,9 @@ function PwdField({ label, value, show, onToggle, onChange, placeholder, autoCom
             height: 46,
             padding: '0 44px 0 16px',
             borderRadius: 12,
-            border: '1px solid #DCE3E8',
-            background: '#fff',
-            color: '#00171F',
+            border: '1px solid var(--color-border)',
+            background: 'var(--color-surface)',
+            color: 'var(--color-ink)',
             fontSize: 14,
             fontFamily: 'Inter, sans-serif',
             outline: 'none',
@@ -647,11 +648,11 @@ function PwdField({ label, value, show, onToggle, onChange, placeholder, autoCom
             transition: 'border-color 0.15s, box-shadow 0.15s',
           }}
           onFocus={e => {
-            e.currentTarget.style.borderColor = '#00A8E8'
+            e.currentTarget.style.borderColor = 'var(--color-highlight)'
             e.currentTarget.style.boxShadow = '0 0 0 3px rgba(0,168,232,0.10)'
           }}
           onBlur={e => {
-            e.currentTarget.style.borderColor = '#DCE3E8'
+            e.currentTarget.style.borderColor = 'var(--color-border)'
             e.currentTarget.style.boxShadow = 'none'
           }}
         />
@@ -663,11 +664,11 @@ function PwdField({ label, value, show, onToggle, onChange, placeholder, autoCom
           style={{
             position: 'absolute', right: 13, top: '50%', transform: 'translateY(-50%)',
             background: 'none', border: 'none', cursor: 'pointer', padding: 0,
-            color: '#9AABB3', display: 'flex', alignItems: 'center',
+            color: 'var(--color-subtle)', display: 'flex', alignItems: 'center',
             transition: 'color 0.15s',
           }}
-          onMouseEnter={e => (e.currentTarget.style.color = '#003459')}
-          onMouseLeave={e => (e.currentTarget.style.color = '#9AABB3')}
+          onMouseEnter={e => (e.currentTarget.style.color = 'var(--color-primary)')}
+          onMouseLeave={e => (e.currentTarget.style.color = 'var(--color-subtle)')}
         >
           {show ? <EyeOff size={15} /> : <Eye size={15} />}
         </button>
@@ -696,15 +697,15 @@ function PrimaryButton({ children, type = 'button', loading, disabled, onClick }
         fontWeight: 600,
         fontFamily: 'Inter, sans-serif',
         cursor: disabled ? 'not-allowed' : 'pointer',
-        background: '#003459',
-        color: '#fff',
+        background: 'var(--color-primary)',
+        color: 'var(--color-surface)',
         border: 'none',
         opacity: disabled ? 0.45 : 1,
         transition: 'background 0.15s, opacity 0.15s',
         flexShrink: 0,
       }}
-      onMouseEnter={e => { if (!disabled) e.currentTarget.style.background = '#00263F' }}
-      onMouseLeave={e => { e.currentTarget.style.background = '#003459' }}
+      onMouseEnter={e => { if (!disabled) e.currentTarget.style.background = 'var(--color-primary-dark)' }}
+      onMouseLeave={e => { e.currentTarget.style.background = 'var(--color-primary)' }}
     >
       {loading && <Loader2 size={14} className="animate-spin" />}
       {children}
@@ -716,7 +717,7 @@ function ErrorBanner({ message }: { message: string }) {
   return (
     <div style={{
       display: 'flex', alignItems: 'center', gap: 8,
-      background: '#FEF2F2', color: '#991B1B',
+      background: 'var(--color-status-rejected-bg)', color: 'var(--color-status-rejected-fg)',
       border: '1px solid rgba(220,38,38,0.15)',
       borderRadius: 10, padding: '10px 14px',
       fontSize: 13, marginTop: 14,
@@ -729,7 +730,7 @@ function ErrorBanner({ message }: { message: string }) {
 
 function SuccessLabel({ text }: { text: string }) {
   return (
-    <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: '#059669', fontWeight: 500 }}>
+    <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: 'var(--color-success)', fontWeight: 500 }}>
       <CheckCircle2 size={14} />
       {text}
     </span>
@@ -755,7 +756,7 @@ function DeleteModal({ onClose, onConfirm, deleting, error }: {
       onClick={e => { if (e.target === e.currentTarget) onClose() }}
     >
       <div style={{
-        background: '#fff',
+        background: 'var(--color-surface)',
         borderRadius: 20,
         padding: 32,
         width: '100%',
@@ -768,13 +769,13 @@ function DeleteModal({ onClose, onConfirm, deleting, error }: {
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           marginBottom: 20,
         }}>
-          <Trash2 size={18} color="#C64545" />
+          <Trash2 size={18} color="var(--color-danger)" />
         </div>
 
-        <h2 style={{ fontSize: 18, fontWeight: 700, color: '#00171F', margin: '0 0 8px', letterSpacing: '-0.02em' }}>
+        <h2 style={{ fontSize: 18, fontWeight: 700, color: 'var(--color-ink)', margin: '0 0 8px', letterSpacing: '-0.02em' }}>
           {t('settings.deleteModalTitle')}
         </h2>
-        <p style={{ fontSize: 14, color: '#5B6B73', lineHeight: 1.6, margin: '0 0 28px' }}>
+        <p style={{ fontSize: 14, color: 'var(--color-muted)', lineHeight: 1.6, margin: '0 0 28px' }}>
           {t('settings.deleteModalText')}
         </p>
 
@@ -788,12 +789,12 @@ function DeleteModal({ onClose, onConfirm, deleting, error }: {
               flex: 1, padding: '11px 0',
               borderRadius: 12, fontSize: 14, fontWeight: 500,
               fontFamily: 'Inter, sans-serif',
-              border: '1px solid #DCE3E8', background: '#fff',
-              color: '#374151', cursor: 'pointer',
+              border: '1px solid var(--color-border)', background: 'var(--color-surface)',
+              color: 'var(--color-ink-secondary)', cursor: 'pointer',
               transition: 'background 0.15s',
             }}
-            onMouseEnter={e => (e.currentTarget.style.background = '#F8FAFB')}
-            onMouseLeave={e => (e.currentTarget.style.background = '#fff')}
+            onMouseEnter={e => (e.currentTarget.style.background = 'var(--color-bg)')}
+            onMouseLeave={e => (e.currentTarget.style.background = 'var(--color-surface)')}
           >
             {t('settings.cancel')}
           </button>
@@ -807,7 +808,7 @@ function DeleteModal({ onClose, onConfirm, deleting, error }: {
               fontFamily: 'Inter, sans-serif',
               border: '1px solid rgba(224,90,90,0.25)',
               background: 'rgba(224,90,90,0.08)',
-              color: '#C64545', cursor: deleting ? 'not-allowed' : 'pointer',
+              color: 'var(--color-danger)', cursor: deleting ? 'not-allowed' : 'pointer',
               display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
               transition: 'background 0.15s',
               opacity: deleting ? 0.6 : 1,
