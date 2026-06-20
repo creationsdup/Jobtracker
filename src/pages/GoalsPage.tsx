@@ -2,7 +2,7 @@ import { useMemo, useRef, useState } from 'react'
 import {
   Target, MapPin, Briefcase, Clock, Building2, Pencil, X, Plus,
   CheckCircle2, AlertCircle, Lightbulb, Layers, ThumbsUp, ThumbsDown, GraduationCap,
-  Star, Trash2, BarChart3,
+  Star, Trash2, BarChart3, Sparkles,
 } from 'lucide-react'
 import { useGoals, type GoalUpdate } from '@/hooks/useGoals'
 import { calculateJobMatch, applicationToJobMatchInput, levelFor } from '@/lib/jobMatching'
@@ -11,6 +11,7 @@ import type { Application, UserGoal } from '@/lib/types'
 import type { MatchLevel, MatchResult } from '@/types/jobMatching'
 import { cn } from '@/lib/utils'
 import { CONTRACT_OPTIONS, targetDateFromOption, optionFromTargetDate } from '@/lib/goalDraft'
+import { AIGoalGeneratorModal } from '@/components/applications/AIGoalGeneratorModal'
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -490,6 +491,7 @@ function GoalTabs({ goals, mode, selectedId, activeId, onSelectOverview, onSelec
 
 interface EditGoalModalProps {
   goal: UserGoal | null
+  initialDraft: GoalUpdate | null
   isActive: boolean
   saving: boolean
   onSave: (u: GoalUpdate) => void
@@ -498,19 +500,20 @@ interface EditGoalModalProps {
   onClose: () => void
 }
 
-function EditGoalModal({ goal, isActive, saving, onSave, onActivate, onDelete, onClose }: EditGoalModalProps) {
-  const [targetTitle, setTargetTitle] = useState(goal?.target_title ?? '')
-  const [roles, setRoles] = useState<string[]>(goal?.target_roles ?? [])
-  const [contracts, setContracts] = useState<string[]>(goal?.contract_types ?? [])
-  const [locations, setLocations] = useState<string[]>(goal?.locations ?? [])
-  const [companies, setCompanies] = useState<string[]>(goal?.target_companies ?? [])
-  const [sectors, setSectors] = useState<string[]>(goal?.sectors ?? [])
-  const [keywordsWanted, setKeywordsWanted] = useState<string[]>(goal?.keywords_wanted ?? [])
-  const [keywordsExcluded, setKeywordsExcluded] = useState<string[]>(goal?.keywords_excluded ?? [])
-  const [experienceLevel, setExperienceLevel] = useState<string[]>(goal?.experience_level ?? [])
-  const [priorities, setPriorities] = useState(goal?.scoring_priorities ?? '')
-  const [timeline, setTimeline] = useState(optionFromTargetDate(goal?.target_date ?? null))
-  const [target, setTarget] = useState(goal?.personal_target ?? 10)
+function EditGoalModal({ goal, initialDraft, isActive, saving, onSave, onActivate, onDelete, onClose }: EditGoalModalProps) {
+  const seed = goal ?? initialDraft
+  const [targetTitle, setTargetTitle] = useState(seed?.target_title ?? '')
+  const [roles, setRoles] = useState<string[]>(seed?.target_roles ?? [])
+  const [contracts, setContracts] = useState<string[]>(seed?.contract_types ?? [])
+  const [locations, setLocations] = useState<string[]>(seed?.locations ?? [])
+  const [companies, setCompanies] = useState<string[]>(seed?.target_companies ?? [])
+  const [sectors, setSectors] = useState<string[]>(seed?.sectors ?? [])
+  const [keywordsWanted, setKeywordsWanted] = useState<string[]>(seed?.keywords_wanted ?? [])
+  const [keywordsExcluded, setKeywordsExcluded] = useState<string[]>(seed?.keywords_excluded ?? [])
+  const [experienceLevel, setExperienceLevel] = useState<string[]>(seed?.experience_level ?? [])
+  const [priorities, setPriorities] = useState(seed?.scoring_priorities ?? '')
+  const [timeline, setTimeline] = useState(optionFromTargetDate(seed?.target_date ?? null))
+  const [target, setTarget] = useState(seed?.personal_target ?? 10)
 
   function handleSave() {
     onSave({
@@ -743,6 +746,8 @@ export function GoalsPage({ userId, applications }: GoalsPageProps) {
   const [editing, setEditing] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [saved, setSaved] = useState(false)
+  const [showAIGenerator, setShowAIGenerator] = useState(false)
+  const [generatedDraft, setGeneratedDraft] = useState<GoalUpdate | null>(null)
 
   // The goal whose 5 cards are currently shown — defaults to the active
   // (scoring) goal, but the user can browse other goals without activating them.
@@ -767,6 +772,14 @@ export function GoalsPage({ userId, applications }: GoalsPageProps) {
     setEditing(false)
     setSaved(true)
     setTimeout(() => setSaved(false), 2500)
+  }
+
+  function handleAIGenerated(draft: GoalUpdate) {
+    setShowAIGenerator(false)
+    setGeneratedDraft(draft)
+    setCreatingNew(true)
+    setSelectedGoalId(null)
+    setEditing(true)
   }
 
   async function handleActivate() {
@@ -800,9 +813,15 @@ export function GoalsPage({ userId, applications }: GoalsPageProps) {
 
   return (
     <>
-      <div className="mb-5">
-        <h1 className="text-2xl font-bold tracking-tight" style={{ color: 'var(--color-primary)', letterSpacing: '-0.02em' }}>Objectifs</h1>
-        <p className="text-[13px] mt-0.5" style={{ color: 'var(--color-muted)' }}>Définissez votre stratégie et suivez la cohérence de vos candidatures</p>
+      <div className="mb-5 flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight" style={{ color: 'var(--color-primary)', letterSpacing: '-0.02em' }}>Objectifs</h1>
+          <p className="text-[13px] mt-0.5" style={{ color: 'var(--color-muted)' }}>Définissez votre stratégie et suivez la cohérence de vos candidatures</p>
+        </div>
+        <button onClick={() => setShowAIGenerator(true)} className="btn btn-secondary text-sm flex items-center gap-1.5 shrink-0">
+          <Sparkles size={14} />
+          Créer avec l'IA
+        </button>
       </div>
 
       {(saved || error) && (
@@ -828,7 +847,7 @@ export function GoalsPage({ userId, applications }: GoalsPageProps) {
             activeId={activeGoal?.id ?? null}
             onSelectOverview={() => setViewMode('overview')}
             onSelectGoal={(id) => { setViewMode('goal'); setCreatingNew(false); setSelectedGoalId(id) }}
-            onCreateNew={() => { setViewMode('goal'); setCreatingNew(true); setEditing(true) }}
+            onCreateNew={() => { setViewMode('goal'); setCreatingNew(true); setGeneratedDraft(null); setEditing(true) }}
           />
           {viewMode === 'overview' ? (
             <OverviewPanel goals={goals} activeGoal={activeGoal} applications={applications} />
@@ -853,12 +872,20 @@ export function GoalsPage({ userId, applications }: GoalsPageProps) {
       {editing && (
         <EditGoalModal
           goal={viewedGoal}
+          initialDraft={viewedGoal ? null : generatedDraft}
           isActive={!!viewedGoal && viewedGoal.id === activeGoal?.id}
           saving={saving}
           onSave={handleSave}
           onActivate={handleActivate}
           onDelete={handleDelete}
-          onClose={() => { setEditing(false); setCreatingNew(false) }}
+          onClose={() => { setEditing(false); setCreatingNew(false); setGeneratedDraft(null) }}
+        />
+      )}
+
+      {showAIGenerator && (
+        <AIGoalGeneratorModal
+          onGenerated={handleAIGenerated}
+          onClose={() => setShowAIGenerator(false)}
         />
       )}
     </>
