@@ -10,10 +10,9 @@ import { matchLevelColor } from '@/utils/statusLabels'
 import type { Application, UserGoal } from '@/lib/types'
 import type { MatchLevel, MatchResult } from '@/types/jobMatching'
 import { cn } from '@/lib/utils'
+import { CONTRACT_OPTIONS, targetDateFromOption, optionFromTargetDate } from '@/lib/goalDraft'
 
 // ─── Constants ───────────────────────────────────────────────────────────────
-
-const CONTRACT_OPTIONS = ['CDI', 'CDD', 'Stage', 'Alternance', 'Freelance', 'Mission']
 
 const TIMELINE_OPTIONS = [
   { value: '1m',  label: 'Urgent',       sub: '< 1 mois' },
@@ -25,22 +24,6 @@ const TIMELINE_OPTIONS = [
 const LEVELS: MatchLevel[] = ['Très cohérent', 'Cohérent', 'Moyen', 'Peu cohérent', 'Hors cible']
 
 // ─── Utilities ────────────────────────────────────────────────────────────────
-
-function targetDateFromOption(opt: string): string {
-  const now = new Date()
-  const months = ({ '1m': 1, '3m': 3, '6m': 6, '12m': 12 } as Record<string, number>)[opt] ?? 3
-  now.setMonth(now.getMonth() + months)
-  return now.toISOString().slice(0, 10)
-}
-
-function optionFromTargetDate(date: string | null): string {
-  if (!date) return ''
-  const diff = Math.round((new Date(date).getTime() - Date.now()) / (1000 * 60 * 60 * 24 * 30))
-  if (diff <= 1) return '1m'
-  if (diff <= 3) return '3m'
-  if (diff <= 6) return '6m'
-  return '12m'
-}
 
 function formatDateShort(iso: string | null): string {
   if (!iso) return ''
