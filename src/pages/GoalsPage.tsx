@@ -230,11 +230,11 @@ function SearchCriteriaCard({ goal }: { goal: UserGoal | null }) {
         </div>
         <div>
           <p className="text-xs font-semibold uppercase tracking-wide mb-1.5" style={{ color: 'var(--color-muted)' }}>Secteurs</p>
-          <ChipList items={goal?.sectors ?? []} color="var(--color-info)" bg="var(--color-info-bg)" />
+          <ChipList items={goal?.sectors ?? []} color="var(--color-primary)" bg="var(--color-bg-light)" />
         </div>
         <div>
           <p className="text-xs font-semibold uppercase tracking-wide mb-1.5" style={{ color: 'var(--color-muted)' }}>Entreprises cibles</p>
-          <ChipList items={goal?.target_companies ?? []} color="var(--color-amber)" bg="var(--color-status-interview-bg)" />
+          <ChipList items={goal?.target_companies ?? []} color="var(--color-warning)" bg="var(--color-status-interview-bg)" />
         </div>
         <div>
           <p className="text-xs font-semibold uppercase tracking-wide mb-1.5 flex items-center gap-1" style={{ color: 'var(--color-muted)' }}>
@@ -259,7 +259,7 @@ function GlobalCoherenceCard({ matches }: { matches: MatchResult[] }) {
   const avg = matches.length === 0 ? null : Math.round(matches.reduce((s, m) => s + m.totalScore, 0) / matches.length)
 
   return (
-    <CardShell icon={Building2} iconColor="var(--color-amber)" iconBg="var(--color-status-interview-bg)" title="Score global de cohérence">
+    <CardShell icon={Building2} iconColor="var(--color-warning)" iconBg="var(--color-status-interview-bg)" title="Score global de cohérence">
       {avg === null ? (
         <p className="text-sm italic" style={{ color: 'var(--color-muted)' }}>
           Aucune candidature active pour le moment — le score apparaîtra dès votre première candidature.
@@ -285,7 +285,7 @@ function DistributionCard({ matches }: { matches: MatchResult[] }) {
   const max = Math.max(1, ...counts.map((c) => c.count))
 
   return (
-    <CardShell icon={Target} iconColor="var(--color-info)" iconBg="var(--color-info-bg)" title="Répartition des candidatures">
+    <CardShell icon={Target} iconColor="var(--color-primary)" iconBg="var(--color-bg-light)" title="Répartition des candidatures">
       {matches.length === 0 ? (
         <p className="text-sm italic" style={{ color: 'var(--color-muted)' }}>Aucune candidature active à répartir.</p>
       ) : (
@@ -314,7 +314,7 @@ function RecommendationsCard({ goal, matches }: { goal: UserGoal | null; matches
   const recs = useMemo(() => buildRecommendations(goal, matches), [goal, matches])
 
   return (
-    <CardShell icon={Lightbulb} iconColor="var(--color-amber)" iconBg="var(--color-status-interview-bg)" title="Recommandations">
+    <CardShell icon={Lightbulb} iconColor="var(--color-warning)" iconBg="var(--color-status-interview-bg)" title="Recommandations">
       <div className="flex flex-col gap-2.5">
         {recs.map((r) => (
           <div key={r} className="flex items-start gap-2.5 p-3 rounded-xl" style={{ background: 'var(--color-bg)' }}>
