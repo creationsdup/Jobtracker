@@ -2,12 +2,12 @@ import { useMemo, useState } from 'react'
 import { Search, LayoutList, LayoutGrid, Columns, ArrowUpDown, ChevronDown, Plus } from 'lucide-react'
 import { ApplicationCard } from '@/components/applications/ApplicationCard'
 import { StatusBadge } from '@/components/applications/StatusBadge'
-import { GoalBadge } from '@/components/applications/GoalBadge'
+import { MatchScoreBadge } from '@/components/applications/MatchScoreBadge'
 import { CompanyLogo } from '@/components/applications/CompanyLogo'
 import { CandidateTable } from '@/components/applications/CandidateTable'
 import { KanbanPage } from '@/pages/KanbanPage'
 import { formatDate } from '@/lib/utils'
-import { computeAppScore, computeAppScoreBreakdown } from '@/hooks/useGoals'
+import { calculateJobMatch, applicationToJobMatchInput } from '@/lib/jobMatching'
 import type { Application, ApplicationStatus, UserGoal } from '@/lib/types'
 import { APPLICABLE_STATUSES, STATUS_LABELS } from '@/lib/types'
 
@@ -43,8 +43,7 @@ interface ApplicationsPageProps {
 // ─── Thumbnail card (grid view) ───────────────────────────────────────────────
 
 function AppThumbnail({ app, goal, onClick, logoUrl }: { app: Application; goal?: UserGoal | null; onClick: () => void; logoUrl?: string }) {
-  const score = computeAppScore(goal ?? null, app)
-  const scoreCriteria = computeAppScoreBreakdown(goal ?? null, app)
+  const match = goal ? calculateJobMatch(applicationToJobMatchInput(app), goal) : null
   const STATUS_DOT: Partial<Record<ApplicationStatus, string>> = {
     WISHLIST:  'bg-slate-400',
     APPLIED:   'bg-blue-400',
@@ -78,7 +77,7 @@ function AppThumbnail({ app, goal, onClick, logoUrl }: { app: Application; goal?
       <div className="flex items-center justify-between mt-auto pt-1 border-t border-[var(--color-border)]">
         <StatusBadge status={app.status} />
         <div className="flex items-center gap-1">
-          {score !== null && <GoalBadge score={score} criteria={scoreCriteria} />}
+          {match && <MatchScoreBadge result={match} onClick={onClick} />}
           <span className="text-[10px] text-[var(--color-muted)]">{formatDate(app.appliedAt ?? app.createdAt)}</span>
         </div>
       </div>
@@ -162,8 +161,10 @@ export function ApplicationsPage({ applications, loading, goal, onOpenDetail, on
           return a.position.localeCompare(b.position)
         case 'company_asc':
           return a.company.localeCompare(b.company)
-        case 'match_desc':
-          return (computeAppScore(goal ?? null, b) ?? -1) - (computeAppScore(goal ?? null, a) ?? -1)
+        case 'match_desc': {
+          const scoreOf = (app: Application) => goal ? calculateJobMatch(applicationToJobMatchInput(app), goal).totalScore : -1
+          return scoreOf(b) - scoreOf(a)
+        }
         case 'date_desc':
         default:
           return new Date(b.appliedAt ?? b.createdAt).getTime() - new Date(a.appliedAt ?? a.createdAt).getTime()
