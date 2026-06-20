@@ -5,9 +5,19 @@ import { useTranslation } from '@/lib/i18n/I18nContext'
 import { getAuthErrorMessage } from '@/lib/authErrors'
 import styles from './LoginPage.module.css'
 
+interface SignupProfileFields {
+  firstName: string
+  lastName: string
+  birthDate: string | null
+}
+
 interface LoginPageProps {
   onSignIn: (email: string, password: string) => Promise<{ message: string; code?: string } | null>
-  onSignUp: (email: string, password: string) => Promise<{ error: { message: string; code?: string } | null; needsConfirmation: boolean }>
+  onSignUp: (
+    email: string,
+    password: string,
+    profileFields: SignupProfileFields,
+  ) => Promise<{ error: { message: string; code?: string } | null; needsConfirmation: boolean }>
   onSignInWithGoogle: () => Promise<unknown>
   onForgotPassword: (email: string) => Promise<unknown>
 }
@@ -17,6 +27,9 @@ export function LoginPage({ onSignIn, onSignUp, onSignInWithGoogle, onForgotPass
   const [mode, setMode] = useState<'login' | 'signup' | 'forgot'>('login')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [firstName, setFirstName] = useState('')
+  const [lastName, setLastName] = useState('')
+  const [birthDate, setBirthDate] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [googleLoading, setGoogleLoading] = useState(false)
@@ -35,6 +48,9 @@ export function LoginPage({ onSignIn, onSignUp, onSignInWithGoogle, onForgotPass
     setError(null)
     setResetSent(false)
     setConfirmationSent(false)
+    setFirstName('')
+    setLastName('')
+    setBirthDate('')
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -51,7 +67,17 @@ export function LoginPage({ onSignIn, onSignUp, onSignInWithGoogle, onForgotPass
     }
 
     if (mode === 'signup') {
-      const { error: err, needsConfirmation } = await onSignUp(email, password)
+      if (!firstName.trim()) { setError(t('login.firstNameRequired')); setLoading(false); return }
+      if (!lastName.trim()) { setError(t('login.lastNameRequired')); setLoading(false); return }
+      if (birthDate && new Date(birthDate) > new Date()) {
+        setError(t('login.birthDateFuture')); setLoading(false); return
+      }
+
+      const { error: err, needsConfirmation } = await onSignUp(email, password, {
+        firstName: firstName.trim(),
+        lastName: lastName.trim(),
+        birthDate: birthDate || null,
+      })
       setLoading(false)
       if (err) { setError(getAuthErrorMessage(err, locale)); return }
       if (needsConfirmation) setConfirmationSent(true)
@@ -149,6 +175,48 @@ export function LoginPage({ onSignIn, onSignUp, onSignInWithGoogle, onForgotPass
             </div>
           ) : (
             <form onSubmit={handleSubmit} className={styles.form}>
+              {mode === 'signup' && (
+                <>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                    <div className={styles.fieldGroup}>
+                      <label className={styles.label}>{t('login.firstName')}</label>
+                      <input
+                        className="input"
+                        type="text"
+                        value={firstName}
+                        onChange={(e) => setFirstName(e.target.value)}
+                        placeholder={t('login.firstNamePlaceholder')}
+                        autoComplete="given-name"
+                        required
+                      />
+                    </div>
+                    <div className={styles.fieldGroup}>
+                      <label className={styles.label}>{t('login.lastName')}</label>
+                      <input
+                        className="input"
+                        type="text"
+                        value={lastName}
+                        onChange={(e) => setLastName(e.target.value)}
+                        placeholder={t('login.lastNamePlaceholder')}
+                        autoComplete="family-name"
+                        required
+                      />
+                    </div>
+                  </div>
+                  <div className={styles.fieldGroup}>
+                    <label className={styles.label}>{t('login.birthDateOptional')}</label>
+                    <input
+                      className="input"
+                      type="date"
+                      value={birthDate}
+                      onChange={(e) => setBirthDate(e.target.value)}
+                      max={new Date().toISOString().slice(0, 10)}
+                      autoComplete="bday"
+                    />
+                  </div>
+                </>
+              )}
+
               <div className={styles.fieldGroup}>
                 <label className={styles.label}>{t('login.email')}</label>
                 <input
