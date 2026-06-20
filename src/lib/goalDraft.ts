@@ -19,19 +19,33 @@ export function optionFromTargetDate(date: string | null): string {
   return '12m'
 }
 
+// WHY: generateGoalFromText does an unchecked `JSON.parse(...) as GeneratedGoal` cast — a
+// malformed-but-parseable AI response (missing key, wrong type) must still map to a safe
+// draft ([]/null) instead of throwing, per the spec's "omitted field -> []/null" guarantee.
+function toArray(value: unknown): string[] {
+  return Array.isArray(value) ? value.filter((v): v is string => typeof v === 'string') : []
+}
+
+const TIMELINE_OPTIONS = ['1m', '3m', '6m', '12m'] as const
+type TimelineOption = (typeof TIMELINE_OPTIONS)[number]
+
+function isTimelineOption(value: unknown): value is TimelineOption {
+  return TIMELINE_OPTIONS.includes(value as TimelineOption)
+}
+
 export function mapGeneratedGoalToDraft(generated: GeneratedGoal): GoalUpdate {
   return {
-    target_title: generated.target_title,
-    target_roles: generated.target_roles,
-    contract_types: generated.contract_types.filter((c) => CONTRACT_OPTIONS.includes(c)),
-    locations: generated.locations,
-    target_companies: generated.target_companies,
-    sectors: generated.sectors,
-    keywords_wanted: generated.keywords_wanted,
-    keywords_excluded: generated.keywords_excluded,
-    experience_level: generated.experience_level,
-    scoring_priorities: generated.scoring_priorities,
-    target_date: generated.timeline ? targetDateFromOption(generated.timeline) : null,
-    personal_target: generated.personal_target,
+    target_title: typeof generated.target_title === 'string' ? generated.target_title : null,
+    target_roles: toArray(generated.target_roles),
+    contract_types: toArray(generated.contract_types).filter((c) => CONTRACT_OPTIONS.includes(c)),
+    locations: toArray(generated.locations),
+    target_companies: toArray(generated.target_companies),
+    sectors: toArray(generated.sectors),
+    keywords_wanted: toArray(generated.keywords_wanted),
+    keywords_excluded: toArray(generated.keywords_excluded),
+    experience_level: toArray(generated.experience_level),
+    scoring_priorities: typeof generated.scoring_priorities === 'string' ? generated.scoring_priorities : null,
+    target_date: isTimelineOption(generated.timeline) ? targetDateFromOption(generated.timeline) : null,
+    personal_target: typeof generated.personal_target === 'number' ? generated.personal_target : null,
   }
 }

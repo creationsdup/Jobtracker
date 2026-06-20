@@ -81,6 +81,69 @@ describe('mapGeneratedGoalToDraft', () => {
     expect(draft.scoring_priorities).toBe('Je privilégie le secteur transport.')
     expect(draft.personal_target).toBe(8)
   })
+
+  it('defaults array fields to [] when the AI response omits them entirely (malformed JSON)', () => {
+    const malformed = baseGenerated() as unknown as Record<string, unknown>
+    delete malformed.target_roles
+    delete malformed.contract_types
+    delete malformed.locations
+    delete malformed.target_companies
+    delete malformed.sectors
+    delete malformed.keywords_wanted
+    delete malformed.keywords_excluded
+    delete malformed.experience_level
+    const draft = mapGeneratedGoalToDraft(malformed as unknown as GeneratedGoal)
+    expect(draft.target_roles).toEqual([])
+    expect(draft.contract_types).toEqual([])
+    expect(draft.locations).toEqual([])
+    expect(draft.target_companies).toEqual([])
+    expect(draft.sectors).toEqual([])
+    expect(draft.keywords_wanted).toEqual([])
+    expect(draft.keywords_excluded).toEqual([])
+    expect(draft.experience_level).toEqual([])
+  })
+
+  it('defaults array fields to [] when the AI returns a non-array (e.g. a string) instead', () => {
+    const malformed = baseGenerated({
+      target_roles: 'Chef de projet' as unknown as string[],
+      keywords_wanted: { not: 'an array' } as unknown as string[],
+    })
+    const draft = mapGeneratedGoalToDraft(malformed)
+    expect(draft.target_roles).toEqual([])
+    expect(draft.keywords_wanted).toEqual([])
+  })
+
+  it('filters out non-string entries inside an otherwise-valid array', () => {
+    const malformed = baseGenerated({
+      target_roles: ['Chef de projet', 42, null] as unknown as string[],
+    })
+    const draft = mapGeneratedGoalToDraft(malformed)
+    expect(draft.target_roles).toEqual(['Chef de projet'])
+  })
+
+  it('defaults target_title to null when it is not a string', () => {
+    const malformed = baseGenerated({ target_title: 123 as unknown as string })
+    const draft = mapGeneratedGoalToDraft(malformed)
+    expect(draft.target_title).toBeNull()
+  })
+
+  it('defaults scoring_priorities to null when it is not a string', () => {
+    const malformed = baseGenerated({ scoring_priorities: ['not', 'a', 'string'] as unknown as string })
+    const draft = mapGeneratedGoalToDraft(malformed)
+    expect(draft.scoring_priorities).toBeNull()
+  })
+
+  it('defaults personal_target to null when it is not a number', () => {
+    const malformed = baseGenerated({ personal_target: '8' as unknown as number })
+    const draft = mapGeneratedGoalToDraft(malformed)
+    expect(draft.personal_target).toBeNull()
+  })
+
+  it('defaults target_date to null when timeline is an invalid/unexpected value', () => {
+    const malformed = baseGenerated({ timeline: 'next month' as unknown as GeneratedGoal['timeline'] })
+    const draft = mapGeneratedGoalToDraft(malformed)
+    expect(draft.target_date).toBeNull()
+  })
 })
 
 describe('targetDateFromOption', () => {

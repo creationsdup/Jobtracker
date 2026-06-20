@@ -23,6 +23,7 @@ export function AIGoalGeneratorModal({ onGenerated, onClose }: AIGoalGeneratorMo
       onGenerated(mapGeneratedGoalToDraft(generated))
     } catch (e) {
       setErrorMsg(e instanceof Error ? e.message : "Impossible de générer l'objectif. Réessayez.")
+    } finally {
       setLoading(false)
     }
   }
