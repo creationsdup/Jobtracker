@@ -165,7 +165,7 @@ function scoreKeywords(text: string, objective: UserGoal): ScoredCategory {
   const foundExcluded = excluded.filter((k) => containsPhrase(text, k))
   let warning: string | undefined
   if (foundExcluded.length > 0) {
-    base = Math.max(0, base - 25 * foundExcluded.length)
+    base = Math.max(10, base - 25 * foundExcluded.length)
     warning = `Mot${foundExcluded.length > 1 ? 's' : ''}-clé${foundExcluded.length > 1 ? 's' : ''} à éviter détecté${foundExcluded.length > 1 ? 's' : ''} : ${foundExcluded.join(', ')}`
   }
 
