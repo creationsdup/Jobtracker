@@ -45,8 +45,16 @@ export function useAuth() {
     return error
   }, [])
 
-  const signUp = useCallback(async (email: string, password: string) => {
-    const { data, error } = await supabase.auth.signUp({ email, password })
+  const signUp = useCallback(async (
+    email: string,
+    password: string,
+    profileFields: { firstName: string; lastName: string; birthDate: string | null },
+  ) => {
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: { data: profileFields },
+    })
     // When email confirmation is required, Supabase returns a user but no
     // session and no error — without this flag the signup form looks broken.
     const needsConfirmation = !error && !data.session
