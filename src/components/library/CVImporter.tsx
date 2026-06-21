@@ -3,6 +3,7 @@ import { Upload, X, Check, Loader2, AlertCircle } from 'lucide-react'
 import type { ExperienceType } from '@/lib/types'
 import type { NewExperience } from '@/hooks/useExperiences'
 import { generateStructuredData } from '@/lib/ai'
+import { extractCvText } from '@/lib/cvTextExtraction'
 
 interface ParsedEntry {
   title: string
@@ -96,35 +97,6 @@ function dedupe(values: string[]) {
   return [...new Set(values.map((value) => value.trim()).filter(Boolean))]
 }
 
-async function extractTextFromPDF(file: File): Promise<string> {
-  const { getDocument, GlobalWorkerOptions } = await import('pdfjs-dist')
-  const { default: workerUrl } = await import('pdfjs-dist/build/pdf.worker.min.mjs?url')
-  GlobalWorkerOptions.workerSrc = workerUrl
-
-  const arrayBuffer = await file.arrayBuffer()
-  const pdf = await getDocument({ data: arrayBuffer }).promise
-  const pages: string[] = []
-
-  for (let i = 1; i <= pdf.numPages; i++) {
-    const page = await pdf.getPage(i)
-    const content = await page.getTextContent()
-    const pageText = content.items
-      .filter((item) => 'str' in item)
-      .map((item) => (item as { str: string }).str)
-      .join(' ')
-    pages.push(pageText)
-  }
-
-  return pages.join('\n')
-}
-
-async function extractTextFromDOCX(file: File): Promise<string> {
-  const mammoth = await import('mammoth')
-  const arrayBuffer = await file.arrayBuffer()
-  const result = await mammoth.extractRawText({ arrayBuffer })
-  return result.value
-}
-
 async function analyzeCv(text: string): Promise<ParsedCvData> {
   const raw = await generateStructuredData<ParsedCvData>(
     SYSTEM_PROMPT,
@@ -183,7 +155,8 @@ export function CVImporter({
     setStep('loading')
 
     try {
-      const text = isPDF ? await extractTextFromPDF(file) : await extractTextFromDOCX(file)
+      const arrayBuffer = await file.arrayBuffer()
+      const text = await extractCvText(isPDF ? 'pdf' : 'docx', arrayBuffer)
       if (!text.trim()) throw new Error('Impossible d’extraire du texte du fichier')
 
       const parsed = await analyzeCv(text)
