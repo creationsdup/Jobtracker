@@ -575,6 +575,7 @@ function ExperienceEditor({ userId, initial, onClose, onSave }: ExperienceEditor
               description: (fd.get('description') as string).trim() || null,
               skills: (fd.get('skills') as string).split(',').map((s) => s.trim()).filter(Boolean),
               subsection: (fd.get('subsection') as string).trim() || null,
+              sourceCvId: initial?.sourceCvId ?? null,
             }
             setSaving(true)
             const err = await onSave(payload, initial?.id)

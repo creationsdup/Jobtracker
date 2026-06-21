@@ -15,6 +15,7 @@ export interface NewExperience {
   description: string | null
   skills: string[]
   subsection: string | null
+  sourceCvId: string | null
 }
 
 function normalizeText(value: string | null | undefined) {

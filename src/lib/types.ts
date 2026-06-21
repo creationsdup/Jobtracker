@@ -60,6 +60,43 @@ export interface Experience {
   skills: string[]
   subsection: string | null
   createdAt: string
+  sourceCvId: string | null
+}
+
+// ─── CV Library ────────────────────────────────────────────────────────────
+
+export type CvStatus = 'active' | 'to_review' | 'archived'
+
+export interface CvDocument {
+  id: string
+  user_id: string
+  file_name: string
+  file_path: string
+  file_type: 'pdf' | 'docx'
+  file_size: number
+  status: CvStatus
+  ats_score: number | null
+  created_at: string
+  updated_at: string
+}
+
+export interface AtsAnalysis {
+  id: string
+  user_id: string
+  cv_id: string
+  application_id: string | null
+  title: string
+  job_description: string | null
+  score: number
+  missing_keywords: string[]
+  recommendations: string | null
+  created_at: string
+}
+
+export const CV_STATUS_LABELS: Record<CvStatus, string> = {
+  active: 'Actif',
+  to_review: 'À vérifier',
+  archived: 'Archivé',
 }
 
 // ─── User Goals ──────────────────────────────────────────────────────────────

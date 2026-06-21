@@ -214,6 +214,7 @@ export function CVImporter({
       description: entry.description.trim() || null,
       skills: dedupe(entry.skills),
       subsection: entry.subsection?.trim() || null,
+      sourceCvId: null,
     }))
 
     const nextSkills = dedupe(skillsText.split(','))
