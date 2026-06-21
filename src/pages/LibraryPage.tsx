@@ -172,6 +172,7 @@ export function LibraryPage({ userId, userEmail }: LibraryPageProps) {
       jobDescription: input.jobDescription,
     })
     if (error) return error
+    // WHY: ats_analyses row is the source of truth and already successfully created; cv_documents.ats_score is a denormalized cache. Swallow updateAtsScore failure deliberately rather than failing the whole analysis operation.
     if (data) await updateAtsScore(input.cvId, data.score)
     return null
   }
