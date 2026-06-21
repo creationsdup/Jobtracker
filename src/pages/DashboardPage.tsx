@@ -338,13 +338,36 @@ export function DashboardPage({ userId, userEmail, applications, loading, onOpen
         </div>
       ) : (
       <div className="flex-1 flex flex-col gap-4 min-h-0 overflow-hidden">
-        {/* Hero numbers */}
-        <div className="grid grid-cols-2 lg:grid-cols-5 gap-4 flex-shrink-0">
+        {/* Hero numbers — desktop: full grid of cards */}
+        <div className="hidden lg:grid grid-cols-5 gap-4 flex-shrink-0">
           {heroCards.map(({ label, value, icon }) => (
             loading ? (
               <div key={label} className="card px-4 py-3 h-[88px] animate-pulse" />
             ) : (
               <StatCard key={label} label={label} value={value} icon={icon} />
+            )
+          ))}
+        </div>
+
+        {/* Hero numbers — mobile: compact single-row scroll strip, much lighter than 3 stacked rows */}
+        <div className="flex lg:hidden gap-2 overflow-x-auto pb-1 flex-shrink-0 snap-x snap-mandatory no-scrollbar">
+          {heroCards.map(({ label, value, icon }) => (
+            loading ? (
+              <div key={label} className="rounded-2xl h-[52px] w-[130px] shrink-0 animate-pulse" style={{ background: 'var(--color-bg)' }} />
+            ) : (
+              <div
+                key={label}
+                className="flex items-center gap-2 rounded-2xl px-3 py-2 shrink-0 snap-start min-w-[128px]"
+                style={{ background: 'var(--color-primary)' }}
+              >
+                <div className="w-6 h-6 rounded-[8px] flex items-center justify-center shrink-0 text-white" style={{ background: 'rgba(255,255,255,0.18)' }}>
+                  {icon}
+                </div>
+                <div className="flex flex-col leading-tight min-w-0">
+                  <span className="text-[9px] font-semibold text-white/70 truncate">{label}</span>
+                  <span className="text-[16px] font-extrabold text-white leading-none">{value}</span>
+                </div>
+              </div>
             )
           ))}
         </div>
