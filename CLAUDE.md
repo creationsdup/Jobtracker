@@ -63,6 +63,7 @@ Un prototype HTML/JSX complet existe dans `candidature-prototype/`. Il contient 
 | **Backend**    | Supabase (Auth + PostgreSQL + Storage + Realtime) |
 | **ORM/Client** | Supabase JS SDK v2                               |
 | **PDF Export**  | React-PDF (@react-pdf/renderer)                  |
+| **Mobile**     | Capacitor 8 (`@capacitor/ios`) — wrap du même build web, voir section dédiée |
 | **Deploy**     | Vercel (frontend) + Supabase Cloud (backend)     |
 
 ### Pourquoi Supabase ?
@@ -215,6 +216,35 @@ jobtracker-pro/
 │       ├── ResumeBuilderPage.tsx
 │       └── SettingsPage.tsx
 ```
+
+---
+
+## 📱 App iOS (Capacitor)
+
+L'app iOS n'est **pas un projet séparé** : c'est ce même repo, packagé via Capacitor pour produire un `.ipa` installable via TestFlight / App Store. Aucune réécriture de composants, aucune base de données séparée — l'app iOS pointe sur le **même projet Supabase** que le site web (même Auth, même RLS, mêmes tables).
+
+### Fichiers ajoutés par Capacitor
+- `capacitor.config.ts` — config racine (`appId`, `appName`, `webDir: 'dist'`)
+- `ios/App/App.xcworkspace` — projet Xcode, **versionné** (sauf `Pods/`, `build/`, `DerivedData/`, `xcuserdata/` — voir `.gitignore`)
+- `ios/App/CapApp-SPM/` — dépendances natives via Swift Package Manager (pas de CocoaPods nécessaire avec Capacitor 8)
+- `ios/App/App/public/` — copie du `dist/` web, **régénérée à chaque sync, jamais éditée à la main, jamais committée**
+
+### ⚠️ Bundle Identifier
+`com.jobtracker.app` dans `capacitor.config.ts` est un **placeholder**. Avant tout build de distribution (TestFlight/App Store), le remplacer par le bundle ID réel lié au compte Apple Developer, dans Xcode (Signing & Capabilities) ET dans `capacitor.config.ts` — les deux doivent rester synchronisés.
+
+### Workflow de dev
+```bash
+npm run build        # build web → dist/
+npx cap sync ios      # copie dist/ dans ios/App/App/public + sync les plugins natifs
+npx cap open ios      # ouvre ios/App/App.xcworkspace dans Xcode
+```
+Toujours `build` + `sync` avant de relancer un build Xcode après une modif du code web — Xcode ne reconstruit pas le bundle web lui-même.
+
+### Conventions spécifiques iOS
+- Respecter les safe areas (`env(safe-area-inset-*)`) — notch, Dynamic Island, home indicator.
+- Pas de hover comme seul indicateur d'interactivité (pas de souris sur iOS) — vérifier un état "pressed" sur chaque action tactile.
+- Vérifier le rendu en WebView réelle (simulateur/device), pas seulement Safari desktop — certains comportements diffèrent (scroll, clavier virtuel, safe areas).
+- Stockage de données sensibles (tokens) via un plugin Keychain natif si on en ajoute un jour, pas `localStorage` brut.
 
 ---
 
