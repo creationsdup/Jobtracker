@@ -1,4 +1,11 @@
 import { supabase } from '@/lib/supabase'
+import {
+  buildAtsAnalysisUserContent,
+  parseAtsAnalysisResponse,
+  buildSuggestionsUserContent,
+  parseSuggestionsResponse,
+  type AtsAnalysisResult,
+} from './cvLibrary'
 
 const OPENAI_API_URL = 'https://api.openai.com/v1/chat/completions'
 
@@ -173,4 +180,38 @@ Règle stricte : un champ non mentionné dans le texte doit être un tableau vid
 
 export async function generateGoalFromText(freeText: string): Promise<GeneratedGoal> {
   return generateStructuredData<GeneratedGoal>(GOAL_SYSTEM_PROMPT, freeText, 800)
+}
+
+const ATS_ANALYSIS_SYSTEM_PROMPT = `Tu es un expert en optimisation de CV pour les systèmes ATS (Applicant Tracking System).
+Analyse le CV fourni (et la description de poste si elle est donnée) et évalue sa compatibilité ATS.
+Réponds UNIQUEMENT avec un JSON valide, sans markdown, au format :
+{
+  "score": number (0 à 100, compatibilité ATS globale),
+  "missingKeywords": ["string"] (mots-clés importants absents du CV, déduits de la description de poste si fournie, sinon des standards du métier détecté),
+  "recommendations": "string (2 à 4 phrases de recommandations concrètes pour améliorer le score)"
+}
+Contraintes : n'invente pas de mots-clés non pertinents, base-toi uniquement sur le contenu fourni.`
+
+export async function analyzeCvAts(input: {
+  cvText: string
+  jobTitle?: string
+  jobDescription?: string
+}): Promise<AtsAnalysisResult> {
+  const userContent = buildAtsAnalysisUserContent(input.cvText, input.jobTitle, input.jobDescription)
+  const raw = await generateStructuredData<unknown>(ATS_ANALYSIS_SYSTEM_PROMPT, userContent, 1200)
+  return parseAtsAnalysisResponse(raw)
+}
+
+const LIBRARY_SUGGESTIONS_SYSTEM_PROMPT = `Tu es un conseiller carrière qui analyse la bibliothèque d'expériences et de CV d'un utilisateur.
+Réponds UNIQUEMENT avec un JSON valide, sans markdown, au format :
+{ "suggestions": ["string"] }
+Donne 2 à 3 suggestions courtes et actionnables (compétences à renforcer, expériences à valoriser, ou CV à mettre à jour). N'invente pas de faits sur l'utilisateur, base-toi uniquement sur les données fournies.`
+
+export async function generateLibrarySuggestions(input: {
+  experiences: { title: string; organization: string; skills: string[] }[]
+  cvDocuments: { file_name: string; ats_score: number | null }[]
+}): Promise<string[]> {
+  const userContent = buildSuggestionsUserContent(input.experiences, input.cvDocuments)
+  const raw = await generateStructuredData<unknown>(LIBRARY_SUGGESTIONS_SYSTEM_PROMPT, userContent, 600)
+  return parseSuggestionsResponse(raw)
 }
