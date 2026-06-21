@@ -571,7 +571,7 @@ function EditGoalModal({ goal, initialDraft, isActive, saving, onSave, onActivat
 
           <div>
             <label className="block text-xs font-semibold mb-2" style={{ color: 'var(--color-ink)' }}>Délai de recherche</label>
-            <div className="grid grid-cols-4 gap-2">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
               {TIMELINE_OPTIONS.map((opt) => (
                 <button
                   key={opt.value}

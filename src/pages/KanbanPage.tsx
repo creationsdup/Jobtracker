@@ -106,7 +106,7 @@ function KanbanColumn({
 
   return (
     <div
-      className="flex flex-col gap-3 w-[270px] min-w-[270px] flex-shrink-0 rounded-[var(--radius-lg)] p-2.5"
+      className="flex flex-col gap-3 w-[82vw] sm:w-[270px] min-w-[230px] sm:min-w-[270px] flex-shrink-0 snap-start rounded-[var(--radius-lg)] p-2.5"
       style={{ background: tint.bg, border: '1px solid rgba(148, 163, 184, 0.18)' }}
     >
       <div
@@ -211,7 +211,7 @@ export function KanbanPage({ applications, goal, onStatusChange, onOpenDetail, r
         onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
       >
-        <div className="flex gap-4 pb-4 overflow-x-auto">
+        <div className="flex gap-4 pb-4 overflow-x-auto snap-x snap-mandatory">
           {KANBAN_COLUMNS.map(col => (
             <KanbanColumn
               key={col}

@@ -18,7 +18,10 @@ export function AppShell({ userId, userEmail, applicationsCount, onLogout, onAdd
   const isFixedScreen = pathname === '/'
 
   return (
-    <div className={`flex ${isFixedScreen ? 'h-screen overflow-hidden' : 'min-h-screen'}`} style={{ background: 'var(--color-bg)' }}>
+    <div
+      className={`flex ${isFixedScreen ? 'h-screen overflow-hidden' : 'min-h-screen'}`}
+      style={{ background: 'var(--color-bg)', paddingTop: 'env(safe-area-inset-top)' }}
+    >
       <Sidebar
         userId={userId}
         userEmail={userEmail}

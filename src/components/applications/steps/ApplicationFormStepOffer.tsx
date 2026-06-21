@@ -32,7 +32,7 @@ export function ApplicationFormStepOffer({ value, onChange, showImport, onImport
         </button>
       )}
 
-      <div className="grid grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
         <div className="flex flex-col gap-2">
           <label className="text-xs font-medium">Entreprise *</label>
           <input
@@ -57,7 +57,7 @@ export function ApplicationFormStepOffer({ value, onChange, showImport, onImport
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
         <div className="flex flex-col gap-2">
           <label className="text-xs font-medium">Lieu</label>
           <input
@@ -84,7 +84,7 @@ export function ApplicationFormStepOffer({ value, onChange, showImport, onImport
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
         <div className="flex flex-col gap-2">
           <label className="text-xs font-medium">URL de l'offre</label>
           <input

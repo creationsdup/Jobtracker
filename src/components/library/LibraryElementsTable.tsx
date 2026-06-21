@@ -53,10 +53,38 @@ export function LibraryElementsTable({
 
   const visibleItems = expanded ? items : items.slice(0, VISIBLE_CAP)
 
+  function actions(exp: Experience) {
+    return (
+      <div className="inline-flex items-center gap-2">
+        <button
+          className="inline-flex items-center justify-center w-8 h-8 rounded-full border transition-colors hover:bg-blue-50"
+          style={{ borderColor: 'var(--color-border)', color: 'var(--color-accent)' }}
+          onClick={() => onEdit(exp)}
+        >
+          <Pencil size={14} />
+        </button>
+        <button
+          className="inline-flex items-center justify-center w-8 h-8 rounded-full border transition-colors hover:bg-red-50"
+          style={{ borderColor: 'var(--color-border)', color: 'var(--color-danger)' }}
+          onClick={async () => {
+            if (!window.confirm('Supprimer cette entrée ? Cette action est irréversible.')) return
+            setDeleteError(null)
+            const err = await onDelete(exp.id)
+            if (err) setDeleteError(err)
+          }}
+        >
+          <Trash2 size={14} />
+        </button>
+      </div>
+    )
+  }
+
   return (
     <div className="flex flex-col gap-2">
       {deleteError && <p className="text-sm text-red-500">{deleteError}</p>}
-      <div className="rounded-[14px] border overflow-hidden" style={{ borderColor: 'var(--color-border)' }}>
+
+      {/* Desktop: table */}
+      <div className="hidden md:block rounded-[14px] border overflow-hidden" style={{ borderColor: 'var(--color-border)' }}>
       <table className="w-full text-sm border-separate border-spacing-0">
         <thead>
           <tr className="text-left text-xs font-semibold uppercase text-[var(--color-muted)]" style={{ background: 'var(--color-bg)' }}>
@@ -82,27 +110,7 @@ export function LibraryElementsTable({
                 <td className="py-3 px-4 text-[var(--color-muted)] truncate max-w-[180px]">{sourceLabel(exp)}</td>
                 <td className="py-3 px-4 text-[var(--color-muted)] whitespace-nowrap">{formatDate(exp.createdAt)}</td>
                 <td className="py-3 px-4 text-right whitespace-nowrap">
-                  <div className="inline-flex items-center gap-2">
-                    <button
-                      className="inline-flex items-center justify-center w-8 h-8 rounded-full border transition-colors hover:bg-blue-50"
-                      style={{ borderColor: 'var(--color-border)', color: 'var(--color-accent)' }}
-                      onClick={() => onEdit(exp)}
-                    >
-                      <Pencil size={14} />
-                    </button>
-                    <button
-                      className="inline-flex items-center justify-center w-8 h-8 rounded-full border transition-colors hover:bg-red-50"
-                      style={{ borderColor: 'var(--color-border)', color: 'var(--color-danger)' }}
-                      onClick={async () => {
-                        if (!window.confirm('Supprimer cette entrée ? Cette action est irréversible.')) return
-                        setDeleteError(null)
-                        const err = await onDelete(exp.id)
-                        if (err) setDeleteError(err)
-                      }}
-                    >
-                      <Trash2 size={14} />
-                    </button>
-                  </div>
+                  {actions(exp)}
                 </td>
               </tr>
             )
@@ -119,6 +127,38 @@ export function LibraryElementsTable({
           {expanded ? 'Réduire' : 'Voir tous les éléments'}
         </button>
       )}
+      </div>
+
+      {/* Mobile: vertical cards */}
+      <div className="flex flex-col gap-2 md:hidden">
+        {visibleItems.map((exp) => {
+          const badge = typeBadge(exp)
+          return (
+            <div key={exp.id} className="rounded-[14px] border p-3.5 flex flex-col gap-2" style={{ borderColor: 'var(--color-border)' }}>
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <p className="font-medium text-sm">{exp.title}</p>
+                  <p className="text-xs text-[var(--color-muted)] truncate">{exp.organization} · {dateRange(exp)}</p>
+                </div>
+                <span className={`badge ${badge.color} shrink-0`}>{badge.label}</span>
+              </div>
+              <div className="flex items-center justify-between text-xs text-[var(--color-muted)]">
+                <span className="truncate">{sourceLabel(exp)} · {formatDate(exp.createdAt)}</span>
+                {actions(exp)}
+              </div>
+            </div>
+          )
+        })}
+
+        {items.length > VISIBLE_CAP && (
+          <button
+            className="w-full py-3 text-sm font-medium rounded-[14px] border text-[var(--color-accent)] hover:bg-[var(--color-bg)] transition-colors"
+            style={{ borderColor: 'var(--color-border)' }}
+            onClick={() => setExpanded((v) => !v)}
+          >
+            {expanded ? 'Réduire' : 'Voir tous les éléments'}
+          </button>
+        )}
       </div>
     </div>
   )

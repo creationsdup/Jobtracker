@@ -52,7 +52,7 @@ export function CompareCvModal({ cvDocuments, experiences, onClose }: CompareCvM
             <p className="text-sm text-[var(--color-muted)]">Importez au moins deux CV pour pouvoir les comparer.</p>
           ) : (
             <>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                 <select className="input" value={idA} onChange={(e) => setIdA(e.target.value)}>
                   {cvDocuments.map((cv) => <option key={cv.id} value={cv.id}>{cv.file_name}</option>)}
                 </select>
@@ -61,7 +61,8 @@ export function CompareCvModal({ cvDocuments, experiences, onClose }: CompareCvM
                 </select>
               </div>
 
-              <table className="w-full text-sm">
+              {/* Desktop: side-by-side table */}
+              <table className="w-full text-sm hidden sm:table">
                 <tbody>
                   {rows.map((row) => (
                     <tr key={row.label} className="border-t" style={{ borderColor: 'var(--color-border)' }}>
@@ -72,6 +73,23 @@ export function CompareCvModal({ cvDocuments, experiences, onClose }: CompareCvM
                   ))}
                 </tbody>
               </table>
+
+              {/* Mobile: stacked cards, one per CV */}
+              <div className="flex flex-col gap-3 sm:hidden">
+                {[{ name: cvA?.file_name, value: 'a' as const }, { name: cvB?.file_name, value: 'b' as const }].map(({ name, value }) => (
+                  <div key={value} className="rounded-[14px] border p-3.5" style={{ borderColor: 'var(--color-border)' }}>
+                    <p className="font-medium text-sm mb-2 truncate">{name}</p>
+                    <div className="flex flex-col gap-1.5">
+                      {rows.map((row) => (
+                        <div key={row.label} className="flex items-center justify-between text-sm">
+                          <span className="text-[var(--color-muted)] text-xs font-semibold uppercase">{row.label}</span>
+                          <span>{row[value]}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
             </>
           )}
         </div>

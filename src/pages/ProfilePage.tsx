@@ -159,7 +159,7 @@ export function ProfilePage({ userId, userEmail }: ProfilePageProps) {
 
   return (
     <>
-      <div style={{ width: '100%', padding: '32px 40px 80px', display: 'flex', flexDirection: 'column', gap: 24 }}>
+      <div className="px-4 sm:px-10" style={{ width: '100%', paddingTop: 32, paddingBottom: 80, display: 'flex', flexDirection: 'column', gap: 24 }}>
 
         {/* ── Header ── */}
         <div style={{ paddingBottom: 4 }}>

@@ -177,7 +177,7 @@ export function LoginPage({ onSignIn, onSignUp, onSignInWithGoogle, onForgotPass
             <form onSubmit={handleSubmit} className={styles.form}>
               {mode === 'signup' && (
                 <>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div className={styles.fieldGroup}>
                       <label className={styles.label}>{t('login.firstName')}</label>
                       <input
