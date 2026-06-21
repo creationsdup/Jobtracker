@@ -15,6 +15,7 @@ interface SidebarProps {
   onLogout: () => void
 }
 
+// eslint-disable-next-line react-refresh/only-export-components -- shared nav config co-located with the component that owns it
 export const NAV_LINKS: { to: string; labelKey: TranslationKey; icon: typeof LayoutDashboard }[] = [
   { to: '/',             labelKey: 'sidebar.dashboard',    icon: LayoutDashboard },
   { to: '/applications', labelKey: 'sidebar.applications', icon: Briefcase },

@@ -40,6 +40,7 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
   )
 }
 
+// eslint-disable-next-line react-refresh/only-export-components -- hook co-located with its provider by design
 export function useTranslation() {
   const ctx = useContext(I18nContext)
   if (!ctx) throw new Error('useTranslation must be used within an I18nProvider')

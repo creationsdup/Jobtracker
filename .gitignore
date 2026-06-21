@@ -28,3 +28,12 @@ npm-debug.log*
 
 # Git worktrees for isolated feature work
 .worktrees/
+
+# Capacitor / Xcode
+ios/App/Pods/
+ios/App/build/
+ios/App/DerivedData/
+ios/.xcode.env.local
+ios/App/App/public/
+**/xcuserdata/
+**/*.xcuserstate
