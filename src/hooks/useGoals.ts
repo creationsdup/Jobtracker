@@ -1,113 +1,30 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { supabase } from '@/lib/supabase'
-import type { Application, UserGoal } from '@/lib/types'
+import type { UserGoal } from '@/lib/types'
 
 export interface GoalUpdate {
-  type?: string | null
+  target_title?: string | null
   target_roles?: string[]
   contract_types?: string[]
-  target_date?: string | null
-  personal_target?: number | null
   locations?: string[]
   target_companies?: string[]
+  sectors?: string[]
+  keywords_wanted?: string[]
+  keywords_excluded?: string[]
+  experience_level?: string[]
+  scoring_priorities?: string | null
+  target_date?: string | null
+  personal_target?: number | null
 }
 
-export interface GoalAlignment {
-  zoneMatch: number        // % of applications in target zones
-  contractMatch: number    // % of applications with target contract type
-  companyMatch: number     // % of applications at target companies
-  zoneApps: Application[]
-  contractApps: Application[]
-  companyApps: Application[]
-  offTargetApps: Application[]
-}
-
-export interface ScoreCriterion {
-  label: string
-  matched: boolean
-}
-
-// Détaille les critères de l'objectif qui composent le score de correspondance,
-// pour pouvoir expliquer à l'utilisateur pourquoi une candidature obtient X%.
-export function computeAppScoreBreakdown(goal: UserGoal | null, app: Application): ScoreCriterion[] {
-  if (!goal) return []
-
-  const positions = goal.target_roles?.map((p) => p.toLowerCase().trim()) ?? []
-  const zones     = goal.locations?.map((z) => z.toLowerCase().trim()) ?? []
-  const contracts = goal.contract_types?.map((c) => c.toLowerCase().trim()) ?? []
-  const companies = goal.target_companies?.map((c) => c.toLowerCase().trim()) ?? []
-
-  const items: ScoreCriterion[] = []
-
-  if (positions.length > 0)
-    items.push({ label: 'Poste recherché', matched: positions.some((p) => app.position.toLowerCase().includes(p)) })
-  if (zones.length > 0)
-    items.push({ label: 'Zone géographique', matched: !!app.location && zones.some((z) => app.location!.toLowerCase().includes(z)) })
-  if (contracts.length > 0)
-    items.push({ label: 'Type de contrat', matched: !!app.contractType && contracts.includes(app.contractType.toLowerCase().trim()) })
-  if (companies.length > 0)
-    items.push({ label: 'Entreprise ciblée', matched: companies.some((c) => app.company.toLowerCase().includes(c)) })
-
-  return items
-}
-
-export function computeAppScore(goal: UserGoal | null, app: Application): number | null {
-  const items = computeAppScoreBreakdown(goal, app)
-  if (items.length === 0) return null
-  return Math.round((items.filter((i) => i.matched).length / items.length) * 100)
-}
-
-export function computeAlignment(goal: UserGoal | null, applications: Application[]): GoalAlignment {
-  const active = applications.filter(
-    (a) => !['REJECTED', 'WITHDRAWN'].includes(a.status),
-  )
-
-  if (!goal || active.length === 0) {
-    return {
-      zoneMatch: 0, contractMatch: 0, companyMatch: 0,
-      zoneApps: [], contractApps: [], companyApps: [], offTargetApps: active,
-    }
-  }
-
-  const zones = (goal.locations ?? []).map((z) => z.toLowerCase().trim())
-  const contracts = (goal.contract_types ?? []).map((c) => c.toLowerCase().trim())
-  const companies = (goal.target_companies ?? []).map((c) => c.toLowerCase().trim())
-
-  const zoneApps = zones.length === 0 ? active : active.filter(
-    (a) => a.location && zones.some((z) => a.location!.toLowerCase().includes(z)),
-  )
-  const contractApps = contracts.length === 0 ? active : active.filter(
-    (a) => a.contractType && contracts.includes(a.contractType.toLowerCase().trim()),
-  )
-  const companyApps = companies.length === 0 ? [] : active.filter(
-    (a) => companies.some((c) => a.company.toLowerCase().includes(c)),
-  )
-
-  const offTargetApps = active.filter((a) => {
-    const zoneOk = zones.length === 0 || zoneApps.includes(a)
-    const contractOk = contracts.length === 0 || contractApps.includes(a)
-    return !zoneOk || !contractOk
-  })
-
-  return {
-    zoneMatch: zones.length === 0 ? 100 : Math.round((zoneApps.length / active.length) * 100),
-    contractMatch: contracts.length === 0 ? 100 : Math.round((contractApps.length / active.length) * 100),
-    companyMatch: companies.length === 0 ? 0 : Math.round((companyApps.length / active.length) * 100),
-    zoneApps,
-    contractApps,
-    companyApps,
-    offTargetApps,
-  }
-}
-
-export function useGoals(userId: string | null, applications?: Application[]) {
-  const [goal, setGoal] = useState<UserGoal | null>(null)
+export function useGoals(userId: string | null) {
+  const [goals, setGoals] = useState<UserGoal[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
 
-  const fetchGoal = useCallback(async () => {
+  const fetchGoals = useCallback(async () => {
     if (!userId) {
-      setGoal(null)
+      setGoals([])
       setLoading(false)
       return
     }
@@ -117,51 +34,116 @@ export function useGoals(userId: string | null, applications?: Application[]) {
       .from('user_goals')
       .select('*')
       .eq('user_id', userId)
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle()
+      .order('created_at', { ascending: true })
 
-    setGoal(data ?? null)
+    setGoals(data ?? [])
     setLoading(false)
   }, [userId])
 
   useEffect(() => {
-    fetchGoal()
-  }, [fetchGoal])
+    fetchGoals()
+  }, [fetchGoals])
 
-  const saveGoal = useCallback(async (updates: GoalUpdate): Promise<string | null> => {
-    if (!userId) return 'Non authentifié'
+  // The goal used for match scoring everywhere outside this page. Falls back
+  // to the first goal if none is flagged active yet (shouldn't happen once
+  // the migration backfill has run, but keeps the app usable either way).
+  const activeGoal = useMemo(
+    () => goals.find((g) => g.is_active) ?? goals[0] ?? null,
+    [goals],
+  )
+
+  const createGoal = useCallback(async (updates: GoalUpdate): Promise<{ id: string | null; error: string | null }> => {
+    if (!userId) return { id: null, error: 'Non authentifié' }
     setSaving(true)
-
-    const payload = goal
-      ? { ...goal, ...updates, updated_at: new Date().toISOString() }
-      : {
-          user_id: userId,
-          type: updates.type ?? null,
-          target_roles: updates.target_roles ?? [],
-          contract_types: updates.contract_types ?? [],
-          target_date: updates.target_date ?? null,
-          personal_target: updates.personal_target ?? 12,
-          locations: updates.locations ?? [],
-          target_companies: updates.target_companies ?? [],
-        }
 
     const { data, error } = await supabase
       .from('user_goals')
-      .upsert(payload)
+      .insert({
+        user_id: userId,
+        is_active: goals.length === 0,
+        target_title: updates.target_title ?? null,
+        target_roles: updates.target_roles ?? [],
+        contract_types: updates.contract_types ?? [],
+        locations: updates.locations ?? [],
+        target_companies: updates.target_companies ?? [],
+        sectors: updates.sectors ?? [],
+        keywords_wanted: updates.keywords_wanted ?? [],
+        keywords_excluded: updates.keywords_excluded ?? [],
+        experience_level: updates.experience_level ?? [],
+        scoring_priorities: updates.scoring_priorities ?? null,
+        target_date: updates.target_date ?? null,
+        personal_target: updates.personal_target ?? 12,
+      })
+      .select()
+      .single()
+
+    setSaving(false)
+    if (error) return { id: null, error: error.message }
+    setGoals((prev) => [...prev, data])
+    return { id: data.id, error: null }
+  }, [userId, goals.length])
+
+  const saveGoal = useCallback(async (goalId: string, updates: GoalUpdate): Promise<string | null> => {
+    setSaving(true)
+
+    const { data, error } = await supabase
+      .from('user_goals')
+      .update({ ...updates, updated_at: new Date().toISOString() })
+      .eq('id', goalId)
       .select()
       .single()
 
     setSaving(false)
     if (error) return error.message
-    setGoal(data)
+    setGoals((prev) => prev.map((g) => (g.id === goalId ? data : g)))
     return null
-  }, [goal, userId])
+  }, [])
 
-  const alignment = useMemo(
-    () => computeAlignment(goal, applications ?? []),
-    [goal, applications],
-  )
+  const setActiveGoal = useCallback(async (goalId: string): Promise<string | null> => {
+    if (!userId) return 'Non authentifié'
+    setSaving(true)
 
-  return { goal, loading, saving, saveGoal, refetch: fetchGoal, alignment }
+    // Clear the previous active row before setting the new one — the unique
+    // partial index on user_goals would reject having two active at once.
+    const { error: clearError } = await supabase
+      .from('user_goals')
+      .update({ is_active: false })
+      .eq('user_id', userId)
+    if (clearError) {
+      setSaving(false)
+      return clearError.message
+    }
+
+    const { error: setError } = await supabase
+      .from('user_goals')
+      .update({ is_active: true })
+      .eq('id', goalId)
+
+    setSaving(false)
+    if (setError) return setError.message
+    setGoals((prev) => prev.map((g) => ({ ...g, is_active: g.id === goalId })))
+    return null
+  }, [userId])
+
+  const deleteGoal = useCallback(async (goalId: string): Promise<string | null> => {
+    setSaving(true)
+    const { error } = await supabase.from('user_goals').delete().eq('id', goalId)
+    setSaving(false)
+    if (error) return error.message
+
+    setGoals((prev) => {
+      const deletedWasActive = prev.find((g) => g.id === goalId)?.is_active ?? false
+      const remaining = prev.filter((g) => g.id !== goalId)
+      if (!deletedWasActive || remaining.length === 0) return remaining
+
+      // Deleting the active goal must promote another one, otherwise scoring
+      // silently has nothing to use app-wide until the user picks a new active goal.
+      const promoted = remaining[0]
+      void supabase.from('user_goals').update({ is_active: true }).eq('id', promoted.id)
+      return remaining.map((g) => (g.id === promoted.id ? { ...g, is_active: true } : g))
+    })
+    return null
+  }, [])
+
+  return { goals, activeGoal, loading, saving, createGoal, saveGoal, setActiveGoal, deleteGoal, refetch: fetchGoals }
 }

@@ -1,15 +1,16 @@
 import { useEffect, useRef, useState } from 'react'
-import { X, MapPin, FileText, Link as LinkIcon, Plus, Mail, Pencil, Trash2, Send, Target } from 'lucide-react'
+import { X, MapPin, FileText, Link as LinkIcon, Plus, Mail, Pencil, Trash2, Send, Target, ChevronDown } from 'lucide-react'
 import { StatusBadge } from './StatusBadge'
 import { CompanyLogo } from './CompanyLogo'
 import { formatDate } from '@/lib/utils'
 import type { Application, TimelineStep, StepStatus, ApplicationStatus, UserGoal } from '@/lib/types'
 import { CoverLetterGenerator } from './CoverLetterGenerator'
+import { MatchScoreBadge } from './MatchScoreBadge'
+import { MatchDetailsContent } from './MatchDetailsContent'
 import { useProfile } from '@/hooks/useProfile'
 import { useExperiences } from '@/hooks/useExperiences'
-import { computeAppScore, computeAppScoreBreakdown } from '@/hooks/useGoals'
+import { calculateJobMatch, applicationToJobMatchInput } from '@/lib/jobMatching'
 import { deriveApplicationStatusFromSteps, TIMELINE_PRESETS } from '@/lib/timelineStatus'
-import { scoreTierColor } from '@/utils/statusLabels'
 
 interface ApplicationDetailProps {
   application: Application
@@ -58,8 +59,8 @@ export function ApplicationDetail({
   resolveLogo,
   goal,
 }: ApplicationDetailProps) {
-  const score = computeAppScore(goal ?? null, application)
-  const scoreCriteria = computeAppScoreBreakdown(goal ?? null, application)
+  const match = goal ? calculateJobMatch(applicationToJobMatchInput(application), goal) : null
+  const [matchExpanded, setMatchExpanded] = useState(false)
   const [addingStep, setAddingStep] = useState(false)
   const [editingStepId, setEditingStepId] = useState<string | null>(null)
   const [savingStepId, setSavingStepId] = useState<string | null>(null)
@@ -310,28 +311,33 @@ export function ApplicationDetail({
             )}
           </div>
 
-          {score !== null && (
-            <div className="flex flex-col gap-2 rounded-[var(--radius-sm)] bg-[var(--color-bg)] p-3">
-              <div className="flex items-center justify-between">
+          {match && (
+            <div className="rounded-[var(--radius-sm)] bg-[var(--color-bg)] p-3">
+              <div
+                role="button"
+                tabIndex={0}
+                className="w-full flex items-center justify-between cursor-pointer"
+                onClick={() => setMatchExpanded((v) => !v)}
+                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setMatchExpanded((v) => !v) } }}
+                aria-expanded={matchExpanded}
+              >
                 <h4 className="text-sm font-semibold flex items-center gap-1.5">
                   <Target size={13} />
                   Correspondance avec votre objectif
                 </h4>
-                <span
-                  className="text-sm font-bold"
-                  style={{ color: scoreTierColor(score).fg }}
-                >
-                  {score}%
-                </span>
+                <div className="flex items-center gap-1.5">
+                  <MatchScoreBadge result={match} onClick={() => setMatchExpanded((v) => !v)} />
+                  <ChevronDown
+                    size={14}
+                    style={{ color: 'var(--color-muted)', transform: matchExpanded ? 'rotate(180deg)' : undefined, transition: 'transform 150ms' }}
+                  />
+                </div>
               </div>
-              <ul className="flex flex-col gap-1">
-                {scoreCriteria.map((c) => (
-                  <li key={c.label} className="flex items-center gap-2 text-xs" style={{ color: c.matched ? 'var(--color-ink)' : 'var(--color-muted)' }}>
-                    <span style={{ color: c.matched ? 'var(--color-success)' : 'var(--color-danger-dark)' }}>{c.matched ? '✓' : '✗'}</span>
-                    {c.label}
-                  </li>
-                ))}
-              </ul>
+              {matchExpanded && (
+                <div className="mt-3 pt-3 border-t" style={{ borderColor: 'var(--color-border)' }}>
+                  <MatchDetailsContent result={match} showHeader={false} />
+                </div>
+              )}
             </div>
           )}
 

@@ -1,9 +1,11 @@
+import { useState } from 'react'
 import { MapPin, FileText } from 'lucide-react'
 import { StatusBadge } from './StatusBadge'
 import { CompanyLogo } from './CompanyLogo'
-import { GoalBadge } from './GoalBadge'
+import { MatchScoreBadge } from './MatchScoreBadge'
+import { MatchDetailsModal } from './MatchDetailsModal'
 import { formatDate } from '@/lib/utils'
-import { computeAppScore, computeAppScoreBreakdown } from '@/hooks/useGoals'
+import { calculateJobMatch, applicationToJobMatchInput } from '@/lib/jobMatching'
 import type { Application, UserGoal } from '@/lib/types'
 
 interface ApplicationCardProps {
@@ -15,8 +17,8 @@ interface ApplicationCardProps {
 
 export function ApplicationCard({ application, goal, onClick, logoUrl }: ApplicationCardProps) {
   const { company, position, location, contractType, status, createdAt } = application
-  const score = computeAppScore(goal ?? null, application)
-  const scoreCriteria = computeAppScoreBreakdown(goal ?? null, application)
+  const match = goal ? calculateJobMatch(applicationToJobMatchInput(application), goal) : null
+  const [showDetails, setShowDetails] = useState(false)
 
   return (
     <div
@@ -40,10 +42,12 @@ export function ApplicationCard({ application, goal, onClick, logoUrl }: Applica
       <div className="flex flex-col items-end gap-2 flex-shrink-0">
         <StatusBadge status={status} />
         <div className="flex items-center gap-1.5">
-          {score !== null && <GoalBadge score={score} criteria={scoreCriteria} />}
+          {match && <MatchScoreBadge result={match} onClick={() => setShowDetails(true)} />}
           <span className="text-xs text-[var(--color-muted)]">{formatDate(createdAt)}</span>
         </div>
       </div>
+
+      {showDetails && match && <MatchDetailsModal result={match} onClose={() => setShowDetails(false)} />}
     </div>
   )
 }

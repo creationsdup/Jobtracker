@@ -137,3 +137,40 @@ export async function generateText(systemPrompt: string, userContent: string, ma
 
   return content.trim()
 }
+
+export interface GeneratedGoal {
+  target_title: string | null
+  target_roles: string[]
+  contract_types: string[]
+  locations: string[]
+  target_companies: string[]
+  sectors: string[]
+  keywords_wanted: string[]
+  keywords_excluded: string[]
+  experience_level: string[]
+  scoring_priorities: string | null
+  timeline: '1m' | '3m' | '6m' | '12m' | null
+  personal_target: number | null
+}
+
+const GOAL_SYSTEM_PROMPT = `Tu es un assistant qui transforme une description libre de recherche d'emploi en objectif structuré pour une plateforme de suivi de candidatures.
+Réponds UNIQUEMENT avec un JSON valide, sans markdown ni texte autour, au format exact suivant :
+{
+  "target_title": "string | null (intitulé cible court, ex: \\"Chef de projet innovation\\")",
+  "target_roles": ["string"] (postes recherchés, ex: ["Chef de projet", "PMO"]),
+  "contract_types": ["string"] (UNIQUEMENT parmi ces valeurs exactes : "CDI", "CDD", "Stage", "Alternance", "Freelance", "Mission" — omets si non mentionné, n'invente jamais d'autre valeur),
+  "locations": ["string"] (villes, régions ou pays acceptés),
+  "target_companies": ["string"] (entreprises visées nommément),
+  "sectors": ["string"] (secteurs d'activité, ex: ["Transport", "Innovation"]),
+  "keywords_wanted": ["string"] (mots-clés métier à privilégier),
+  "keywords_excluded": ["string"] (mots-clés à éviter),
+  "experience_level": ["string"] (niveau d'expérience recherché, ex: ["junior", "0-2 ans"]),
+  "scoring_priorities": "string | null (résumé libre d'une phrase des priorités, informatif uniquement)",
+  "timeline": "'1m' | '3m' | '6m' | '12m' | null (urgence de la recherche : 1m = moins d'1 mois, 3m = 1 à 3 mois, 6m = 3 à 6 mois, 12m = plus de 6 mois ; null si aucune urgence n'est mentionnée)",
+  "personal_target": "number | null (nombre de candidatures par mois visé, UNIQUEMENT si explicitement mentionné dans le texte, sinon null)"
+}
+Règle stricte : un champ non mentionné dans le texte doit être un tableau vide [] ou null — n'invente JAMAIS de valeur pour "remplir" un champ.`
+
+export async function generateGoalFromText(freeText: string): Promise<GeneratedGoal> {
+  return generateStructuredData<GeneratedGoal>(GOAL_SYSTEM_PROMPT, freeText, 800)
+}

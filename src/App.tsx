@@ -24,7 +24,7 @@ export function App() {
   const { user, loading: authLoading, isAuthenticated, isPasswordRecovery, signIn, signInWithGoogle, signUp, signOut, sendPasswordReset, completePasswordRecovery } = useAuth()
   const { applications, loading: appsLoading, addApplication, updateApplication, updateStatus, deleteApplication } = useApplications(user?.id ?? null)
   const { fetchStepsForApplication, addStep, updateStep, deleteStep, deleteStepsForApplication, getStepsForApplication } = useSteps()
-  const { goal } = useGoals(user?.id ?? null)
+  const { activeGoal: goal } = useGoals(user?.id ?? null)
   const { logos: orgLogos, setOrgWebsite } = useOrgLogos(user?.id ?? null)
   const { lookup: lookupCompanyDomain, contribute: contributeCompanyDomain } = useCompanyDomains()
 

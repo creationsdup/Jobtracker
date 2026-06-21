@@ -10,8 +10,9 @@ import { CSS } from '@dnd-kit/utilities'
 import { useMemo, useState } from 'react'
 import { Search } from 'lucide-react'
 import { formatDate } from '@/lib/utils'
-import { computeAppScore, computeAppScoreBreakdown } from '@/hooks/useGoals'
-import { GoalBadge } from '@/components/applications/GoalBadge'
+import { calculateJobMatch, applicationToJobMatchInput } from '@/lib/jobMatching'
+import { MatchScoreBadge } from '@/components/applications/MatchScoreBadge'
+import { MatchDetailsModal } from '@/components/applications/MatchDetailsModal'
 import { CompanyLogo } from '@/components/applications/CompanyLogo'
 import { EmptyDropZone } from '@/components/ui/EmptyDropZone'
 import type { Application, ApplicationStatus, UserGoal } from '@/lib/types'
@@ -44,8 +45,8 @@ const COLUMN_TINT: Record<ApplicationStatus, { bg: string; accent: string }> = {
 // ─── Sortable Card ────────────────────────────────────────────────────────────
 
 function SortableCard({ app, goal, onOpen, logoUrl }: { app: Application; goal?: UserGoal | null; onOpen: () => void; logoUrl?: string }) {
-  const score = computeAppScore(goal ?? null, app)
-  const scoreCriteria = computeAppScoreBreakdown(goal ?? null, app)
+  const match = goal ? calculateJobMatch(applicationToJobMatchInput(app), goal) : null
+  const [showDetails, setShowDetails] = useState(false)
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: app.id })
 
   return (
@@ -81,9 +82,10 @@ function SortableCard({ app, goal, onOpen, logoUrl }: { app: Application; goal?:
         )}
       </div>
       <div className="flex items-center justify-between gap-2 mt-2.5 pt-2.5 border-t" style={{ borderColor: 'var(--color-border)' }}>
-        {score !== null ? <GoalBadge score={score} criteria={scoreCriteria} /> : <span />}
+        {match ? <MatchScoreBadge result={match} onClick={() => setShowDetails(true)} /> : <span />}
         <span className="text-[11px] font-semibold" style={{ color: 'var(--color-accent)' }}>Voir →</span>
       </div>
+      {showDetails && match && <MatchDetailsModal result={match} onClose={() => setShowDetails(false)} />}
     </div>
   )
 }

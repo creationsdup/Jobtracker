@@ -67,13 +67,19 @@ export interface Experience {
 export interface UserGoal {
   id: string
   user_id: string
-  type: string | null
+  target_title: string | null
   target_roles: string[]
   contract_types: string[]
-  target_date: string | null
-  personal_target: number | null
   locations: string[]
   target_companies: string[]
+  sectors: string[]
+  keywords_wanted: string[]
+  keywords_excluded: string[]
+  experience_level: string[]
+  scoring_priorities: string | null
+  target_date: string | null
+  personal_target: number | null
+  is_active: boolean
   created_at: string
   updated_at: string
 }
