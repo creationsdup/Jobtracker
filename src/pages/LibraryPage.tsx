@@ -314,6 +314,7 @@ export function LibraryPage({ userId, userEmail }: LibraryPageProps) {
           existingInterests={profile?.interests ?? []}
           onImportEntries={bulkAddExperiences}
           onImportProfileData={(payload) => updateProfile(payload)}
+          onUploadCv={async () => ({ data: null, error: 'Stockage des CV non encore branché' })}
           onClose={() => setImporterOpen(false)}
         />
       )}

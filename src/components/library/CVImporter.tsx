@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState, type Dispatch, type ReactNode, type SetStateAction } from 'react'
 import { Upload, X, Check, Loader2, AlertCircle } from 'lucide-react'
-import type { ExperienceType } from '@/lib/types'
+import type { CvDocument, ExperienceType } from '@/lib/types'
 import type { NewExperience } from '@/hooks/useExperiences'
 import { generateStructuredData } from '@/lib/ai'
 import { extractCvText } from '@/lib/cvTextExtraction'
@@ -34,6 +34,7 @@ interface CVImporterProps {
   existingInterests: string[]
   onImportEntries: (items: NewExperience[]) => Promise<string | null>
   onImportProfileData: (payload: { skills: string[]; interests: string[] }) => Promise<string | null>
+  onUploadCv: (file: File) => Promise<{ data: CvDocument | null; error: string | null }>
   onClose: () => void
 }
 
@@ -121,6 +122,7 @@ export function CVImporter({
   existingInterests,
   onImportEntries,
   onImportProfileData,
+  onUploadCv,
   onClose,
 }: CVImporterProps) {
   const inputRef = useRef<HTMLInputElement>(null)
@@ -129,6 +131,7 @@ export function CVImporter({
   const [entries, setEntries] = useState<PreviewEntry[]>([])
   const [skillsText, setSkillsText] = useState('')
   const [interestsText, setInterestsText] = useState('')
+  const [pickedFile, setPickedFile] = useState<File | null>(null)
 
   const selectedCount = useMemo(
     () => entries.filter((entry) => entry.selected).length,
@@ -152,6 +155,7 @@ export function CVImporter({
     }
 
     setError(null)
+    setPickedFile(file)
     setStep('loading')
 
     try {
@@ -174,6 +178,19 @@ export function CVImporter({
     const selectedEntries = entries.filter((entry) => entry.selected)
     setStep('saving')
 
+    if (!pickedFile) {
+      setError('Fichier introuvable, veuillez réimporter votre CV.')
+      setStep('preview')
+      return
+    }
+
+    const { data: cvDocument, error: uploadError } = await onUploadCv(pickedFile)
+    if (uploadError || !cvDocument) {
+      setError(uploadError ?? "Échec de l'enregistrement du CV")
+      setStep('preview')
+      return
+    }
+
     const mapped: NewExperience[] = selectedEntries.map((entry) => ({
       id: crypto.randomUUID(),
       userId,
@@ -187,7 +204,7 @@ export function CVImporter({
       description: entry.description.trim() || null,
       skills: dedupe(entry.skills),
       subsection: entry.subsection?.trim() || null,
-      sourceCvId: null,
+      sourceCvId: cvDocument.id,
     }))
 
     const nextSkills = dedupe(skillsText.split(','))
