@@ -26,7 +26,7 @@ export function AtsAnalysisRow({ analysis, cvFileName, onView, onOptimize, onAss
       <ScoreRing score={analysis.score} size={36} />
 
       <span className="text-xs text-[var(--color-muted)] w-28 text-right">
-        {analysis.missing_keywords.length} mot{analysis.missing_keywords.length === 1 ? '' : 's'}-clés manquant{analysis.missing_keywords.length === 1 ? '' : 's'}
+        {analysis.missing_keywords.length} mot{analysis.missing_keywords.length === 1 ? '' : 's'}-clé{analysis.missing_keywords.length === 1 ? '' : 's'} manquant{analysis.missing_keywords.length === 1 ? '' : 's'}
       </span>
 
       <button className="btn btn-secondary btn-sm" onClick={() => onView(analysis)}>Voir</button>
