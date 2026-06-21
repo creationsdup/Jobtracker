@@ -27,6 +27,12 @@
   --color-danger: #EF4444;
   --color-danger-dark: #DC2626;
   --color-purple: #7C3AED;
+  --color-ink-secondary: #374151;
+  --color-success-bg: #F0FDF4;
+  --color-success-fg: #166534;
+  --color-info: #0891B2;
+  --color-info-bg: #E0F2FE;
+  --color-amber: #D97706;
 
   /* Status colors */
   --color-status-saved-bg: #F1F5F9;

@@ -4,11 +4,11 @@ import type { Application, UserGoal } from '@/lib/types'
 
 export interface GoalUpdate {
   type?: string | null
-  target_positions?: string[]
+  target_roles?: string[]
   contract_types?: string[]
   target_date?: string | null
   personal_target?: number | null
-  zones?: string[]
+  locations?: string[]
   target_companies?: string[]
 }
 
@@ -32,8 +32,8 @@ export interface ScoreCriterion {
 export function computeAppScoreBreakdown(goal: UserGoal | null, app: Application): ScoreCriterion[] {
   if (!goal) return []
 
-  const positions = goal.target_positions?.map((p) => p.toLowerCase().trim()) ?? []
-  const zones     = goal.zones?.map((z) => z.toLowerCase().trim()) ?? []
+  const positions = goal.target_roles?.map((p) => p.toLowerCase().trim()) ?? []
+  const zones     = goal.locations?.map((z) => z.toLowerCase().trim()) ?? []
   const contracts = goal.contract_types?.map((c) => c.toLowerCase().trim()) ?? []
   const companies = goal.target_companies?.map((c) => c.toLowerCase().trim()) ?? []
 
@@ -69,9 +69,9 @@ export function computeAlignment(goal: UserGoal | null, applications: Applicatio
     }
   }
 
-  const zones = goal.zones.map((z) => z.toLowerCase().trim())
-  const contracts = goal.contract_types.map((c) => c.toLowerCase().trim())
-  const companies = goal.target_companies.map((c) => c.toLowerCase().trim())
+  const zones = (goal.locations ?? []).map((z) => z.toLowerCase().trim())
+  const contracts = (goal.contract_types ?? []).map((c) => c.toLowerCase().trim())
+  const companies = (goal.target_companies ?? []).map((c) => c.toLowerCase().trim())
 
   const zoneApps = zones.length === 0 ? active : active.filter(
     (a) => a.location && zones.some((z) => a.location!.toLowerCase().includes(z)),
@@ -138,11 +138,11 @@ export function useGoals(userId: string | null, applications?: Application[]) {
       : {
           user_id: userId,
           type: updates.type ?? null,
-          target_positions: updates.target_positions ?? [],
+          target_roles: updates.target_roles ?? [],
           contract_types: updates.contract_types ?? [],
           target_date: updates.target_date ?? null,
           personal_target: updates.personal_target ?? 12,
-          zones: updates.zones ?? [],
+          locations: updates.locations ?? [],
           target_companies: updates.target_companies ?? [],
         }
 

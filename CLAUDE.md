@@ -75,175 +75,49 @@ Un prototype HTML/JSX complet existe dans `candidature-prototype/`. Il contient 
 
 ---
 
-## 📐 Schéma de base de données (PostgreSQL via Supabase)
+## 📐 Schéma de base de données (état réel, vérifié le 2026-06-19)
 
-```sql
--- ============================================
--- USERS (géré par Supabase Auth, étendu ici)
--- ============================================
-CREATE TABLE profiles (
-  id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
-  full_name TEXT NOT NULL,
-  email TEXT NOT NULL,
-  phone TEXT,
-  location TEXT,
-  title TEXT,                    -- "Développeur Full-Stack", etc.
-  summary TEXT,                  -- résumé/accroche pour le CV
-  linkedin_url TEXT,
-  portfolio_url TEXT,
-  avatar_url TEXT,
-  created_at TIMESTAMPTZ DEFAULT now(),
-  updated_at TIMESTAMPTZ DEFAULT now()
-);
+> ⚠️ Le schéma ci-dessous est celui **réellement déployé** sur Supabase (vérifié via
+> `mcp__supabase__list_tables` + `pg_policies`). Il diverge du schéma snake_case
+> qui était documenté ici auparavant (`profiles`, `educations`, `skills`,
+> `application_events` n'ont **jamais existé** en base — ne pas écrire de code
+> qui s'appuie sur ces noms). L'app a hérité d'un schéma CamelCase de type
+> Prisma (tables citées entre guillemets) pour le cœur métier, plus quelques
+> tables snake_case ajoutées plus récemment directement via migrations
+> Supabase. **Toujours vérifier l'état live avant de coder** (`list_tables`),
+> ce document peut se désynchroniser.
 
--- ============================================
--- EXPÉRIENCES PROFESSIONNELLES
--- ============================================
-CREATE TABLE experiences (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
-  company TEXT NOT NULL,
-  position TEXT NOT NULL,
-  location TEXT,
-  start_date DATE NOT NULL,
-  end_date DATE,                 -- NULL = poste actuel
-  description TEXT,              -- description libre
-  tags TEXT[] DEFAULT '{}',      -- tags de compétences liées
-  is_current BOOLEAN DEFAULT false,
-  sort_order INT DEFAULT 0,
-  created_at TIMESTAMPTZ DEFAULT now(),
-  updated_at TIMESTAMPTZ DEFAULT now()
-);
+### Tables actives (utilisées par l'app)
 
--- ============================================
--- FORMATIONS
--- ============================================
-CREATE TABLE educations (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
-  institution TEXT NOT NULL,
-  degree TEXT NOT NULL,
-  field_of_study TEXT,
-  start_date DATE,
-  end_date DATE,
-  description TEXT,
-  sort_order INT DEFAULT 0,
-  created_at TIMESTAMPTZ DEFAULT now()
-);
+| Table | Clé | RLS | Policy |
+|---|---|---|---|
+| `"Application"` | `id text`, `userId text` | ✅ | `userId = auth.uid()::text` (ALL) |
+| `"Experience"` | `id text`, `userId text` | ✅ | `userId = auth.uid()::text` (ALL) |
+| `"TimelineStep"` | `id text`, `applicationId text` | ✅ | via sous-requête sur `Application.userId` (ALL) |
+| `"OrgLogo"` | `id text`, `userId text` | ✅ | `userId = auth.uid()::text` (ALL) |
+| `"Profile"` | `id uuid` → `auth.users.id` | ✅ | `auth.uid() = id` (ALL) |
+| `tasks` | `id uuid`, `user_id uuid` → `auth.users.id` | ✅ | `auth.uid() = user_id` (ALL) |
+| `user_goals` | `id uuid`, `user_id uuid` → `auth.users.id` | ✅ | `auth.uid() = user_id` (ALL) — **remplace `"UserGoal"` (legacy, voir plus bas)** |
+| `company_domains` | `id uuid` (pas de `user_id`, catalogue partagé) | ✅ | SELECT public ; INSERT libre (authenticated) ; UPDATE limité aux lignes dont `domain` est vide (durci le 2026-06-19, voir `supabase/migrations/20260619030000_harden_company_domains_and_resume_rls.sql`) |
 
--- ============================================
--- COMPÉTENCES
--- ============================================
-CREATE TABLE skills (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
-  name TEXT NOT NULL,
-  category TEXT,                 -- "Technique", "Soft skill", "Langue", etc.
-  level TEXT,                    -- "Débutant", "Intermédiaire", "Avancé", "Expert"
-  sort_order INT DEFAULT 0,
-  created_at TIMESTAMPTZ DEFAULT now()
-);
+`"Application"` a un FK `resumeId → "Resume".id` et `userId → "User".id`, mais ces deux tables cibles sont **legacy** (voir ci-dessous) — ne pas s'appuyer sur elles pour de nouvelles features.
 
--- ============================================
--- CANDIDATURES
--- ============================================
-CREATE TYPE application_status AS ENUM (
-  'wishlist',        -- à postuler
-  'applied',         -- candidature envoyée
-  'phone_screen',    -- entretien téléphonique
-  'interview',       -- entretien
-  'technical_test',  -- test technique
-  'offer',           -- offre reçue
-  'accepted',        -- accepté
-  'rejected',        -- refusé
-  'withdrawn'        -- retiré
-);
+### Tables legacy / orphelines (RLS activé, aucune policy = deny-all côté client, mais code mort)
 
-CREATE TABLE applications (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
-  company TEXT NOT NULL,
-  position TEXT NOT NULL,
-  job_url TEXT,
-  job_description TEXT,
-  status application_status DEFAULT 'wishlist',
-  salary_min INT,
-  salary_max INT,
-  location TEXT,
-  remote_type TEXT,              -- "remote", "hybrid", "onsite"
-  contact_name TEXT,
-  contact_email TEXT,
-  notes TEXT,
-  applied_at DATE,
-  next_action TEXT,
-  next_action_date DATE,
-  created_at TIMESTAMPTZ DEFAULT now(),
-  updated_at TIMESTAMPTZ DEFAULT now()
-);
+Le CV builder a été retiré (commit `0e5cbe7`), ce qui a laissé ces tables sans consommateur :
 
--- ============================================
--- ÉVÉNEMENTS / TIMELINE D'UNE CANDIDATURE
--- ============================================
-CREATE TABLE application_events (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  application_id UUID NOT NULL REFERENCES applications(id) ON DELETE CASCADE,
-  user_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
-  event_type TEXT NOT NULL,      -- "applied", "email_sent", "interview", "feedback", etc.
-  event_date TIMESTAMPTZ DEFAULT now(),
-  notes TEXT,
-  created_at TIMESTAMPTZ DEFAULT now()
-);
+- `"User"` (1 ligne) — table Prisma pré-Supabase-Auth, contient encore une colonne `password` (résidu d'un ancien système d'auth, jamais utilisé par l'app actuelle qui passe par Supabase Auth). Ne pas réutiliser ; candidate à la suppression après vérification qu'aucun script externe n'en dépend.
+- `"UserGoal"` (1 ligne) — doublon legacy de `user_goals` (snake_case). Les hooks (`useGoals.ts`) utilisent `user_goals`, pas `"UserGoal"`.
+- `"Resume"` (1 ligne) — table du CV builder retiré. Une policy CRUD propriétaire (`userId = auth.uid()::text`) a été ajoutée le 2026-06-19 par défense en profondeur, mais aucun code client n'écrit dans cette table actuellement.
+- `"JobOffer"` (0 ligne) — jamais consommé côté client (le composant `JobOfferImporter.tsx` ne persiste rien dans cette table).
+- `_prisma_migrations` — table technique de l'ancien tooling Prisma, sans rapport avec les migrations Supabase actuelles (`supabase/migrations/`).
 
--- ============================================
--- CV GÉNÉRÉS (construction dynamique)
--- ============================================
-CREATE TABLE resumes (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
-  application_id UUID REFERENCES applications(id) ON DELETE SET NULL,
-  title TEXT NOT NULL,           -- "CV pour Poste X chez Y"
-  selected_experiences UUID[] DEFAULT '{}',   -- IDs des expériences choisies
-  selected_educations UUID[] DEFAULT '{}',
-  selected_skills UUID[] DEFAULT '{}',
-  custom_summary TEXT,           -- résumé adapté au poste
-  template TEXT DEFAULT 'classic', -- nom du template de CV
-  created_at TIMESTAMPTZ DEFAULT now(),
-  updated_at TIMESTAMPTZ DEFAULT now()
-);
+### Sécurité — points vérifiés via `mcp__supabase__get_advisors`
 
--- ============================================
--- ROW LEVEL SECURITY (critique !)
--- ============================================
-ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
-ALTER TABLE experiences ENABLE ROW LEVEL SECURITY;
-ALTER TABLE educations ENABLE ROW LEVEL SECURITY;
-ALTER TABLE skills ENABLE ROW LEVEL SECURITY;
-ALTER TABLE applications ENABLE ROW LEVEL SECURITY;
-ALTER TABLE application_events ENABLE ROW LEVEL SECURITY;
-ALTER TABLE resumes ENABLE ROW LEVEL SECURITY;
-
--- Politique : chaque user ne voit que SES données
-CREATE POLICY "Users can CRUD own data" ON profiles
-  FOR ALL USING (auth.uid() = id);
-
-CREATE POLICY "Users can CRUD own experiences" ON experiences
-  FOR ALL USING (auth.uid() = user_id);
-
-CREATE POLICY "Users can CRUD own educations" ON educations
-  FOR ALL USING (auth.uid() = user_id);
-
-CREATE POLICY "Users can CRUD own skills" ON skills
-  FOR ALL USING (auth.uid() = user_id);
-
-CREATE POLICY "Users can CRUD own applications" ON applications
-  FOR ALL USING (auth.uid() = user_id);
-
-CREATE POLICY "Users can CRUD own events" ON application_events
-  FOR ALL USING (auth.uid() = user_id);
-
-CREATE POLICY "Users can CRUD own resumes" ON resumes
-  FOR ALL USING (auth.uid() = user_id);
-```
+- ✅ Corrigé (2026-06-19) : `company_domains` permettait l'écrasement de n'importe quelle entrée par n'importe quel utilisateur authentifié (`USING (true)` sur UPDATE).
+- ✅ Corrigé (2026-06-19) : `"Resume"` avait RLS activé sans aucune policy.
+- ⚠️ À faire manuellement dans le dashboard Supabase (pas possible via migration SQL) : activer **Leaked Password Protection** (Authentication → Policies).
+- ℹ️ Non urgent (deny-all déjà en place) : nettoyer/supprimer `"User"`, `"UserGoal"`, `"JobOffer"`, `_prisma_migrations` si confirmé inutilisés.
 
 ---
 

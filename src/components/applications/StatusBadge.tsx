@@ -1,6 +1,6 @@
 import { cn } from '@/lib/utils'
 import { STATUS_LABELS as TYPE_LABELS } from '@/lib/types'
-import { STATUS_COLORS } from '@/utils/statusLabels'
+import { STATUS_BADGE_CLASS } from '@/utils/statusLabels'
 import type { ApplicationStatus } from '@/lib/types'
 import type { StatusKey } from '@/utils/statusLabels'
 
@@ -23,13 +23,9 @@ interface StatusBadgeProps {
 
 export function StatusBadge({ status, className }: StatusBadgeProps) {
   const key = STATUS_KEY_MAP[status]
-  const colors = STATUS_COLORS[key]
 
   return (
-    <span
-      className={cn('badge', className)}
-      style={{ background: colors.bg, color: colors.text }}
-    >
+    <span className={cn('badge', STATUS_BADGE_CLASS[key], className)}>
       {TYPE_LABELS[status]}
     </span>
   )

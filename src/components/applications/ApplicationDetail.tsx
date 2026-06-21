@@ -9,6 +9,7 @@ import { useProfile } from '@/hooks/useProfile'
 import { useExperiences } from '@/hooks/useExperiences'
 import { computeAppScore, computeAppScoreBreakdown } from '@/hooks/useGoals'
 import { deriveApplicationStatusFromSteps, TIMELINE_PRESETS } from '@/lib/timelineStatus'
+import { scoreTierColor } from '@/utils/statusLabels'
 
 interface ApplicationDetailProps {
   application: Application
@@ -318,7 +319,7 @@ export function ApplicationDetail({
                 </h4>
                 <span
                   className="text-sm font-bold"
-                  style={{ color: score >= 75 ? '#059669' : score >= 40 ? '#d97706' : '#dc2626' }}
+                  style={{ color: scoreTierColor(score).fg }}
                 >
                   {score}%
                 </span>
@@ -326,7 +327,7 @@ export function ApplicationDetail({
               <ul className="flex flex-col gap-1">
                 {scoreCriteria.map((c) => (
                   <li key={c.label} className="flex items-center gap-2 text-xs" style={{ color: c.matched ? 'var(--color-ink)' : 'var(--color-muted)' }}>
-                    <span style={{ color: c.matched ? '#059669' : '#dc2626' }}>{c.matched ? '✓' : '✗'}</span>
+                    <span style={{ color: c.matched ? 'var(--color-success)' : 'var(--color-danger-dark)' }}>{c.matched ? '✓' : '✗'}</span>
                     {c.label}
                   </li>
                 ))}

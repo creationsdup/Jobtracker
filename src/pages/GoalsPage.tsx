@@ -79,9 +79,9 @@ function computeScore(
   }).length
 
   const target = goal?.personal_target ?? 10
-  const cvScore    = (goal?.target_positions?.length || goal?.type) ? 72 : 25
+  const cvScore    = (goal?.target_roles?.length || goal?.type) ? 72 : 25
   const appScore   = Math.min(100, Math.round((thisMonthApps / target) * 100))
-  const zoneS      = goal?.zones?.length       ? alignment.zoneMatch     : 50
+  const zoneS      = goal?.locations?.length   ? alignment.zoneMatch     : 50
   const contractS  = goal?.contract_types?.length ? alignment.contractMatch : 50
   const matchScore = Math.round((zoneS + contractS) / 2)
   const networkScore = goal?.target_companies?.length
@@ -95,10 +95,10 @@ function computeScore(
 function buildSentence(goal: UserGoal | null): string {
   if (!goal) return ''
   const parts: string[] = []
-  const positions = goal.target_positions?.length ? goal.target_positions : (goal.type ? [goal.type] : [])
+  const positions = goal.target_roles?.length ? goal.target_roles : (goal.type ? [goal.type] : [])
   if (positions.length) parts.push(positions.slice(0, 2).join(' ou '))
   if (goal.contract_types?.length) parts.push(`en ${goal.contract_types.join(' / ')}`)
-  if (goal.zones?.length) parts.push(`à ${goal.zones.slice(0, 2).join(' / ')}`)
+  if (goal.locations?.length) parts.push(`à ${goal.locations.slice(0, 2).join(' / ')}`)
   if (goal.target_date) parts.push(`avant ${formatDateShort(goal.target_date)}`)
   return parts.join(' ')
 }
@@ -267,25 +267,25 @@ function Chip({ label, color, bg }: { label: string; color: string; bg: string }
 }
 
 function StrategyGrid({ goal }: { goal: UserGoal | null }) {
-  const positions = goal?.target_positions?.length
-    ? goal.target_positions
+  const positions = goal?.target_roles?.length
+    ? goal.target_roles
     : (goal?.type ? [goal.type] : [])
 
   return (
     <div className="grid grid-cols-2 gap-3">
       {/* Postes ciblés — full width */}
       <div className="col-span-2">
-        <StratCard icon={Target} label="Postes ciblés" color="#007EA7" bg="#E0F4FB">
+        <StratCard icon={Target} label="Postes ciblés" color="var(--color-accent)" bg="var(--color-status-applied-bg)">
           {positions.length
             ? <div className="flex flex-wrap gap-1.5">
-                {positions.map((p) => <Chip key={p} label={p} color="#007EA7" bg="#E0F4FB" />)}
+                {positions.map((p) => <Chip key={p} label={p} color="var(--color-accent)" bg="var(--color-status-applied-bg)" />)}
               </div>
             : <EmptyChip />}
         </StratCard>
       </div>
 
       {/* Délai */}
-      <StratCard icon={Clock} label="Délai" color="#007EA7" bg="#E0F4FB">
+      <StratCard icon={Clock} label="Délai" color="var(--color-accent)" bg="var(--color-status-applied-bg)">
         {goal?.target_date
           ? <p className="text-sm font-semibold" style={{ color: 'var(--color-ink)' }}>
               avant {formatDateShort(goal.target_date)}
@@ -294,25 +294,25 @@ function StrategyGrid({ goal }: { goal: UserGoal | null }) {
       </StratCard>
 
       {/* Contrats */}
-      <StratCard icon={Briefcase} label="Contrat" color="#0891b2" bg="#e0f2fe">
+      <StratCard icon={Briefcase} label="Contrat" color="var(--color-info)" bg="var(--color-info-bg)">
         {goal?.contract_types?.length
           ? <div className="flex flex-wrap gap-1">
-              {goal.contract_types.map((c) => <Chip key={c} label={c} color="#0891b2" bg="#e0f2fe" />)}
+              {goal.contract_types.map((c) => <Chip key={c} label={c} color="var(--color-info)" bg="var(--color-info-bg)" />)}
             </div>
           : <EmptyChip />}
       </StratCard>
 
       {/* Zones */}
-      <StratCard icon={MapPin} label="Zone géo." color="#059669" bg="#d1fae5">
-        {goal?.zones?.length
+      <StratCard icon={MapPin} label="Zone géo." color="var(--color-success)" bg="var(--color-status-offer-bg)">
+        {goal?.locations?.length
           ? <div className="flex flex-wrap gap-1">
-              {goal.zones.map((z) => <Chip key={z} label={z} color="#059669" bg="#d1fae5" />)}
+              {goal.locations.map((z) => <Chip key={z} label={z} color="var(--color-success)" bg="var(--color-status-offer-bg)" />)}
             </div>
           : <EmptyChip />}
       </StratCard>
 
       {/* Entreprises */}
-      <StratCard icon={Building2} label="Entreprises cibles" color="#d97706" bg="#fef3c7">
+      <StratCard icon={Building2} label="Entreprises cibles" color="var(--color-amber)" bg="var(--color-status-interview-bg)">
         {goal?.target_companies?.length
           ? <div className="flex flex-col gap-0.5">
               {goal.target_companies.slice(0, 3).map((c) => (
@@ -340,9 +340,9 @@ function StrategyGrid({ goal }: { goal: UserGoal | null }) {
 
 function GlobalScoreCard({ score }: { score: ScoreBreakdown }) {
   const color =
-    score.global >= 75 ? '#10b981' :
-    score.global >= 50 ? '#007EA7' :
-    score.global >= 25 ? '#f59e0b' : '#ef4444'
+    score.global >= 75 ? 'var(--color-success)' :
+    score.global >= 50 ? 'var(--color-accent)' :
+    score.global >= 25 ? 'var(--color-warning)' : 'var(--color-danger)'
 
   const label =
     score.global >= 75 ? 'Excellent' :
@@ -354,8 +354,8 @@ function GlobalScoreCard({ score }: { score: ScoreBreakdown }) {
       className="card p-5"
     >
       <div className="flex items-center gap-2 mb-4">
-        <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: '#fef3c7' }}>
-          <Award size={14} style={{ color: '#d97706' }} />
+        <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: 'var(--color-status-interview-bg)' }}>
+          <Award size={14} style={{ color: 'var(--color-amber)' }} />
         </div>
         <span className="text-sm font-semibold" style={{ color: 'var(--color-ink)' }}>Score global</span>
       </div>
@@ -371,10 +371,10 @@ function GlobalScoreCard({ score }: { score: ScoreBreakdown }) {
       </div>
 
       <div className="flex flex-col gap-3">
-        <MetricBar label="CV adapté"          value={score.cv}           color="#007EA7" icon={FileText}   />
-        <MetricBar label="Candidatures"        value={score.applications} color="#0891b2" icon={TrendingUp}  />
-        <MetricBar label="Matching offres"     value={score.matching}     color="#10b981" icon={Zap}         />
-        <MetricBar label="Réseau ciblé"        value={score.network}      color="#d97706" icon={Users}       />
+        <MetricBar label="CV adapté"          value={score.cv}           color="var(--color-accent)" icon={FileText}   />
+        <MetricBar label="Candidatures"        value={score.applications} color="var(--color-info)" icon={TrendingUp}  />
+        <MetricBar label="Matching offres"     value={score.matching}     color="var(--color-success)" icon={Zap}         />
+        <MetricBar label="Réseau ciblé"        value={score.network}      color="var(--color-amber)" icon={Users}       />
       </div>
     </div>
   )
@@ -395,9 +395,9 @@ function QuantifiedGoals({ goal, applications }: { goal: UserGoal | null; applic
   const offers     = applications.filter((a) => ['OFFER', 'ACCEPTED'].includes(a.status)).length
 
   const ROWS = [
-    { label: 'Candidatures / mois', current: thisMonth, goal: target,                       color: '#007EA7', icon: TrendingUp },
-    { label: 'Entretiens obtenus',  current: interviews, goal: Math.max(3, Math.round(target * 0.3)), color: '#0891b2', icon: Users     },
-    { label: 'Offres reçues',       current: offers,     goal: Math.max(1, Math.round(target * 0.1)), color: '#10b981', icon: Award     },
+    { label: 'Candidatures / mois', current: thisMonth, goal: target,                       color: 'var(--color-accent)', icon: TrendingUp },
+    { label: 'Entretiens obtenus',  current: interviews, goal: Math.max(3, Math.round(target * 0.3)), color: 'var(--color-info)', icon: Users     },
+    { label: 'Offres reçues',       current: offers,     goal: Math.max(1, Math.round(target * 0.1)), color: 'var(--color-success)', icon: Award     },
   ]
 
   return (
@@ -405,8 +405,8 @@ function QuantifiedGoals({ goal, applications }: { goal: UserGoal | null; applic
       className="card p-5"
     >
       <div className="flex items-center gap-2 mb-4">
-        <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: '#d1fae5' }}>
-          <Target size={14} style={{ color: '#059669' }} />
+        <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: 'var(--color-status-offer-bg)' }}>
+          <Target size={14} style={{ color: 'var(--color-success)' }} />
         </div>
         <span className="text-sm font-semibold" style={{ color: 'var(--color-ink)' }}>Objectifs quantifiés</span>
       </div>
@@ -451,8 +451,8 @@ function WeeklyProgressChart({ applications }: { applications: Application[] }) 
       className="card p-5"
     >
       <div className="flex items-center gap-2 mb-4">
-        <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: '#e0f2fe' }}>
-          <BarChart2 size={14} style={{ color: '#0891b2' }} />
+        <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: 'var(--color-info-bg)' }}>
+          <BarChart2 size={14} style={{ color: 'var(--color-info)' }} />
         </div>
         <span className="text-sm font-semibold" style={{ color: 'var(--color-ink)' }}>Candidatures par semaine</span>
       </div>
@@ -476,13 +476,13 @@ function WeeklyProgressChart({ applications }: { applications: Application[] }) 
                   style={{
                     height: w.count === 0 ? 3 : h,
                     background: isLast
-                      ? '#007EA7'
+                      ? 'var(--color-accent)'
                       : 'var(--color-border)',
                     opacity: w.count === 0 ? 0.4 : 1,
                   }}
                 />
               </div>
-              <span className="text-[9px] font-medium text-center leading-tight" style={{ color: isLast ? '#007EA7' : 'var(--color-muted)' }}>
+              <span className="text-[9px] font-medium text-center leading-tight" style={{ color: isLast ? 'var(--color-accent)' : 'var(--color-muted)' }}>
                 {w.label}
               </span>
             </div>
@@ -506,7 +506,7 @@ function buildSuggestions(goal: UserGoal | null, score: ScoreBreakdown, alignmen
       icon: FileText,
       text: 'Votre profil de recherche est incomplet. Définissez le poste visé pour améliorer votre score CV.',
       cta: 'Définir l\'objectif',
-      color: '#007EA7', bg: '#E0F4FB',
+      color: 'var(--color-accent)', bg: 'var(--color-status-applied-bg)',
     })
   }
   if (score.applications < 40) {
@@ -515,7 +515,7 @@ function buildSuggestions(goal: UserGoal | null, score: ScoreBreakdown, alignmen
       icon: TrendingUp,
       text: 'Vous n\'atteignez pas votre objectif mensuel de candidatures. Augmentez votre cadence.',
       cta: 'Voir les candidatures',
-      color: '#0891b2', bg: '#e0f2fe',
+      color: 'var(--color-info)', bg: 'var(--color-info-bg)',
     })
   }
   if (!goal?.target_companies?.length) {
@@ -524,7 +524,7 @@ function buildSuggestions(goal: UserGoal | null, score: ScoreBreakdown, alignmen
       icon: Building2,
       text: 'Aucune entreprise cible définie. Cibler des entreprises précises multiplie vos chances.',
       cta: 'Ajouter des entreprises',
-      color: '#d97706', bg: '#fef3c7',
+      color: 'var(--color-amber)', bg: 'var(--color-status-interview-bg)',
     })
   }
   if (alignment.offTargetApps.length > 2) {
@@ -533,7 +533,7 @@ function buildSuggestions(goal: UserGoal | null, score: ScoreBreakdown, alignmen
       icon: AlertCircle,
       text: `${alignment.offTargetApps.length} candidatures sont hors de vos objectifs géographiques ou de contrat.`,
       cta: 'Revoir les critères',
-      color: '#ef4444', bg: '#fee2e2',
+      color: 'var(--color-danger)', bg: 'var(--color-status-rejected-bg)',
     })
   }
   if (score.network < 40) {
@@ -542,7 +542,7 @@ function buildSuggestions(goal: UserGoal | null, score: ScoreBreakdown, alignmen
       icon: Users,
       text: 'Votre réseau ciblé est faible. Connectez-vous avec des recruteurs dans vos entreprises cibles.',
       cta: 'Définir les cibles',
-      color: '#059669', bg: '#d1fae5',
+      color: 'var(--color-success)', bg: 'var(--color-status-offer-bg)',
     })
   }
 
@@ -552,7 +552,7 @@ function buildSuggestions(goal: UserGoal | null, score: ScoreBreakdown, alignmen
       icon: CheckCircle2,
       text: 'Votre stratégie est bien configurée. Continuez sur cette lancée !',
       cta: 'Voir le tableau de bord',
-      color: '#059669', bg: '#d1fae5',
+      color: 'var(--color-success)', bg: 'var(--color-status-offer-bg)',
     })
   }
 
@@ -567,8 +567,8 @@ function AISuggestions({ goal, score, alignment }: { goal: UserGoal | null; scor
       className="card p-5"
     >
       <div className="flex items-center gap-2 mb-4">
-        <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: '#fef3c7' }}>
-          <Lightbulb size={14} style={{ color: '#d97706' }} />
+        <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: 'var(--color-status-interview-bg)' }}>
+          <Lightbulb size={14} style={{ color: 'var(--color-amber)' }} />
         </div>
         <span className="text-sm font-semibold" style={{ color: 'var(--color-ink)' }}>Recommandations</span>
       </div>
@@ -602,13 +602,13 @@ interface EditGoalModalProps {
 }
 
 function EditGoalModal({ goal, saving, onSave, onClose }: EditGoalModalProps) {
-  const initPositions = goal?.target_positions?.length
-    ? goal.target_positions
+  const initPositions = goal?.target_roles?.length
+    ? goal.target_roles
     : (goal?.type ? [goal.type] : [])
 
   const [positions, setPositions] = useState<string[]>(initPositions)
   const [contracts, setContracts] = useState<string[]>(goal?.contract_types ?? [])
-  const [zones, setZones]         = useState<string[]>(goal?.zones ?? [])
+  const [zones, setZones]         = useState<string[]>(goal?.locations ?? [])
   const [companies, setCompanies] = useState<string[]>(goal?.target_companies ?? [])
   const [timeline, setTimeline]   = useState(optionFromTargetDate(goal?.target_date ?? null))
   const [target, setTarget]       = useState(goal?.personal_target ?? 10)
@@ -616,9 +616,9 @@ function EditGoalModal({ goal, saving, onSave, onClose }: EditGoalModalProps) {
   function handleSave() {
     onSave({
       type: positions[0] ?? null,
-      target_positions: positions,
+      target_roles: positions,
       contract_types: contracts,
-      zones,
+      locations: zones,
       target_companies: companies,
       target_date: timeline ? targetDateFromOption(timeline) : null,
       personal_target: target,
@@ -634,8 +634,8 @@ function EditGoalModal({ goal, saving, onSave, onClose }: EditGoalModalProps) {
         {/* Modal header */}
         <div className="flex items-center justify-between px-6 py-4 border-b" style={{ borderColor: 'var(--color-border)' }}>
           <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: '#E0F4FB' }}>
-              <Target size={14} style={{ color: '#007EA7' }} />
+            <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: 'var(--color-status-applied-bg)' }}>
+              <Target size={14} style={{ color: 'var(--color-accent)' }} />
             </div>
             <span className="font-semibold text-sm" style={{ color: 'var(--color-ink)' }}>Modifier mon objectif</span>
           </div>
@@ -680,7 +680,7 @@ function EditGoalModal({ goal, saving, onSave, onClose }: EditGoalModalProps) {
                       : 'border-[var(--color-border)] hover:border-sky-400',
                   )}
                 >
-                  <span className="text-xs font-semibold" style={{ color: timeline === opt.value ? '#007EA7' : 'var(--color-ink)' }}>
+                  <span className="text-xs font-semibold" style={{ color: timeline === opt.value ? 'var(--color-accent)' : 'var(--color-ink)' }}>
                     {opt.label}
                   </span>
                   <span className="text-[10px] mt-0.5" style={{ color: 'var(--color-muted)' }}>{opt.sub}</span>
@@ -767,9 +767,9 @@ function EmptyState({ onEdit }: { onEdit: () => void }) {
     <div className="flex-1 flex flex-col items-center justify-center gap-5 py-20">
       <div
         className="w-20 h-20 rounded-full flex items-center justify-center"
-        style={{ background: '#E0F4FB' }}
+        style={{ background: 'var(--color-status-applied-bg)' }}
       >
-        <Target size={36} style={{ color: '#007EA7' }} />
+        <Target size={36} style={{ color: 'var(--color-accent)' }} />
       </div>
       <div className="text-center">
         <h2 className="text-lg font-bold mb-1" style={{ color: 'var(--color-ink)' }}>
@@ -801,7 +801,7 @@ export function GoalsPage({ userId, applications }: GoalsPageProps) {
   const [saved, setSaved] = useState(false)
 
   const score = useMemo(() => computeScore(goal, applications, alignment), [goal, applications, alignment])
-  const hasGoal = !!(goal?.target_positions?.length || goal?.type || goal?.contract_types?.length || goal?.zones?.length)
+  const hasGoal = !!(goal?.target_roles?.length || goal?.type || goal?.contract_types?.length || goal?.locations?.length)
 
   const handleSave = useCallback(async (updates: GoalUpdate) => {
     setError(null)

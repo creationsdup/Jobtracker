@@ -1,5 +1,6 @@
 import { Target } from 'lucide-react'
 import type { ScoreCriterion } from '@/hooks/useGoals'
+import { scoreTierColor } from '@/utils/statusLabels'
 
 interface GoalBadgeProps {
   score: number
@@ -7,8 +8,7 @@ interface GoalBadgeProps {
 }
 
 export function GoalBadge({ score, criteria }: GoalBadgeProps) {
-  const color = score >= 75 ? '#059669' : score >= 40 ? '#d97706' : '#dc2626'
-  const bg    = score >= 75 ? '#d1fae5' : score >= 40 ? '#fef3c7' : '#fee2e2'
+  const { fg: color, bg } = scoreTierColor(score)
 
   const tooltip = criteria && criteria.length > 0
     ? [

@@ -10,18 +10,26 @@ export const STATUS_LABELS: Record<StatusKey, string> = {
   rejected:  'Refusée',
 }
 
-export interface StatusColor {
-  bg: string
-  text: string
-  accent: string
+// Backed by the .badge-* classes / --color-status-* vars in index.css — the
+// single source of truth for status colors, so palette changes only happen there.
+export const STATUS_BADGE_CLASS: Record<StatusKey, string> = {
+  saved:     'badge-saved',
+  wishlist:  'badge-saved',
+  applied:   'badge-applied',
+  interview: 'badge-interview',
+  offer:     'badge-offer',
+  refused:   'badge-rejected',
+  rejected:  'badge-rejected',
 }
 
-export const STATUS_COLORS: Record<StatusKey, StatusColor> = {
-  saved:     { bg: '#F3F4F6', text: '#374151', accent: '#9CA3AF' },
-  wishlist:  { bg: '#F3F4F6', text: '#374151', accent: '#9CA3AF' },
-  applied:   { bg: '#E0F4FB', text: '#003459', accent: '#007EA7' },
-  interview: { bg: '#FEF3C7', text: '#92400E', accent: '#F59E0B' },
-  offer:     { bg: '#D1FAE5', text: '#065F46', accent: '#059669' },
-  refused:   { bg: '#FEE2E2', text: '#991B1B', accent: '#DC2626' },
-  rejected:  { bg: '#FEE2E2', text: '#991B1B', accent: '#DC2626' },
+export interface ScoreTierColor {
+  fg: string
+  bg: string
+}
+
+// Single source for the good/medium/poor score ramp (goal alignment %, match score, etc.)
+export function scoreTierColor(score: number): ScoreTierColor {
+  if (score >= 75) return { fg: '#059669', bg: '#d1fae5' }
+  if (score >= 40) return { fg: '#d97706', bg: '#fef3c7' }
+  return { fg: '#dc2626', bg: '#fee2e2' }
 }
