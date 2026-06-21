@@ -88,10 +88,10 @@ export function useCvDocuments(userId: string | null) {
   async function deleteCv(id: string): Promise<string | null> {
     const cv = cvDocuments.find((c) => c.id === id)
     if (!cv) return 'CV introuvable'
-    const { error: storageError } = await supabase.storage.from('cv-documents').remove([cv.file_path])
-    if (storageError) return storageError.message
     const { error } = await supabase.from('cv_documents').delete().eq('id', id)
     if (error) return error.message
+    // Best-effort: le fichier peut déjà être absent du storage, ça ne doit pas bloquer la suppression de la fiche.
+    await supabase.storage.from('cv-documents').remove([cv.file_path])
     setCvDocuments((prev) => prev.filter((c) => c.id !== id))
     return null
   }

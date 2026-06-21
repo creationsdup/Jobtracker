@@ -4,6 +4,7 @@ import type { CvDocument, ExperienceType } from '@/lib/types'
 import type { NewExperience } from '@/hooks/useExperiences'
 import { generateStructuredData } from '@/lib/ai'
 import { extractCvText } from '@/lib/cvTextExtraction'
+import { isLikelyDuplicateExperience } from '@/lib/cvLibrary'
 
 interface ParsedEntry {
   title: string
@@ -26,12 +27,21 @@ interface ParsedCvData {
 
 interface PreviewEntry extends ParsedEntry {
   selected: boolean
+  likelyDuplicate: boolean
+}
+
+interface ExistingExperience {
+  organization: string
+  startDate: string
+  endDate: string | null
+  current: boolean
 }
 
 interface CVImporterProps {
   userId: string
   existingSkills: string[]
   existingInterests: string[]
+  existingExperiences: ExistingExperience[]
   onImportEntries: (items: NewExperience[]) => Promise<string | null>
   onImportProfileData: (payload: { skills: string[]; interests: string[] }) => Promise<string | null>
   onUploadCv: (file: File) => Promise<{ data: CvDocument | null; error: string | null }>
@@ -120,6 +130,7 @@ export function CVImporter({
   userId,
   existingSkills,
   existingInterests,
+  existingExperiences,
   onImportEntries,
   onImportProfileData,
   onUploadCv,
@@ -132,6 +143,7 @@ export function CVImporter({
   const [skillsText, setSkillsText] = useState('')
   const [interestsText, setInterestsText] = useState('')
   const [pickedFile, setPickedFile] = useState<File | null>(null)
+  const [uploadedCv, setUploadedCv] = useState<CvDocument | null>(null)
 
   const selectedCount = useMemo(
     () => entries.filter((entry) => entry.selected).length,
@@ -164,7 +176,13 @@ export function CVImporter({
       if (!text.trim()) throw new Error('Impossible d’extraire du texte du fichier')
 
       const parsed = await analyzeCv(text)
-      setEntries(parsed.entries.map((entry) => ({ ...entry, selected: true })))
+      setEntries(parsed.entries.map((entry) => {
+        const likelyDuplicate = isLikelyDuplicateExperience(
+          { organization: entry.organization, startDate: entry.startDate, endDate: entry.endDate, current: entry.isCurrent },
+          existingExperiences,
+        )
+        return { ...entry, selected: !likelyDuplicate, likelyDuplicate }
+      }))
       setSkillsText(dedupe([...existingSkills, ...parsed.skills]).join(', '))
       setInterestsText(dedupe([...existingInterests, ...parsed.interests]).join(', '))
       setStep('preview')
@@ -184,11 +202,17 @@ export function CVImporter({
       return
     }
 
-    const { data: cvDocument, error: uploadError } = await onUploadCv(pickedFile)
-    if (uploadError || !cvDocument) {
-      setError(uploadError ?? "Échec de l'enregistrement du CV")
-      setStep('preview')
-      return
+    // En cas de retry après un échec d'une étape suivante, le CV a déjà été uploadé — ne pas le dupliquer.
+    let cvDocument = uploadedCv
+    if (!cvDocument) {
+      const { data, error: uploadError } = await onUploadCv(pickedFile)
+      if (uploadError || !data) {
+        setError(uploadError ?? "Échec de l'enregistrement du CV")
+        setStep('preview')
+        return
+      }
+      cvDocument = data
+      setUploadedCv(data)
     }
 
     const mapped: NewExperience[] = selectedEntries.map((entry) => ({
@@ -306,7 +330,7 @@ export function CVImporter({
                       className={`rounded-[18px] border px-4 py-4 transition-colors ${
                         entry.selected ? 'bg-white' : 'bg-white/45 opacity-70'
                       }`}
-                      style={{ borderColor: 'var(--color-border)' }}
+                      style={{ borderColor: entry.likelyDuplicate ? 'var(--color-warning)' : 'var(--color-border)' }}
                     >
                       <div className="flex items-start gap-3">
                         <input
@@ -320,7 +344,13 @@ export function CVImporter({
                           }}
                         />
 
-                        <div className="flex-1 min-w-0 grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <div className="flex-1 min-w-0 flex flex-col gap-3">
+                          {entry.likelyDuplicate && (
+                            <span className="badge bg-amber-100 text-amber-700 self-start">
+                              Doublon probable — déjà présent dans votre bibliothèque
+                            </span>
+                          )}
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                           <InlineField label="Type">
                             <select
                               className="input"
@@ -407,6 +437,7 @@ export function CVImporter({
                                 placeholder="React, TypeScript, gestion de projet"
                               />
                             </InlineField>
+                          </div>
                           </div>
                         </div>
                       </div>

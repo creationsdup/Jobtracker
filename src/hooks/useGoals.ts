@@ -128,22 +128,35 @@ export function useGoals(userId: string | null) {
   const deleteGoal = useCallback(async (goalId: string): Promise<string | null> => {
     setSaving(true)
     const { error } = await supabase.from('user_goals').delete().eq('id', goalId)
-    setSaving(false)
-    if (error) return error.message
+    if (error) {
+      setSaving(false)
+      return error.message
+    }
 
-    setGoals((prev) => {
-      const deletedWasActive = prev.find((g) => g.id === goalId)?.is_active ?? false
-      const remaining = prev.filter((g) => g.id !== goalId)
-      if (!deletedWasActive || remaining.length === 0) return remaining
+    const deletedWasActive = goals.find((g) => g.id === goalId)?.is_active ?? false
+    const remaining = goals.filter((g) => g.id !== goalId)
 
-      // Deleting the active goal must promote another one, otherwise scoring
-      // silently has nothing to use app-wide until the user picks a new active goal.
+    // Deleting the active goal must promote another one, otherwise scoring
+    // silently has nothing to use app-wide until the user picks a new active goal.
+    if (deletedWasActive && remaining.length > 0) {
       const promoted = remaining[0]
-      void supabase.from('user_goals').update({ is_active: true }).eq('id', promoted.id)
-      return remaining.map((g) => (g.id === promoted.id ? { ...g, is_active: true } : g))
-    })
+      const { error: promoteError } = await supabase
+        .from('user_goals')
+        .update({ is_active: true })
+        .eq('id', promoted.id)
+      setSaving(false)
+      if (promoteError) {
+        setGoals(remaining)
+        return promoteError.message
+      }
+      setGoals(remaining.map((g) => (g.id === promoted.id ? { ...g, is_active: true } : g)))
+      return null
+    }
+
+    setSaving(false)
+    setGoals(remaining)
     return null
-  }, [])
+  }, [goals])
 
   return { goals, activeGoal, loading, saving, createGoal, saveGoal, setActiveGoal, deleteGoal, refetch: fetchGoals }
 }

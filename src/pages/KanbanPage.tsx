@@ -140,6 +140,7 @@ function KanbanColumn({
 export function KanbanPage({ applications, goal, onStatusChange, onOpenDetail, resolveLogo, standalone = true }: KanbanPageProps) {
   const [activeApp, setActiveApp] = useState<Application | null>(null)
   const [search, setSearch] = useState('')
+  const [dragError, setDragError] = useState<string | null>(null)
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
@@ -174,8 +175,10 @@ export function KanbanPage({ applications, goal, onStatusChange, onOpenDetail, r
     const draggedApp = applications.find(a => a.id === active.id)
     if (!draggedApp || draggedApp.status === targetStatus) return
 
-    // Optimistic update — fire and forget
-    onStatusChange(draggedApp.id, targetStatus)
+    setDragError(null)
+    onStatusChange(draggedApp.id, targetStatus).then((err) => {
+      if (err) setDragError(err)
+    })
   }
 
   return (
@@ -196,6 +199,10 @@ export function KanbanPage({ applications, goal, onStatusChange, onOpenDetail, r
             />
           </div>
         </div>
+      )}
+
+      {dragError && (
+        <p className="text-sm text-red-500">{dragError}</p>
       )}
 
       <DndContext

@@ -13,7 +13,9 @@ export function useSteps() {
       .select('*')
       .eq('applicationId', applicationId)
       .order('date', { ascending: true })
-    if (!error) setSteps(data ?? [])
+    if (!error) {
+      setSteps((prev) => [...prev.filter((s) => s.applicationId !== applicationId), ...(data ?? [])])
+    }
   }, [])
 
   const addStep = useCallback(async (data: Omit<TimelineStep, 'id' | 'createdAt'>): Promise<string | null> => {

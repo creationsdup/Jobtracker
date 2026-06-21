@@ -16,9 +16,10 @@ import { NewAtsAnalysisModal } from '@/components/library/NewAtsAnalysisModal'
 import { AtsAnalysisDetailModal } from '@/components/library/AtsAnalysisDetailModal'
 import { AssociateAnalysisModal } from '@/components/library/AssociateAnalysisModal'
 import { CompareCvModal } from '@/components/library/CompareCvModal'
+import { DeleteCvModal } from '@/components/library/DeleteCvModal'
 import { LibrarySuggestionsPanel } from '@/components/library/LibrarySuggestionsPanel'
 import { LibraryElementsTable } from '@/components/library/LibraryElementsTable'
-import type { AtsAnalysis, Experience, ExperienceType } from '@/lib/types'
+import type { AtsAnalysis, CvDocument, Experience, ExperienceType } from '@/lib/types'
 
 const TYPE_CONFIG: Record<ExperienceType, { label: string; icon: React.ReactNode; color: string }> = {
   WORK:      { label: 'Professionnel', icon: <Briefcase size={13} />, color: 'bg-blue-100 text-blue-700' },
@@ -28,11 +29,10 @@ const TYPE_CONFIG: Record<ExperienceType, { label: string; icon: React.ReactNode
   OTHER:     { label: 'Autre', icon: null, color: 'bg-gray-100 text-gray-600' },
 }
 
-type LibraryTab = 'ALL' | 'EXPERIENCES' | 'EDUCATION' | 'SKILLS' | 'INTERESTS'
+type LibraryTab = 'EXPERIENCES' | 'EDUCATION' | 'SKILLS' | 'INTERESTS'
 type ListKind = 'skills' | 'interests'
 
 const LIBRARY_TABS: Array<{ id: LibraryTab; label: string }> = [
-  { id: 'ALL', label: 'Tout' },
   { id: 'EXPERIENCES', label: 'Expériences' },
   { id: 'EDUCATION', label: 'Formations' },
   { id: 'SKILLS', label: 'Compétences' },
@@ -53,17 +53,19 @@ export function LibraryPage({ userId, userEmail }: LibraryPageProps) {
   const { atsAnalyses, createAnalysis, generateRecommendations, associateToApplication } = atsAnalysesHook
   const { applications } = useApplications(userId)
 
-  const [tab, setTab] = useState<LibraryTab>('ALL')
+  const [tab, setTab] = useState<LibraryTab>('EXPERIENCES')
   const [typeFilter, setTypeFilter] = useState<ExperienceType | ''>('')
   const [search, setSearch] = useState('')
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
   const [importerOpen, setImporterOpen] = useState(false)
+  const [suggestionsOpen, setSuggestionsOpen] = useState(false)
   const [editorOpen, setEditorOpen] = useState(false)
   const [editingExperience, setEditingExperience] = useState<Experience | null>(null)
   const [listEditor, setListEditor] = useState<ListKind | null>(null)
   const [newAnalysisOpen, setNewAnalysisOpen] = useState(false)
   const [compareOpen, setCompareOpen] = useState(false)
+  const [deletingCv, setDeletingCv] = useState<CvDocument | null>(null)
   const [detailAnalysis, setDetailAnalysis] = useState<{ id: string; mode: 'view' | 'optimize' } | null>(null)
   const [associatingAnalysis, setAssociatingAnalysis] = useState<AtsAnalysis | null>(null)
   const [showAllCv, setShowAllCv] = useState(false)
@@ -75,8 +77,9 @@ export function LibraryPage({ userId, userEmail }: LibraryPageProps) {
     if (!dateFrom && !dateTo) return true
     const start = exp.startDate
     const end = exp.current ? null : exp.endDate
+    // Filtre par chevauchement de période : une expérience en cours (end = null) n'a pas de borne de fin,
+    // donc seule sa date de début est comparée à dateTo.
     if (dateFrom && end && end < dateFrom) return false
-    if (dateFrom && !end && start < dateFrom) return false
     if (dateTo && start > dateTo) return false
     return true
   }
@@ -155,6 +158,20 @@ export function LibraryPage({ userId, userEmail }: LibraryPageProps) {
     link.click()
   }
 
+  async function handleConfirmDeleteCv(cv: CvDocument, deleteLinkedExperiences: boolean): Promise<string | null> {
+    const failures: string[] = []
+    if (deleteLinkedExperiences) {
+      const linked = experiences.filter((exp) => exp.sourceCvId === cv.id)
+      for (const exp of linked) {
+        const err = await deleteExperience(exp.id)
+        if (err) failures.push(err)
+      }
+    }
+    const cvError = await deleteCv(cv.id)
+    if (cvError) failures.push(cvError)
+    return failures.length > 0 ? failures.join(' · ') : null
+  }
+
   async function handleCreateAnalysis(input: { cvId: string; title: string; jobTitle?: string; jobDescription?: string }): Promise<string | null> {
     const cv = cvDocuments.find((c) => c.id === input.cvId)
     if (!cv) return 'CV introuvable'
@@ -193,14 +210,21 @@ export function LibraryPage({ userId, userEmail }: LibraryPageProps) {
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0 max-w-xl">
           <h1 className="text-2xl font-bold tracking-tight" style={{ color: 'var(--color-primary)', letterSpacing: '-0.02em' }}>Bibliothèque intelligente</h1>
           <p className="text-[13px] mt-0.5" style={{ color: 'var(--color-muted)' }}>
             Importez vos CV, centralisez vos expériences, stockez vos analyses ATS et réutilisez vos meilleurs contenus.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
+          <button
+            className={`btn flex items-center gap-2 text-sm ${suggestionsOpen ? 'btn-primary' : 'btn-secondary'}`}
+            onClick={() => setSuggestionsOpen((v) => !v)}
+          >
+            <Sparkles size={15} />
+            Suggestions IA
+          </button>
           <button className="btn btn-secondary flex items-center gap-2 text-sm" onClick={() => setImporterOpen(true)}>
             <FileUp size={15} />
             Importer un CV
@@ -217,10 +241,10 @@ export function LibraryPage({ userId, userEmail }: LibraryPageProps) {
       </div>
 
       <div className="grid grid-cols-2 xl:grid-cols-4 gap-3">
-        <StatCard label="CV importés" value={stats.cvCount} icon={<FileText size={14} />} tone="var(--color-primary)" />
-        <StatCard label="Analyses réalisées" value={stats.analysisCount} icon={<Sparkles size={14} />} tone="var(--color-accent)" />
-        <StatCard label="Score ATS moyen" value={stats.avgScore !== null ? `${stats.avgScore}%` : '—'} icon={<BookMarked size={14} />} tone="var(--color-success)" />
-        <StatCard label="Mots-clés manquants" value={stats.missingKeywordsCount} icon={<Shapes size={14} />} tone="var(--color-warning)" />
+        <StatCard label="CV importés" value={stats.cvCount} icon={<FileText size={16} />} iconClass="bg-blue-100 text-blue-700" />
+        <StatCard label="Analyses réalisées" value={stats.analysisCount} icon={<Sparkles size={16} />} iconClass="bg-cyan-100 text-cyan-700" />
+        <StatCard label="Score ATS moyen" value={stats.avgScore !== null ? `${stats.avgScore}%` : '—'} icon={<BookMarked size={16} />} iconClass="bg-emerald-100 text-emerald-700" />
+        <StatCard label="Mots-clés manquants" value={stats.missingKeywordsCount} icon={<Shapes size={16} />} iconClass="bg-amber-100 text-amber-700" />
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
@@ -245,9 +269,7 @@ export function LibraryPage({ userId, userEmail }: LibraryPageProps) {
                   onDownload={handleDownloadCv}
                   onReanalyze={async (c) => { await reanalyze(c) }}
                   onSetStatus={(id, status) => { updateStatus(id, status) }}
-                  onDelete={async (id) => {
-                    if (window.confirm('Supprimer ce CV ? Le fichier sera définitivement supprimé.')) await deleteCv(id)
-                  }}
+                  onDelete={() => setDeletingCv(cv)}
                 />
               ))}
             </div>
@@ -282,8 +304,12 @@ export function LibraryPage({ userId, userEmail }: LibraryPageProps) {
         </section>
       </div>
 
-      <div className="grid grid-cols-1 xl:grid-cols-[2fr_1fr] gap-4">
+      <div className={`grid grid-cols-1 gap-4 items-start ${suggestionsOpen ? 'xl:grid-cols-[2fr_1fr]' : ''}`}>
         <section className="card px-5 py-5 flex flex-col gap-4">
+          <h2 className="text-lg font-bold text-[var(--color-deep-space)]" style={{ color: 'var(--color-primary)' }}>
+            Éléments de bibliothèque
+          </h2>
+
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
             <input
               className="input flex-1"
@@ -295,14 +321,14 @@ export function LibraryPage({ userId, userEmail }: LibraryPageProps) {
             <input className="input lg:w-40" type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} />
           </div>
 
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-5 border-b" style={{ borderColor: 'var(--color-border)' }}>
             {LIBRARY_TABS.map(({ id, label }) => (
               <button
                 key={id}
-                className={`px-3 py-2 rounded-full text-xs font-semibold transition-colors ${tab === id ? 'text-white' : 'text-[var(--color-deep-space)]'}`}
+                className="pb-2.5 text-sm font-semibold transition-colors -mb-px"
                 style={{
-                  background: tab === id ? 'var(--color-primary)' : '#ffffff',
-                  border: tab === id ? 'none' : '1px solid var(--color-border)',
+                  color: tab === id ? 'var(--color-primary)' : 'var(--color-muted)',
+                  borderBottom: tab === id ? '2px solid var(--color-primary)' : '2px solid transparent',
                 }}
                 onClick={() => setTab(id)}
               >
@@ -311,16 +337,15 @@ export function LibraryPage({ userId, userEmail }: LibraryPageProps) {
             ))}
           </div>
 
-          {(tab === 'ALL' || tab === 'EXPERIENCES') && (
+          {tab === 'EXPERIENCES' && (
             <div className="flex flex-col gap-2">
-              <div className="flex items-center justify-between">
-                <h3 className="text-sm font-semibold text-[var(--color-deep-space)]">Expériences</h3>
+              <div className="flex justify-end">
                 <select
-                  className="input sm:w-56"
+                  className="input w-full sm:w-72"
                   value={typeFilter}
                   onChange={(e) => setTypeFilter(e.target.value as ExperienceType | '')}
                 >
-                  <option value="">Tous les types hors formation</option>
+                  <option value="">Tous les types (hors formation)</option>
                   {(Object.keys(TYPE_CONFIG) as ExperienceType[])
                     .filter((type) => type !== 'EDUCATION')
                     .map((type) => <option key={type} value={type}>{TYPE_CONFIG[type].label}</option>)}
@@ -329,7 +354,7 @@ export function LibraryPage({ userId, userEmail }: LibraryPageProps) {
               <LibraryElementsTable
                 items={filteredExperiences}
                 cvDocuments={cvDocuments}
-                typeLabel={(exp) => TYPE_CONFIG[exp.type]?.label ?? TYPE_CONFIG.OTHER.label}
+                typeBadge={(exp) => TYPE_CONFIG[exp.type] ?? TYPE_CONFIG.OTHER}
                 onEdit={(exp) => { setEditingExperience(exp); setEditorOpen(true) }}
                 onDelete={deleteExperience}
                 emptyTitle="Aucune expérience trouvée"
@@ -338,13 +363,12 @@ export function LibraryPage({ userId, userEmail }: LibraryPageProps) {
             </div>
           )}
 
-          {(tab === 'ALL' || tab === 'EDUCATION') && (
+          {tab === 'EDUCATION' && (
             <div className="flex flex-col gap-2">
-              <h3 className="text-sm font-semibold text-[var(--color-deep-space)]">Formations</h3>
               <LibraryElementsTable
                 items={filteredEducation}
                 cvDocuments={cvDocuments}
-                typeLabel={() => TYPE_CONFIG.EDUCATION.label}
+                typeBadge={() => TYPE_CONFIG.EDUCATION}
                 onEdit={(exp) => { setEditingExperience(exp); setEditorOpen(true) }}
                 onDelete={deleteExperience}
                 emptyTitle="Aucune formation trouvée"
@@ -353,7 +377,7 @@ export function LibraryPage({ userId, userEmail }: LibraryPageProps) {
             </div>
           )}
 
-          {(tab === 'ALL' || tab === 'SKILLS') && (
+          {tab === 'SKILLS' && (
             <div className="flex flex-col gap-2">
               <div className="flex items-center justify-between">
                 <h3 className="text-sm font-semibold text-[var(--color-deep-space)]">Compétences</h3>
@@ -373,7 +397,7 @@ export function LibraryPage({ userId, userEmail }: LibraryPageProps) {
             </div>
           )}
 
-          {(tab === 'ALL' || tab === 'INTERESTS') && (
+          {tab === 'INTERESTS' && (
             <div className="flex flex-col gap-2">
               <div className="flex items-center justify-between">
                 <h3 className="text-sm font-semibold text-[var(--color-deep-space)]">Centres d'intérêt</h3>
@@ -394,7 +418,9 @@ export function LibraryPage({ userId, userEmail }: LibraryPageProps) {
           )}
         </section>
 
-        <LibrarySuggestionsPanel experiences={experiences} cvDocuments={cvDocuments} />
+        {suggestionsOpen && (
+          <LibrarySuggestionsPanel experiences={experiences} cvDocuments={cvDocuments} />
+        )}
       </div>
 
       {importerOpen && (
@@ -402,6 +428,7 @@ export function LibraryPage({ userId, userEmail }: LibraryPageProps) {
           userId={userId}
           existingSkills={profile?.skills ?? []}
           existingInterests={profile?.interests ?? []}
+          existingExperiences={experiences}
           onImportEntries={bulkAddExperiences}
           onImportProfileData={(payload) => updateProfile(payload)}
           onUploadCv={uploadCv}
@@ -470,18 +497,29 @@ export function LibraryPage({ userId, userEmail }: LibraryPageProps) {
           onClose={() => setCompareOpen(false)}
         />
       )}
+
+      {deletingCv && (
+        <DeleteCvModal
+          cv={deletingCv}
+          linkedCount={experiences.filter((exp) => exp.sourceCvId === deletingCv.id).length}
+          onConfirm={(deleteLinkedExperiences) => handleConfirmDeleteCv(deletingCv, deleteLinkedExperiences)}
+          onClose={() => setDeletingCv(null)}
+        />
+      )}
     </div>
   )
 }
 
-function StatCard({ label, value, icon, tone }: { label: string; value: React.ReactNode; icon: React.ReactNode; tone: string }) {
+function StatCard({ label, value, icon, iconClass }: { label: string; value: React.ReactNode; icon: React.ReactNode; iconClass: string }) {
   return (
-    <div className="rounded-[18px] border px-4 py-4 bg-white/75 flex flex-col gap-2" style={{ borderColor: 'var(--color-border)' }}>
-      <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.12em]" style={{ color: tone }}>
+    <div className="rounded-[18px] border px-4 py-4 bg-white flex items-start gap-3" style={{ borderColor: 'var(--color-border)' }}>
+      <div className={`w-9 h-9 rounded-[10px] flex items-center justify-center shrink-0 ${iconClass}`}>
         {icon}
-        {label}
       </div>
-      <div className="text-[1.7rem] leading-none font-bold text-[var(--color-deep-space)]">{value}</div>
+      <div className="flex flex-col gap-1 min-w-0">
+        <div className="text-[11px] font-semibold uppercase tracking-[0.1em] text-[var(--color-muted)]">{label}</div>
+        <div className="text-[1.7rem] leading-none font-bold text-[var(--color-deep-space)]">{value}</div>
+      </div>
     </div>
   )
 }

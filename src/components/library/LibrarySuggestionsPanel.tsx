@@ -37,14 +37,23 @@ export function LibrarySuggestionsPanel({ experiences, cvDocuments }: LibrarySug
       </div>
 
       {suggestions.length > 0 ? (
-        <ul className="flex flex-col gap-2 text-sm">
+        <div className="flex flex-col gap-2">
           {suggestions.map((s, i) => (
-            <li key={i} className="flex gap-2">
-              <Sparkles size={14} className="mt-0.5 shrink-0 text-[var(--color-accent)]" />
+            <div
+              key={i}
+              className="flex items-start gap-2.5 text-left text-sm rounded-[var(--radius)] border px-3.5 py-2.5"
+              style={{ borderColor: 'var(--color-border)' }}
+            >
+              <span
+                className="flex items-center justify-center w-5 h-5 rounded-full text-[11px] font-bold text-white shrink-0"
+                style={{ background: 'var(--color-accent)' }}
+              >
+                {i + 1}
+              </span>
               <span>{s}</span>
-            </li>
+            </div>
           ))}
-        </ul>
+        </div>
       ) : (
         <p className="text-sm text-[var(--color-muted)]">
           L'IA analyse vos CV et vos expériences pour vous suggérer des compétences à renforcer ou des expériences à valoriser.

@@ -118,3 +118,38 @@ export function parseSuggestionsResponse(raw: unknown): string[] {
   if (!Array.isArray(obj.suggestions)) return []
   return dedupeTrimmed(obj.suggestions).slice(0, 3)
 }
+
+interface ExperienceDateLike {
+  organization: string
+  startDate: string
+  endDate: string | null
+  current: boolean
+}
+
+function normalizeOrgName(org: string): string {
+  return org.trim().toLowerCase().replace(/\s+/g, ' ')
+}
+
+function monthKey(dateStr: string): string {
+  return dateStr.slice(0, 7)
+}
+
+function dateRangesOverlap(a: ExperienceDateLike, b: ExperienceDateLike): boolean {
+  const aStart = monthKey(a.startDate)
+  const bStart = monthKey(b.startDate)
+  const aEnd = a.current || !a.endDate ? '9999-99' : monthKey(a.endDate)
+  const bEnd = b.current || !b.endDate ? '9999-99' : monthKey(b.endDate)
+  return aStart <= bEnd && bStart <= aEnd
+}
+
+/**
+ * Détecte un doublon probable : même organisation (normalisée) et plages de dates qui se
+ * recoupent. Volontairement plus permissif que la dédup stricte de useExperiences (qui exige
+ * un titre identique) — deux imports du même poste depuis des CV différents peuvent décrire le
+ * même job avec des intitulés légèrement différents.
+ */
+export function isLikelyDuplicateExperience(entry: ExperienceDateLike, existing: ExperienceDateLike[]): boolean {
+  const entryOrg = normalizeOrgName(entry.organization)
+  if (!entryOrg) return false
+  return existing.some((exp) => normalizeOrgName(exp.organization) === entryOrg && dateRangesOverlap(entry, exp))
+}

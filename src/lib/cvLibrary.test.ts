@@ -9,6 +9,7 @@ import {
   parseAtsAnalysisResponse,
   buildSuggestionsUserContent,
   parseSuggestionsResponse,
+  isLikelyDuplicateExperience,
 } from './cvLibrary'
 
 describe('validateCvFile', () => {
@@ -139,5 +140,42 @@ describe('parseSuggestionsResponse', () => {
 
   it('returns an empty array when suggestions is missing', () => {
     expect(parseSuggestionsResponse({})).toEqual([])
+  })
+})
+
+describe('isLikelyDuplicateExperience', () => {
+  const existing = [
+    { organization: 'EssilorLuxottica', startDate: '2025-09-01', endDate: null, current: true },
+  ]
+
+  it('flags same organization with overlapping date ranges, even with a different title/case/spacing', () => {
+    const entry = { organization: '  essilorluxottica  ', startDate: '2025-09', endDate: '2026-06', current: false }
+    expect(isLikelyDuplicateExperience(entry, existing)).toBe(true)
+  })
+
+  it('does not flag the same organization when date ranges do not overlap', () => {
+    const entry = { organization: 'EssilorLuxottica', startDate: '2020-01', endDate: '2021-01', current: false }
+    expect(isLikelyDuplicateExperience(entry, existing)).toBe(false)
+  })
+
+  it('does not flag a different organization even with overlapping dates', () => {
+    const entry = { organization: 'Decathlon', startDate: '2025-09', endDate: null, current: true }
+    expect(isLikelyDuplicateExperience(entry, existing)).toBe(false)
+  })
+
+  it('treats an open-ended (current) range on either side as extending to the present', () => {
+    const openEnded = [{ organization: 'SNCF', startDate: '2024-01', endDate: null, current: true }]
+    const entry = { organization: 'SNCF', startDate: '2026-01', endDate: '2026-12', current: false }
+    expect(isLikelyDuplicateExperience(entry, openEnded)).toBe(true)
+  })
+
+  it('returns false for an empty organization', () => {
+    const entry = { organization: '  ', startDate: '2025-09', endDate: null, current: true }
+    expect(isLikelyDuplicateExperience(entry, existing)).toBe(false)
+  })
+
+  it('returns false when there is nothing existing to compare against', () => {
+    const entry = { organization: 'EssilorLuxottica', startDate: '2025-09', endDate: null, current: true }
+    expect(isLikelyDuplicateExperience(entry, [])).toBe(false)
   })
 })

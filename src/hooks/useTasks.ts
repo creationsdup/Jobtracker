@@ -49,14 +49,33 @@ export function useTasks(userId: string | null) {
     return null
   }, [userId])
 
-  const toggleTask = useCallback(async (id: string, completed: boolean) => {
-    setTasks((prev) => prev.map((t) => (t.id === id ? { ...t, completed } : t)))
-    await supabase.from('tasks').update({ completed }).eq('id', id)
+  const toggleTask = useCallback(async (id: string, completed: boolean): Promise<string | null> => {
+    let previous: boolean | undefined
+    setTasks((prev) => prev.map((t) => {
+      if (t.id !== id) return t
+      previous = t.completed
+      return { ...t, completed }
+    }))
+    const { error } = await supabase.from('tasks').update({ completed }).eq('id', id)
+    if (error) {
+      setTasks((prev) => prev.map((t) => (t.id === id && previous !== undefined ? { ...t, completed: previous } : t)))
+      return error.message
+    }
+    return null
   }, [])
 
-  const deleteTask = useCallback(async (id: string) => {
-    setTasks((prev) => prev.filter((t) => t.id !== id))
-    await supabase.from('tasks').delete().eq('id', id)
+  const deleteTask = useCallback(async (id: string): Promise<string | null> => {
+    let removed: Task | undefined
+    setTasks((prev) => {
+      removed = prev.find((t) => t.id === id)
+      return prev.filter((t) => t.id !== id)
+    })
+    const { error } = await supabase.from('tasks').delete().eq('id', id)
+    if (error) {
+      setTasks((prev) => (removed ? [...prev, removed].sort((a, b) => b.created_at.localeCompare(a.created_at)) : prev))
+      return error.message
+    }
+    return null
   }, [])
 
   return { tasks, loading, addTask, toggleTask, deleteTask, refetch: fetchTasks }
