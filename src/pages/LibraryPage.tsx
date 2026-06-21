@@ -1,13 +1,24 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import {
-  Briefcase, Heart, GraduationCap, Lightbulb, FileUp, Plus, Pencil, Trash2,
-  X, Sparkles, BookMarked, Shapes,
+  Briefcase, Heart, GraduationCap, Lightbulb, FileUp, Plus, Pencil,
+  X, Sparkles, BookMarked, Shapes, FileText, Repeat,
 } from 'lucide-react'
-import { formatDate } from '@/lib/utils'
 import { useExperiences, type NewExperience } from '@/hooks/useExperiences'
-import { CVImporter } from '@/components/library/CVImporter'
 import { useProfile } from '@/hooks/useProfile'
-import type { Experience, ExperienceType } from '@/lib/types'
+import { useCvDocuments } from '@/hooks/useCvDocuments'
+import { useAtsAnalyses } from '@/hooks/useAtsAnalyses'
+import { useApplications } from '@/hooks/useApplications'
+import { computeLibraryStats } from '@/lib/cvLibrary'
+import { CVImporter } from '@/components/library/CVImporter'
+import { CvCard } from '@/components/library/CvCard'
+import { AtsAnalysisRow } from '@/components/library/AtsAnalysisRow'
+import { NewAtsAnalysisModal } from '@/components/library/NewAtsAnalysisModal'
+import { AtsAnalysisDetailModal } from '@/components/library/AtsAnalysisDetailModal'
+import { AssociateAnalysisModal } from '@/components/library/AssociateAnalysisModal'
+import { CompareCvModal } from '@/components/library/CompareCvModal'
+import { LibrarySuggestionsPanel } from '@/components/library/LibrarySuggestionsPanel'
+import { LibraryElementsTable } from '@/components/library/LibraryElementsTable'
+import type { AtsAnalysis, Experience, ExperienceType } from '@/lib/types'
 
 const TYPE_CONFIG: Record<ExperienceType, { label: string; icon: React.ReactNode; color: string }> = {
   WORK:      { label: 'Professionnel', icon: <Briefcase size={13} />, color: 'bg-blue-100 text-blue-700' },
@@ -36,6 +47,11 @@ interface LibraryPageProps {
 export function LibraryPage({ userId, userEmail }: LibraryPageProps) {
   const { experiences, bulkAddExperiences, addExperience, updateExperience, deleteExperience } = useExperiences(userId)
   const { profile, updateProfile, saving: profileSaving } = useProfile(userId, userEmail)
+  const cvDocumentsHook = useCvDocuments(userId)
+  const { cvDocuments, uploadCv, updateStatus, getSignedUrl, getCvText, reanalyze, deleteCv, updateAtsScore } = cvDocumentsHook
+  const atsAnalysesHook = useAtsAnalyses(userId)
+  const { atsAnalyses, createAnalysis, generateRecommendations, associateToApplication } = atsAnalysesHook
+  const { applications } = useApplications(userId)
 
   const [tab, setTab] = useState<LibraryTab>('ALL')
   const [typeFilter, setTypeFilter] = useState<ExperienceType | ''>('')
@@ -46,6 +62,12 @@ export function LibraryPage({ userId, userEmail }: LibraryPageProps) {
   const [editorOpen, setEditorOpen] = useState(false)
   const [editingExperience, setEditingExperience] = useState<Experience | null>(null)
   const [listEditor, setListEditor] = useState<ListKind | null>(null)
+  const [newAnalysisOpen, setNewAnalysisOpen] = useState(false)
+  const [compareOpen, setCompareOpen] = useState(false)
+  const [detailAnalysis, setDetailAnalysis] = useState<{ id: string; mode: 'view' | 'optimize' } | null>(null)
+  const [associatingAnalysis, setAssociatingAnalysis] = useState<AtsAnalysis | null>(null)
+  const [showAllCv, setShowAllCv] = useState(false)
+  const [showAllAnalyses, setShowAllAnalyses] = useState(false)
 
   const normalizedSearch = search.trim().toLowerCase()
 
@@ -110,56 +132,157 @@ export function LibraryPage({ userId, userEmail }: LibraryPageProps) {
     [profile?.interests, normalizedSearch],
   )
 
-  const stats = [
-    { label: 'Expériences', value: allExperiences.length, icon: <Briefcase size={14} />, tone: 'var(--color-deep-space)' },
-    { label: 'Formations', value: educationExperiences.length, icon: <BookMarked size={14} />, tone: 'var(--color-amber-text)' },
-    { label: 'Compétences', value: profile?.skills?.length ?? 0, icon: <Sparkles size={14} />, tone: 'var(--color-green-text)' },
-    { label: "Centres d'intérêt", value: profile?.interests?.length ?? 0, icon: <Shapes size={14} />, tone: 'var(--color-red-text)' },
-  ]
+  const stats = computeLibraryStats(cvDocuments, atsAnalyses)
+  const visibleCvDocuments = showAllCv ? cvDocuments : cvDocuments.slice(0, 5)
+  const visibleAnalyses = showAllAnalyses ? atsAnalyses : atsAnalyses.slice(0, 5)
+  const detailAnalysisData = detailAnalysis ? atsAnalyses.find((a) => a.id === detailAnalysis.id) ?? null : null
+
+  function cvFileNameFor(cvId: string): string {
+    return cvDocuments.find((cv) => cv.id === cvId)?.file_name ?? 'CV supprimé'
+  }
+
+  async function handleOpenCv(cv: { file_path: string }) {
+    const url = await getSignedUrl(cv.file_path)
+    if (url) window.open(url, '_blank', 'noopener,noreferrer')
+  }
+
+  async function handleDownloadCv(cv: { file_path: string; file_name: string }) {
+    const url = await getSignedUrl(cv.file_path)
+    if (!url) return
+    const link = document.createElement('a')
+    link.href = url
+    link.download = cv.file_name
+    link.click()
+  }
+
+  async function handleCreateAnalysis(input: { cvId: string; title: string; jobTitle?: string; jobDescription?: string }): Promise<string | null> {
+    const cv = cvDocuments.find((c) => c.id === input.cvId)
+    if (!cv) return 'CV introuvable'
+    let cvText: string
+    try {
+      cvText = await getCvText(cv)
+    } catch (err) {
+      return err instanceof Error ? err.message : "Impossible de lire le contenu du CV"
+    }
+    const { data, error } = await createAnalysis({
+      cvId: input.cvId,
+      cvText,
+      title: input.title,
+      jobTitle: input.jobTitle,
+      jobDescription: input.jobDescription,
+    })
+    if (error) return error
+    if (data) await updateAtsScore(input.cvId, data.score)
+    return null
+  }
+
+  async function handleGenerateRecommendations(analysisId: string): Promise<string | null> {
+    const analysis = atsAnalyses.find((a) => a.id === analysisId)
+    if (!analysis) return 'Analyse introuvable'
+    const cv = cvDocuments.find((c) => c.id === analysis.cv_id)
+    if (!cv) return 'CV source introuvable'
+    let cvText: string
+    try {
+      cvText = await getCvText(cv)
+    } catch (err) {
+      return err instanceof Error ? err.message : "Impossible de lire le contenu du CV"
+    }
+    return generateRecommendations(analysisId, cvText)
+  }
 
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight" style={{ color: 'var(--color-primary)', letterSpacing: '-0.02em' }}>Bibliothèque</h1>
-          <p className="text-[13px] mt-0.5" style={{ color: 'var(--color-muted)' }}>Expériences, formations et compétences</p>
+          <h1 className="text-2xl font-bold tracking-tight" style={{ color: 'var(--color-primary)', letterSpacing: '-0.02em' }}>Bibliothèque intelligente</h1>
+          <p className="text-[13px] mt-0.5" style={{ color: 'var(--color-muted)' }}>
+            Importez vos CV, centralisez vos expériences, stockez vos analyses ATS et réutilisez vos meilleurs contenus.
+          </p>
         </div>
         <div className="flex flex-wrap gap-2">
           <button className="btn btn-secondary flex items-center gap-2 text-sm" onClick={() => setImporterOpen(true)}>
             <FileUp size={15} />
             Importer un CV
           </button>
-          <button
-            className="btn btn-primary flex items-center gap-2 text-sm"
-            onClick={() => {
-              setEditingExperience(null)
-              setEditorOpen(true)
-            }}
-          >
+          <button className="btn btn-secondary flex items-center gap-2 text-sm" onClick={() => setCompareOpen(true)}>
+            <Repeat size={15} />
+            Comparer 2 CV
+          </button>
+          <button className="btn btn-primary flex items-center gap-2 text-sm" onClick={() => setNewAnalysisOpen(true)}>
             <Plus size={15} />
-            Ajouter une entrée
+            Nouvelle analyse
           </button>
         </div>
       </div>
 
-      <section className="card px-5 py-5 md:px-7 md:py-7">
-        <div className="flex flex-col gap-5">
-          <div className="max-w-2xl">
-            <h2 className="text-lg md:text-xl font-bold text-[var(--color-deep-space)]">
-              Centralisez tout ce qui alimente vos CV
-            </h2>
-            <p className="mt-2 text-sm text-[var(--color-muted)]">
-              Expériences, formations, compétences et centres d'intérêt au même endroit pour préparer plus vite
-              chaque candidature.
-            </p>
-          </div>
+      <div className="grid grid-cols-2 xl:grid-cols-4 gap-3">
+        <StatCard label="CV importés" value={stats.cvCount} icon={<FileText size={14} />} tone="var(--color-primary)" />
+        <StatCard label="Analyses réalisées" value={stats.analysisCount} icon={<Sparkles size={14} />} tone="var(--color-accent)" />
+        <StatCard label="Score ATS moyen" value={stats.avgScore !== null ? `${stats.avgScore}%` : '—'} icon={<BookMarked size={14} />} tone="var(--color-success)" />
+        <StatCard label="Mots-clés manquants" value={stats.missingKeywordsCount} icon={<Shapes size={14} />} tone="var(--color-warning)" />
+      </div>
 
-          <div className="grid grid-cols-2 xl:grid-cols-4 gap-3">
-            {stats.map((stat) => (
-              <SummaryCard key={stat.label} {...stat} />
-            ))}
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+        <section className="card px-5 py-5 flex flex-col gap-3">
+          <div className="flex items-center justify-between">
+            <h2 className="text-base font-semibold text-[var(--color-deep-space)]">Mes CV</h2>
+            {cvDocuments.length > 5 && (
+              <button className="text-xs text-[var(--color-primary)] hover:underline" onClick={() => setShowAllCv((v) => !v)}>
+                {showAllCv ? 'Voir moins' : 'Voir tous'}
+              </button>
+            )}
           </div>
+          {cvDocuments.length === 0 ? (
+            <p className="text-sm text-[var(--color-muted)]">Importez votre premier CV pour commencer.</p>
+          ) : (
+            <div className="flex flex-col gap-2">
+              {visibleCvDocuments.map((cv) => (
+                <CvCard
+                  key={cv.id}
+                  cv={cv}
+                  onOpen={handleOpenCv}
+                  onDownload={handleDownloadCv}
+                  onReanalyze={async (c) => { await reanalyze(c) }}
+                  onSetStatus={(id, status) => { updateStatus(id, status) }}
+                  onDelete={async (id) => {
+                    if (window.confirm('Supprimer ce CV ? Le fichier sera définitivement supprimé.')) await deleteCv(id)
+                  }}
+                />
+              ))}
+            </div>
+          )}
+        </section>
 
+        <section className="card px-5 py-5 flex flex-col gap-3">
+          <div className="flex items-center justify-between">
+            <h2 className="text-base font-semibold text-[var(--color-deep-space)]">Analyses ATS récentes</h2>
+            {atsAnalyses.length > 5 && (
+              <button className="text-xs text-[var(--color-primary)] hover:underline" onClick={() => setShowAllAnalyses((v) => !v)}>
+                {showAllAnalyses ? 'Voir moins' : 'Voir toutes'}
+              </button>
+            )}
+          </div>
+          {atsAnalyses.length === 0 ? (
+            <p className="text-sm text-[var(--color-muted)]">Lancez votre première analyse ATS depuis un CV importé.</p>
+          ) : (
+            <div className="flex flex-col gap-2">
+              {visibleAnalyses.map((analysis) => (
+                <AtsAnalysisRow
+                  key={analysis.id}
+                  analysis={analysis}
+                  cvFileName={cvFileNameFor(analysis.cv_id)}
+                  onView={(a) => setDetailAnalysis({ id: a.id, mode: 'view' })}
+                  onOptimize={(a) => setDetailAnalysis({ id: a.id, mode: 'optimize' })}
+                  onAssociate={(a) => setAssociatingAnalysis(a)}
+                />
+              ))}
+            </div>
+          )}
+        </section>
+      </div>
+
+      <div className="grid grid-cols-1 xl:grid-cols-[2fr_1fr] gap-4">
+        <section className="card px-5 py-5 flex flex-col gap-4">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
             <input
               className="input flex-1"
@@ -167,145 +290,111 @@ export function LibraryPage({ userId, userEmail }: LibraryPageProps) {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
-            <input
-              className="input lg:w-44"
-              type="date"
-              value={dateFrom}
-              onChange={(e) => setDateFrom(e.target.value)}
-            />
-            <input
-              className="input lg:w-44"
-              type="date"
-              value={dateTo}
-              onChange={(e) => setDateTo(e.target.value)}
-            />
-            <div className="flex flex-wrap gap-2">
-              {LIBRARY_TABS.map(({ id, label }) => (
-                <button
-                  key={id}
-                  className={`px-3 py-2 rounded-full text-xs font-semibold transition-colors ${
-                    tab === id ? 'text-white' : 'text-[var(--color-deep-space)]'
-                  }`}
-                  style={{
-                    background: tab === id ? 'var(--color-primary)' : '#ffffff',
-                    border: tab === id ? 'none' : '1px solid var(--color-border)',
-                  }}
-                  onClick={() => setTab(id)}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
+            <input className="input lg:w-40" type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} />
+            <input className="input lg:w-40" type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} />
           </div>
-        </div>
-      </section>
 
-      {(tab === 'ALL' || tab === 'EXPERIENCES') && (
-        <section className="card px-5 py-5 md:px-7 md:py-7">
-          <div className="flex flex-col gap-4">
-            <SectionHeader
-              title="Expériences"
-              description="Vos missions, projets et expériences professionnelles."
-            >
-              <select
-                className="input sm:w-56"
-                value={typeFilter}
-                onChange={(e) => setTypeFilter(e.target.value as ExperienceType | '')}
+          <div className="flex flex-wrap gap-2">
+            {LIBRARY_TABS.map(({ id, label }) => (
+              <button
+                key={id}
+                className={`px-3 py-2 rounded-full text-xs font-semibold transition-colors ${tab === id ? 'text-white' : 'text-[var(--color-deep-space)]'}`}
+                style={{
+                  background: tab === id ? 'var(--color-primary)' : '#ffffff',
+                  border: tab === id ? 'none' : '1px solid var(--color-border)',
+                }}
+                onClick={() => setTab(id)}
               >
-                <option value="">Tous les types hors formation</option>
-                {(Object.keys(TYPE_CONFIG) as ExperienceType[])
-                  .filter((type) => type !== 'EDUCATION')
-                  .map((type) => (
-                    <option key={type} value={type}>{TYPE_CONFIG[type].label}</option>
-                  ))}
-              </select>
-            </SectionHeader>
-
-            <ExperienceList
-              items={filteredExperiences}
-              emptyTitle="Aucune expérience trouvée"
-              emptyText="Ajoutez vos expériences pour enrichir vos candidatures et vos CV."
-              onEdit={(exp) => {
-                setEditingExperience(exp)
-                setEditorOpen(true)
-              }}
-              onDelete={deleteExperience}
-            />
-          </div>
-        </section>
-      )}
-
-      {(tab === 'ALL' || tab === 'EDUCATION') && (
-        <section className="card px-5 py-5 md:px-7 md:py-7">
-          <div className="flex flex-col gap-4">
-            <SectionHeader
-              title="Formations"
-              description="Diplômes, cursus, certifications ou bootcamps."
-            />
-
-            <ExperienceList
-              items={filteredEducation}
-              emptyTitle="Aucune formation trouvée"
-              emptyText="Ajoutez vos diplômes et formations pour compléter votre profil."
-              onEdit={(exp) => {
-                setEditingExperience(exp)
-                setEditorOpen(true)
-              }}
-              onDelete={deleteExperience}
-            />
-          </div>
-        </section>
-      )}
-
-      {(tab === 'ALL' || tab === 'SKILLS') && (
-        <section className="card px-5 py-5 md:px-7 md:py-7">
-          <div className="flex flex-col gap-4">
-            <SectionHeader
-              title="Compétences"
-              description="Stack, outils, soft skills et expertises à mettre en avant."
-            >
-              <button className="btn btn-secondary btn-sm" onClick={() => setListEditor('skills')}>
-                <Pencil size={13} />
-                Gérer
+                {label}
               </button>
-            </SectionHeader>
-
-            <ChipSection
-              items={filteredSkills}
-              emptyTitle="Aucune compétence"
-              emptyText="Ajoutez vos compétences clés pour les réutiliser dans vos CV et candidatures."
-              color="var(--color-green-light)"
-              textColor="var(--color-green-text)"
-              categoryLabel="Compétence"
-            />
+            ))}
           </div>
-        </section>
-      )}
 
-      {(tab === 'ALL' || tab === 'INTERESTS') && (
-        <section className="card px-5 py-5 md:px-7 md:py-7">
-          <div className="flex flex-col gap-4">
-            <SectionHeader
-              title="Centres d'intérêt"
-              description="Activités personnelles, passions et sujets qui vous définissent."
-            >
-              <button className="btn btn-secondary btn-sm" onClick={() => setListEditor('interests')}>
-                <Pencil size={13} />
-                Gérer
-              </button>
-            </SectionHeader>
+          {(tab === 'ALL' || tab === 'EXPERIENCES') && (
+            <div className="flex flex-col gap-2">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-semibold text-[var(--color-deep-space)]">Expériences</h3>
+                <select
+                  className="input sm:w-56"
+                  value={typeFilter}
+                  onChange={(e) => setTypeFilter(e.target.value as ExperienceType | '')}
+                >
+                  <option value="">Tous les types hors formation</option>
+                  {(Object.keys(TYPE_CONFIG) as ExperienceType[])
+                    .filter((type) => type !== 'EDUCATION')
+                    .map((type) => <option key={type} value={type}>{TYPE_CONFIG[type].label}</option>)}
+                </select>
+              </div>
+              <LibraryElementsTable
+                items={filteredExperiences}
+                cvDocuments={cvDocuments}
+                typeLabel={(exp) => TYPE_CONFIG[exp.type]?.label ?? TYPE_CONFIG.OTHER.label}
+                onEdit={(exp) => { setEditingExperience(exp); setEditorOpen(true) }}
+                onDelete={deleteExperience}
+                emptyTitle="Aucune expérience trouvée"
+                emptyText="Ajoutez vos expériences pour enrichir vos candidatures et vos CV."
+              />
+            </div>
+          )}
 
-            <ChipSection
-              items={filteredInterests}
-              emptyTitle="Aucun centre d'intérêt"
-              emptyText="Ajoutez quelques centres d’intérêt pour humaniser votre profil lorsque c’est pertinent."
-              color="var(--color-red-light)"
-              textColor="var(--color-red-text)"
-              categoryLabel="Centre d'intérêt"
-            />
-          </div>
+          {(tab === 'ALL' || tab === 'EDUCATION') && (
+            <div className="flex flex-col gap-2">
+              <h3 className="text-sm font-semibold text-[var(--color-deep-space)]">Formations</h3>
+              <LibraryElementsTable
+                items={filteredEducation}
+                cvDocuments={cvDocuments}
+                typeLabel={() => TYPE_CONFIG.EDUCATION.label}
+                onEdit={(exp) => { setEditingExperience(exp); setEditorOpen(true) }}
+                onDelete={deleteExperience}
+                emptyTitle="Aucune formation trouvée"
+                emptyText="Ajoutez vos diplômes et formations pour compléter votre profil."
+              />
+            </div>
+          )}
+
+          {(tab === 'ALL' || tab === 'SKILLS') && (
+            <div className="flex flex-col gap-2">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-semibold text-[var(--color-deep-space)]">Compétences</h3>
+                <button className="btn btn-secondary btn-sm" onClick={() => setListEditor('skills')}>
+                  <Pencil size={13} />
+                  Gérer
+                </button>
+              </div>
+              <ChipSection
+                items={filteredSkills}
+                emptyTitle="Aucune compétence"
+                emptyText="Ajoutez vos compétences clés pour les réutiliser dans vos CV et candidatures."
+                color="var(--color-green-light)"
+                textColor="var(--color-green-text)"
+                categoryLabel="Compétence"
+              />
+            </div>
+          )}
+
+          {(tab === 'ALL' || tab === 'INTERESTS') && (
+            <div className="flex flex-col gap-2">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-semibold text-[var(--color-deep-space)]">Centres d'intérêt</h3>
+                <button className="btn btn-secondary btn-sm" onClick={() => setListEditor('interests')}>
+                  <Pencil size={13} />
+                  Gérer
+                </button>
+              </div>
+              <ChipSection
+                items={filteredInterests}
+                emptyTitle="Aucun centre d'intérêt"
+                emptyText="Ajoutez quelques centres d'intérêt pour humaniser votre profil lorsque c'est pertinent."
+                color="var(--color-red-light)"
+                textColor="var(--color-red-text)"
+                categoryLabel="Centre d'intérêt"
+              />
+            </div>
+          )}
         </section>
-      )}
+
+        <LibrarySuggestionsPanel experiences={experiences} cvDocuments={cvDocuments} />
+      </div>
 
       {importerOpen && (
         <CVImporter
@@ -314,7 +403,7 @@ export function LibraryPage({ userId, userEmail }: LibraryPageProps) {
           existingInterests={profile?.interests ?? []}
           onImportEntries={bulkAddExperiences}
           onImportProfileData={(payload) => updateProfile(payload)}
-          onUploadCv={async () => ({ data: null, error: 'Stockage des CV non encore branché' })}
+          onUploadCv={uploadCv}
           onClose={() => setImporterOpen(false)}
         />
       )}
@@ -323,16 +412,10 @@ export function LibraryPage({ userId, userEmail }: LibraryPageProps) {
         <ExperienceEditor
           userId={userId}
           initial={editingExperience}
-          onClose={() => {
-            setEditorOpen(false)
-            setEditingExperience(null)
-          }}
+          onClose={() => { setEditorOpen(false); setEditingExperience(null) }}
           onSave={async (payload, id) => {
             const err = id ? await updateExperience(id, payload) : await addExperience(payload as NewExperience)
-            if (!err) {
-              setEditorOpen(false)
-              setEditingExperience(null)
-            }
+            if (!err) { setEditorOpen(false); setEditingExperience(null) }
             return err
           }}
         />
@@ -351,136 +434,53 @@ export function LibraryPage({ userId, userEmail }: LibraryPageProps) {
           }}
         />
       )}
+
+      {newAnalysisOpen && (
+        <NewAtsAnalysisModal
+          cvDocuments={cvDocuments}
+          onSubmit={handleCreateAnalysis}
+          onClose={() => setNewAnalysisOpen(false)}
+        />
+      )}
+
+      {detailAnalysisData && detailAnalysis && (
+        <AtsAnalysisDetailModal
+          analysis={detailAnalysisData}
+          cvFileName={cvFileNameFor(detailAnalysisData.cv_id)}
+          mode={detailAnalysis.mode}
+          onGenerateRecommendations={handleGenerateRecommendations}
+          onClose={() => setDetailAnalysis(null)}
+        />
+      )}
+
+      {associatingAnalysis && (
+        <AssociateAnalysisModal
+          analysis={associatingAnalysis}
+          applications={applications}
+          onAssociate={associateToApplication}
+          onClose={() => setAssociatingAnalysis(null)}
+        />
+      )}
+
+      {compareOpen && (
+        <CompareCvModal
+          cvDocuments={cvDocuments}
+          experiences={experiences}
+          onClose={() => setCompareOpen(false)}
+        />
+      )}
     </div>
   )
 }
 
-function SummaryCard({
-  label,
-  value,
-  icon,
-  tone,
-}: {
-  label: string
-  value: number
-  icon: React.ReactNode
-  tone: string
-}) {
+function StatCard({ label, value, icon, tone }: { label: string; value: React.ReactNode; icon: React.ReactNode; tone: string }) {
   return (
-    <div
-      className="rounded-[18px] border px-4 py-4 bg-white/75 flex flex-col gap-2"
-      style={{ borderColor: 'var(--color-border)' }}
-    >
+    <div className="rounded-[18px] border px-4 py-4 bg-white/75 flex flex-col gap-2" style={{ borderColor: 'var(--color-border)' }}>
       <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.12em]" style={{ color: tone }}>
         {icon}
         {label}
       </div>
       <div className="text-[1.7rem] leading-none font-bold text-[var(--color-deep-space)]">{value}</div>
-    </div>
-  )
-}
-
-function SectionHeader({
-  title,
-  description,
-  children,
-}: {
-  title: string
-  description: string
-  children?: React.ReactNode
-}) {
-  return (
-    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-      <div className="max-w-2xl">
-        <h2 className="text-lg font-semibold leading-tight text-[var(--color-deep-space)]">{title}</h2>
-        <p className="mt-1 text-sm leading-6 text-[var(--color-muted)]">{description}</p>
-      </div>
-      {children ? <div className="flex-shrink-0">{children}</div> : null}
-    </div>
-  )
-}
-
-function ExperienceList({
-  items,
-  emptyTitle,
-  emptyText,
-  onEdit,
-  onDelete,
-}: {
-  items: Experience[]
-  emptyTitle: string
-  emptyText: string
-  onEdit: (exp: Experience) => void
-  onDelete: (id: string) => Promise<string | null>
-}) {
-  if (items.length === 0) {
-    return (
-      <div className="empty-state">
-        <div className="text-4xl mb-3">🗂️</div>
-        <p className="font-semibold">{emptyTitle}</p>
-        <p className="text-xs mt-1">{emptyText}</p>
-      </div>
-    )
-  }
-
-  return (
-    <div className="flex flex-col gap-3">
-      {items.map((exp) => {
-        const config = TYPE_CONFIG[exp.type] ?? TYPE_CONFIG.OTHER
-        return (
-          <div
-            key={exp.id}
-            className="rounded-[18px] border px-4 py-4 bg-white/72 flex flex-col gap-4 lg:flex-row"
-            style={{ borderColor: 'var(--color-border)' }}
-          >
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2 mb-2 flex-wrap">
-                <span className={`badge flex items-center gap-1 ${config.color}`}>
-                  {config.icon}{config.label}
-                </span>
-                {exp.current && (
-                  <span className="badge bg-green-100 text-green-700">En cours</span>
-                )}
-                {exp.subsection && (
-                  <span className="badge bg-[var(--color-deep-space-light)] text-[var(--color-cerulean)]">{exp.subsection}</span>
-                )}
-              </div>
-              <div className="font-semibold text-base leading-tight text-[var(--color-deep-space)]">{exp.title}</div>
-              <div className="text-sm font-medium text-[var(--color-ink)] mt-1">{exp.organization}</div>
-              <div className="text-xs leading-5 text-[var(--color-muted)] mt-1">
-                {formatDate(exp.startDate)} — {exp.current ? "aujourd'hui" : exp.endDate ? formatDate(exp.endDate) : ''}
-                {exp.location ? ` · ${exp.location}` : ''}
-              </div>
-              {exp.description && (
-                <p className="text-sm leading-6 text-[var(--color-ink)]/85 mt-3 line-clamp-3">{exp.description}</p>
-              )}
-              {exp.skills?.length > 0 && (
-                <div className="flex flex-wrap gap-1.5 mt-3">
-                  {exp.skills.map((skill) => (
-                    <span key={skill} className="badge bg-[var(--color-bg)] text-[var(--color-muted)]">{skill}</span>
-                  ))}
-                </div>
-              )}
-            </div>
-            <div className="flex gap-2 lg:flex-col lg:w-[132px]">
-              <button className="btn btn-secondary btn-sm" onClick={() => onEdit(exp)}>
-                <Pencil size={13} />
-                Modifier
-              </button>
-              <button
-                className="btn btn-danger btn-sm"
-                onClick={async () => {
-                  if (!window.confirm('Supprimer cette entrée ? Cette action est irréversible.')) return
-                  await onDelete(exp.id)
-                }}
-              >
-                <Trash2 size={13} />
-                Supprimer
-              </button>
-            </div>
-          </div>
-        )
-      })}
     </div>
   )
 }
@@ -512,20 +512,9 @@ function ChipSection({
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
       {items.map((item) => (
-        <div
-          key={item}
-          className="rounded-[18px] border bg-white/72 px-4 py-4"
-          style={{ borderColor: 'var(--color-border)' }}
-        >
-          <p className="text-[11px] font-semibold uppercase tracking-[0.12em]" style={{ color: textColor }}>
-            {categoryLabel}
-          </p>
-          <p
-            className="mt-2 inline-flex rounded-full px-3 py-1.5 text-sm font-medium"
-            style={{ background: color, color: textColor }}
-          >
-            {item}
-          </p>
+        <div key={item} className="rounded-[18px] border bg-white/72 px-4 py-4" style={{ borderColor: 'var(--color-border)' }}>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.12em]" style={{ color: textColor }}>{categoryLabel}</p>
+          <p className="mt-2 inline-flex rounded-full px-3 py-1.5 text-sm font-medium" style={{ background: color, color: textColor }}>{item}</p>
         </div>
       ))}
     </div>
@@ -544,18 +533,12 @@ function ExperienceEditor({ userId, initial, onClose, onSave }: ExperienceEditor
   const [saving, setSaving] = useState(false)
   const [current, setCurrent] = useState(initial?.current ?? false)
 
-  useEffect(() => {
-    setCurrent(initial?.current ?? false)
-  }, [initial])
-
   return (
     <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4" onClick={onClose}>
       <div className="card w-full max-w-2xl p-0 overflow-hidden" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between px-5 py-4 border-b border-[var(--color-border)]">
           <h2 className="font-semibold text-sm">{initial ? 'Modifier une entrée' : 'Ajouter une entrée'}</h2>
-          <button className="btn btn-ghost p-1" onClick={onClose}>
-            <X size={16} />
-          </button>
+          <button className="btn btn-ghost p-1" onClick={onClose}><X size={16} /></button>
         </div>
 
         <form
@@ -662,18 +645,12 @@ function TagListEditor({
   const [value, setValue] = useState(items.join(', '))
   const [error, setError] = useState<string | null>(null)
 
-  useEffect(() => {
-    setValue(items.join(', '))
-  }, [items])
-
   return (
     <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4" onClick={onClose}>
       <div className="card w-full max-w-xl p-0 overflow-hidden" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between px-5 py-4 border-b border-[var(--color-border)]">
           <h2 className="font-semibold text-sm">Gérer : {title}</h2>
-          <button className="btn btn-ghost p-1" onClick={onClose}>
-            <X size={16} />
-          </button>
+          <button className="btn btn-ghost p-1" onClick={onClose}><X size={16} /></button>
         </div>
 
         <form
