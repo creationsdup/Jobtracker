@@ -1,7 +1,8 @@
 // Implémentation Supabase (service_role) des dépendances injectées dans boardHandlers.ts.
-import { createClient, type SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { createClient, type SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2.104.1'
 import { hmacSha256Hex } from './accessCode.ts'
-import type { BoardDeps } from './boardHandlers.ts'
+import { clientIpFromHeaders } from './clientIp.ts'
+import type { BoardCaller, BoardDeps } from './boardHandlers.ts'
 
 export interface ServerContext {
   admin: SupabaseClient
@@ -17,16 +18,19 @@ export function loadContext(): ServerContext | null {
   return { admin, pepper }
 }
 
-export async function getCallerId(ctx: ServerContext, req: Request): Promise<string | null> {
+export async function getCaller(ctx: ServerContext, req: Request): Promise<BoardCaller | null> {
   const header = req.headers.get('Authorization') ?? ''
   const token = header.startsWith('Bearer ') ? header.slice('Bearer '.length) : ''
   if (!token) return null
   const { data, error } = await ctx.admin.auth.getUser(token)
-  return error || !data?.user ? null : data.user.id
+  return error || !data?.user ? null : { id: data.user.id, token }
 }
 
 export function ipKey(ctx: ServerContext, req: Request): Promise<string> {
-  const ip = (req.headers.get('x-forwarded-for') ?? '').split(',')[0].trim() || 'unknown'
+  // WHY: x-forwarded-for peut être fixé par le client ; cf-connecting-ip (Cloudflare, devant
+  // Supabase) n'est pas falsifiable, et la dernière entrée de x-forwarded-for est ajoutée par
+  // l'infrastructure, jamais par l'appelant. Voir supabase/functions/_shared/clientIp.ts.
+  const ip = clientIpFromHeaders((name) => req.headers.get(name))
   // WHY: l'IP n'est jamais stockée en clair (RGPD).
   return hmacSha256Hex(`ip:${ip}`, ctx.pepper)
 }
@@ -94,20 +98,15 @@ export function createDeps(ctx: ServerContext): BoardDeps {
     },
 
     async deleteBoardData(userId) {
-      // WHY: ces tables sont keyées par userId texte, sans cascade depuis auth.users.
-      const { data: apps, error: appsError } = await admin.from('Application').select('id').eq('userId', userId)
-      if (appsError) return false
-      const ids = (apps ?? []).map((app) => app.id as string)
-      if (ids.length > 0) {
-        const { error } = await admin.from('TimelineStep').delete().in('applicationId', ids)
-        if (error) return false
-      }
-      const owned = [['Application', 'userId'], ['OrgLogo', 'userId'], ['Profile', 'id']] as const
-      for (const [table, column] of owned) {
-        const { error } = await admin.from(table).delete().eq(column, userId)
-        if (error) return false
-      }
-      return true
+      // WHY: une seule transaction côté base (public.delete_board_data) plutôt que plusieurs
+      // suppressions séparées, pour ne jamais laisser un tableau partiellement effacé.
+      const { error } = await admin.rpc('delete_board_data', { p_user_id: userId })
+      return !error
+    },
+
+    async revokeOtherSessions(callerToken) {
+      const { error } = await admin.auth.admin.signOut(callerToken, 'others')
+      return !error
     },
   }
 }
