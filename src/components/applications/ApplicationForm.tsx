@@ -32,9 +32,11 @@ interface ApplicationFormProps {
   lookupCompanyDomain: (company: string) => string | undefined
   externalError?: string | null
   onClose: () => void
+  /** false quand le formulaire remplace la fiche sur place (pas d'animation d'ouverture). */
+  appear?: boolean
 }
 
-export function ApplicationForm({ initial, userId, onSave, onSaveCompanyWebsite, existingCompanyWebsite, lookupCompanyDomain, externalError, onClose }: ApplicationFormProps) {
+export function ApplicationForm({ initial, userId, onSave, onSaveCompanyWebsite, existingCompanyWebsite, lookupCompanyDomain, externalError, onClose, appear = true }: ApplicationFormProps) {
   const isEditMode = !!initial
   const [draft, setDraft] = useState<ApplicationDraft>(() => createDraft(initial, existingCompanyWebsite))
   const [saving, setSaving] = useState(false)
@@ -150,6 +152,7 @@ export function ApplicationForm({ initial, userId, onSave, onSaveCompanyWebsite,
       onKeyDown={handleKeyDown}
       aside={aside}
       overlays={importer}
+      appear={appear}
     >
       <OfferEssentials
         draft={draft}

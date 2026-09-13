@@ -4,13 +4,14 @@ import { formatDate } from '@/lib/utils'
 import type { Application, TimelineStep, StepStatus, ApplicationStatus, UserGoal } from '@/lib/types'
 import { MatchDetailsContent } from './MatchDetailsContent'
 import { ApplicationDialog } from './ApplicationDialog'
+import { ApplicationForm } from './ApplicationForm'
 import { CollapsibleSection } from './form/CollapsibleSection'
 import { DetailInfoSections, DetailSummary } from './detail/DetailSummary'
 import { useProfile } from '@/hooks/useProfile'
 import { useExperiences } from '@/hooks/useExperiences'
 import { calculateJobMatch, applicationToJobMatchInput } from '@/lib/jobMatching'
 import { deriveApplicationStatusFromSteps, TIMELINE_PRESETS } from '@/lib/timelineStatus'
-import { createDraft, initialSections, isStatusSelected } from '@/lib/applicationDraft'
+import { createDraft, initialSections, isStatusSelected, type ApplicationPayload } from '@/lib/applicationDraft'
 import { stepCountLabel } from '@/lib/applicationSummary'
 import { FEATURES } from '@/config/edition'
 
@@ -24,9 +25,12 @@ interface ApplicationDetailProps {
   application: Application
   userEmail: string
   steps: TimelineStep[]
-  onEdit: () => void
   onDelete: () => void
   onClose: () => void
+  /** Enregistre les modifications faites directement dans la fiche. */
+  onUpdate: (data: ApplicationPayload) => Promise<string | null>
+  onSaveCompanyWebsite: (company: string, website: string) => Promise<string | null>
+  lookupCompanyDomain: (company: string) => string | undefined
   onAddStep: (step: Omit<TimelineStep, 'id' | 'createdAt'>) => Promise<string | null>
   onUpdateStep: (stepId: string, data: Partial<Omit<TimelineStep, 'id' | 'applicationId' | 'createdAt'>>) => Promise<string | null>
   onDeleteStep: (stepId: string) => Promise<string | null>
@@ -59,9 +63,11 @@ export function ApplicationDetail({
   application,
   userEmail,
   steps,
-  onEdit,
   onDelete,
   onClose,
+  onUpdate,
+  onSaveCompanyWebsite,
+  lookupCompanyDomain,
   onAddStep,
   onUpdateStep,
   onDeleteStep,
@@ -74,6 +80,10 @@ export function ApplicationDetail({
     ...initialSections(createDraft(application)),
     match: false,
   }))
+  const [editing, setEditing] = useState(false)
+  const [editError, setEditError] = useState<string | null>(null)
+  // WHY: une fois passée en modification, la fiche et son formulaire se remplacent sans rejouer l'animation d'ouverture.
+  const [switchedInPlace, setSwitchedInPlace] = useState(false)
   const [pendingStatus, setPendingStatus] = useState<ApplicationStatus | null>(null)
   const [statusError, setStatusError] = useState<string | null>(null)
   const [addingStep, setAddingStep] = useState(false)
@@ -95,6 +105,29 @@ export function ApplicationDetail({
 
   function toggleSection(key: SectionKey) {
     setSections((current) => ({ ...current, [key]: !current[key] }))
+  }
+
+  function startEditing() {
+    setEditError(null)
+    setSwitchedInPlace(true)
+    setEditing(true)
+  }
+
+  function stopEditing() {
+    setEditError(null)
+    setEditing(false)
+  }
+
+  async function handleEditSave(data: ApplicationPayload) {
+    setEditError(null)
+    const err = await onUpdate(data)
+    if (err) {
+      setEditError(err)
+      return
+    }
+    // Les blocs qui viennent d'être remplis s'ouvrent au retour sur la fiche.
+    setSections((current) => ({ ...current, ...initialSections(createDraft(data)) }))
+    setEditing(false)
   }
 
   async function handleStatusSelect(column: ApplicationStatus) {
@@ -277,6 +310,23 @@ export function ApplicationDetail({
     setDeletingStepId(null)
   }
 
+  // « Modifier » transforme la fiche en formulaire dans la même fenêtre ; Enregistrer ou Annuler la remet en lecture.
+  if (editing) {
+    return (
+      <ApplicationForm
+        initial={application}
+        userId={application.userId}
+        onSave={handleEditSave}
+        onSaveCompanyWebsite={onSaveCompanyWebsite}
+        existingCompanyWebsite={logoUrl}
+        lookupCompanyDomain={lookupCompanyDomain}
+        externalError={editError}
+        onClose={stopEditing}
+        appear={false}
+      />
+    )
+  }
+
   const coverLetter = coverLetterOpen && CoverLetterGenerator && (
     <Suspense fallback={null}>
       <CoverLetterGenerator
@@ -292,7 +342,7 @@ export function ApplicationDetail({
   const aside = (
     <>
       <div className="flex flex-wrap gap-2">
-        <button type="button" className="btn btn-primary flex-1" onClick={onEdit}>
+        <button type="button" className="btn btn-primary flex-1" onClick={startEditing}>
           <Pencil size={14} aria-hidden />
           Modifier
         </button>
@@ -517,7 +567,7 @@ export function ApplicationDetail({
   )
 
   return (
-    <ApplicationDialog title="Fiche candidature" onClose={onClose} aside={aside} overlays={coverLetter}>
+    <ApplicationDialog title="Fiche candidature" onClose={onClose} aside={aside} overlays={coverLetter} appear={!switchedInPlace}>
       <DetailSummary
         application={shownApplication}
         logoUrl={logoUrl}

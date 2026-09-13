@@ -14,13 +14,15 @@ interface ApplicationDialogProps {
   onKeyDown?: KeyboardEventHandler<HTMLFormElement>
   /** Fenêtres ouvertes par-dessus (import IA, lettre IA). */
   overlays?: ReactNode
+  /** Joue l'animation d'ouverture — désactivée quand la fiche et son formulaire se remplacent sur place. */
+  appear?: boolean
 }
 
 const PANEL_CLASS = 'w-full max-h-[92dvh] sm:max-h-[calc(100dvh-48px)] flex flex-col bg-[var(--color-surface)] rounded-t-[var(--radius-xl)] sm:rounded-[var(--radius-xl)] shadow-[var(--shadow-lg)]'
 
 // Cadre commun au formulaire et à la fiche d'une candidature : fenêtre centrée (pleine largeur sur
 // téléphone), en-tête, contenu qui défile, colonne de droite et pied facultatifs.
-export function ApplicationDialog({ title, onClose, children, aside, footer, onSubmit, onKeyDown, overlays }: ApplicationDialogProps) {
+export function ApplicationDialog({ title, onClose, children, aside, footer, onSubmit, onKeyDown, overlays, appear = true }: ApplicationDialogProps) {
   const titleId = useId()
   const panelClass = cn(PANEL_CLASS, aside ? 'sm:max-w-[1000px]' : 'sm:max-w-[560px]')
 
@@ -65,7 +67,7 @@ export function ApplicationDialog({ title, onClose, children, aside, footer, onS
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 backdrop-blur-sm animate-fade-in sm:p-6"
+      className={cn('fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 backdrop-blur-sm sm:p-6', appear && 'animate-fade-in')}
       onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
     >
       {onSubmit ? (

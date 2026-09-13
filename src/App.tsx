@@ -213,9 +213,11 @@ export function App() {
           application={applications.find((a) => a.id === detailApp.id) ?? detailApp}
           userEmail={user.email}
           steps={getStepsForApplication(detailApp.id)}
-          onEdit={() => { setEditingApp(detailApp); setDetailApp(null); setFormOpen(true) }}
           onDelete={() => handleDelete(detailApp)}
           onClose={() => setDetailApp(null)}
+          onUpdate={(data) => updateApplication(detailApp.id, data)}
+          onSaveCompanyWebsite={saveCompanyWebsite}
+          lookupCompanyDomain={lookupCompanyDomain}
           onAddStep={(step) => addStep(step)}
           onUpdateStep={(stepId, data) => updateStep(stepId, data)}
           onDeleteStep={(stepId) => deleteStep(stepId)}
