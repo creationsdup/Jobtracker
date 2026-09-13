@@ -17,7 +17,6 @@ export function StatusPicker({ status, appliedAt, onStatusChange, onAppliedAtCha
     <div className="flex flex-col gap-3">
       <ChoiceChips
         label="Statut"
-        hideLabel
         options={STATUS_OPTIONS}
         isSelected={(column) => isStatusSelected(status, column)}
         onSelect={onStatusChange}

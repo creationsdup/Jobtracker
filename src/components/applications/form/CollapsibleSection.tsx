@@ -11,35 +11,35 @@ interface CollapsibleSectionProps {
   children: ReactNode
 }
 
-// Bloc de champs facultatifs, replié par défaut — même style que le bloc « Correspondance » de la fiche.
+// Bloc de champs facultatifs, replié derrière un en-tête cliquable pour garder le formulaire court.
 export function CollapsibleSection({ title, hint, icon: Icon, open, onToggle, children }: CollapsibleSectionProps) {
   const contentId = useId()
 
   return (
-    <section className="rounded-[var(--radius-sm)] bg-[var(--color-bg)] p-3">
+    <section className="rounded-[var(--radius-lg)] border border-[var(--color-border)] bg-[var(--color-bg)]">
       <button
         type="button"
         onClick={onToggle}
         aria-expanded={open}
         aria-controls={contentId}
-        className="w-full min-h-[32px] flex items-center justify-between gap-3 text-left rounded-[8px] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-highlight)]"
+        className="w-full flex items-center gap-3 px-4 py-3 text-left rounded-[var(--radius-lg)] transition-colors hover:bg-[var(--color-bg-light)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--color-highlight)]"
       >
-        <span className="text-sm font-semibold flex items-center gap-1.5 text-[var(--color-ink)]">
-          <Icon size={13} aria-hidden />
-          {title}
+        <span className="flex items-center justify-center w-8 h-8 rounded-[10px] bg-[var(--color-surface)] text-[var(--color-accent)] flex-shrink-0">
+          <Icon size={16} aria-hidden />
         </span>
-        <span className="flex items-center gap-1.5 min-w-0">
-          {!open && <span className="hidden sm:block text-xs text-[var(--color-muted)] truncate">{hint}</span>}
-          <ChevronDown
-            size={14}
-            aria-hidden
-            className={cn('flex-shrink-0 text-[var(--color-muted)] transition-transform duration-150', open && 'rotate-180')}
-          />
+        <span className="flex-1 min-w-0">
+          <span className="block text-sm font-semibold text-[var(--color-ink)]">{title}</span>
+          {!open && <span className="block text-xs text-[var(--color-muted)] truncate">{hint}</span>}
         </span>
+        <ChevronDown
+          size={18}
+          aria-hidden
+          className={cn('text-[var(--color-muted)] transition-transform duration-200', open && 'rotate-180')}
+        />
       </button>
 
       {open && (
-        <div id={contentId} className="mt-3 pt-3 border-t border-[var(--color-border)] flex flex-col gap-4">
+        <div id={contentId} className="px-4 pb-4 pt-1 flex flex-col gap-4">
           {children}
         </div>
       )}
