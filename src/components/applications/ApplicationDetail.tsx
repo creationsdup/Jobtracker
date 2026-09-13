@@ -10,9 +10,10 @@ import { DetailInfoSections, DetailSummary } from './detail/DetailSummary'
 import { useProfile } from '@/hooks/useProfile'
 import { useExperiences } from '@/hooks/useExperiences'
 import { calculateJobMatch, applicationToJobMatchInput } from '@/lib/jobMatching'
-import { deriveApplicationStatusFromSteps, TIMELINE_PRESETS } from '@/lib/timelineStatus'
+import { TIMELINE_PRESETS } from '@/lib/timelineStatus'
 import { createDraft, initialSections, isStatusSelected, type ApplicationPayload } from '@/lib/applicationDraft'
 import { stepCountLabel } from '@/lib/applicationSummary'
+import { mergePendingSteps, resolveStatusChange } from '@/lib/pendingSteps'
 import { FEATURES } from '@/config/edition'
 
 // WHY: condition littérale (pas FEATURES.ai) pour que Rollup supprime la lettre IA — et lib/ai —
@@ -31,7 +32,7 @@ interface ApplicationDetailProps {
   onUpdate: (data: ApplicationPayload) => Promise<string | null>
   onSaveCompanyWebsite: (company: string, website: string) => Promise<string | null>
   lookupCompanyDomain: (company: string) => string | undefined
-  onAddStep: (step: Omit<TimelineStep, 'id' | 'createdAt'>) => Promise<string | null>
+  onAddStep: (step: Omit<TimelineStep, 'createdAt'>) => Promise<string | null>
   onUpdateStep: (stepId: string, data: Partial<Omit<TimelineStep, 'id' | 'applicationId' | 'createdAt'>>) => Promise<string | null>
   onDeleteStep: (stepId: string) => Promise<string | null>
   onStatusChange: (status: ApplicationStatus) => Promise<string | null>
@@ -85,6 +86,7 @@ export function ApplicationDetail({
   // WHY: une fois passée en modification, la fiche et son formulaire se remplacent sans rejouer l'animation d'ouverture.
   const [switchedInPlace, setSwitchedInPlace] = useState(false)
   const [pendingStatus, setPendingStatus] = useState<ApplicationStatus | null>(null)
+  const [pendingSteps, setPendingSteps] = useState<TimelineStep[]>([])
   const [statusError, setStatusError] = useState<string | null>(null)
   const [addingStep, setAddingStep] = useState(false)
   const [editingStepId, setEditingStepId] = useState<string | null>(null)
@@ -100,8 +102,9 @@ export function ApplicationDetail({
   // WHY: les expériences ne servent qu'à la lettre IA ; pas de requête sur "Experience" en lite.
   const { experiences } = useExperiences(FEATURES.ai ? application.userId : null)
   const logoUrl = resolveLogo?.(application.company) ?? null
-  // WHY: la puce cliquée s'allume tout de suite, sans attendre la réponse de Supabase.
+  // WHY: la puce de statut et les nouvelles étapes s'affichent tout de suite, sans attendre la réponse de Supabase.
   const shownApplication = pendingStatus ? { ...application, status: pendingStatus } : application
+  const shownSteps = mergePendingSteps(steps, pendingSteps)
 
   function toggleSection(key: SectionKey) {
     setSections((current) => ({ ...current, [key]: !current[key] }))
@@ -146,14 +149,14 @@ export function ApplicationDetail({
   }
 
   async function syncApplicationStatus(nextSteps: TimelineStep[], explicitStatus?: ApplicationStatus | '') {
-    const targetStatus = explicitStatus || deriveApplicationStatusFromSteps(nextSteps) || (nextSteps.length === 0 ? 'WISHLIST' : null)
-    if (!targetStatus || targetStatus === application.status) return null
-    return onStatusChange(targetStatus)
+    const target = resolveStatusChange(application.status, nextSteps, explicitStatus)
+    return target ? onStatusChange(target) : null
   }
 
   async function handleAddStep(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     const fd = new FormData(e.currentTarget)
+    setAddingStep(true)
     const err = await submitStep({
       title: (fd.get('title') as string).trim() || 'Étape',
       date: fd.get('date') as string,
@@ -162,12 +165,15 @@ export function ApplicationDetail({
       notes: (fd.get('notes') as string).trim() || null,
       nextStatus: ((fd.get('nextStatus') as string) || '') as ApplicationStatus | '',
     })
+    setAddingStep(false)
     if (err) return
     formRef.current?.reset()
     setCustomStepOpen(false)
     setPickerOpen(false)
   }
 
+  // L'étape (et le statut qu'elle implique) s'affiche tout de suite ; Supabase confirme en arrière-plan.
+  // En cas d'erreur, l'étape disparaît et le message s'affiche.
   async function submitStep({
     title,
     date,
@@ -183,7 +189,6 @@ export function ApplicationDetail({
     notes: string | null
     nextStatus?: ApplicationStatus | ''
   }) {
-    setAddingStep(true)
     setStepError(null)
     const nextStep: TimelineStep = {
       id: crypto.randomUUID(),
@@ -193,38 +198,40 @@ export function ApplicationDetail({
       time,
       notes,
       status,
-      order: steps.length,
+      order: shownSteps.length,
       createdAt: new Date().toISOString(),
     }
+    const targetStatus = resolveStatusChange(shownApplication.status, [...shownSteps, nextStep], nextStatus)
+    setPendingSteps((current) => [...current, nextStep])
+    if (targetStatus) setPendingStatus(targetStatus)
 
     const err = await onAddStep({
+      id: nextStep.id,
       applicationId: application.id,
       title,
       date,
       time,
       status,
       notes,
-      order: steps.length,
+      order: nextStep.order,
     })
+    setPendingSteps((current) => current.filter((pending) => pending.id !== nextStep.id))
     if (err) {
-      setAddingStep(false)
+      setPendingStatus(null)
       setStepError(err)
       return err
     }
 
-    const statusError = await syncApplicationStatus([...steps, nextStep], nextStatus)
+    const statusError = targetStatus ? await onStatusChange(targetStatus) : null
+    setPendingStatus(null)
     if (statusError) {
-      setAddingStep(false)
       setStepError(statusError)
       return statusError
     }
-
-    setAddingStep(false)
     return null
   }
 
   async function handleRelance() {
-    setStepError(null)
     const today = new Date().toISOString().split('T')[0]
     await submitStep({
       title: 'Relance envoyée',
@@ -243,8 +250,11 @@ export function ApplicationDetail({
       return
     }
 
+    // WHY: la colonne se ferme au clic ; l'étape apparaît dans la timeline pendant l'enregistrement.
+    setPickerOpen(false)
+    setCustomStepOpen(false)
     const today = new Date().toISOString().split('T')[0]
-    const err = await submitStep({
+    await submitStep({
       title: preset.title,
       date: today,
       time: null,
@@ -252,10 +262,6 @@ export function ApplicationDetail({
       notes: null,
       nextStatus: preset.nextStatus,
     })
-    if (!err) {
-      setPickerOpen(false)
-      setCustomStepOpen(false)
-    }
   }
 
   async function handleUpdateStep(e: React.FormEvent<HTMLFormElement>, step: TimelineStep) {
@@ -381,7 +387,7 @@ export function ApplicationDetail({
             Timeline
           </h3>
           <span className="inline-flex items-center rounded-full border border-[var(--color-border)] bg-[var(--color-bg)] px-2.5 py-1 text-[11px] font-semibold text-[var(--color-muted)]">
-            {stepCountLabel(steps.length)}
+            {stepCountLabel(shownSteps.length)}
           </span>
         </div>
 
@@ -429,9 +435,8 @@ export function ApplicationDetail({
               key={preset.title}
               type="button"
               title={preset.subtitle}
-              className="flex w-full min-h-[40px] items-center gap-2.5 rounded-[var(--radius-sm)] border border-[var(--color-border)] bg-white px-3 py-2 text-left transition hover:border-[var(--color-accent)] hover:shadow-[var(--shadow-md)] disabled:opacity-50"
+              className="flex w-full min-h-[40px] items-center gap-2.5 rounded-[var(--radius-sm)] border border-[var(--color-border)] bg-white px-3 py-2 text-left transition hover:border-[var(--color-accent)] hover:shadow-[var(--shadow-md)]"
               onClick={() => void handlePresetSelect(preset)}
-              disabled={addingStep}
             >
               <span className="text-base leading-none flex-shrink-0" aria-hidden>{preset.icon}</span>
               <span className="truncate text-[13px] font-semibold text-[var(--color-ink)]">{preset.title}</span>
@@ -485,101 +490,106 @@ export function ApplicationDetail({
       )}
 
       <div className="lg:col-start-1">
-        {steps.length === 0 ? (
+        {shownSteps.length === 0 ? (
           <p className="text-xs text-[var(--color-muted)] py-2">Aucune étape. Ajoutez la première !</p>
         ) : (
           <div className="flex flex-col">
-            {steps.map((step, i) => (
-              <div key={step.id} className="flex gap-3 py-3 relative">
-                {i < steps.length - 1 && (
-                  <div className="absolute left-[11px] top-9 bottom-[-12px] w-0.5 bg-[var(--color-border)]" />
-                )}
-                <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-bold flex-shrink-0 mt-0.5 ${DOT_STYLES[step.status]}`}>
-                  {DOT_CHARS[step.status]}
-                </div>
-                <div className="flex-1 min-w-0">
-                  {editingStepId === step.id ? (
-                    <form
-                      ref={editFormRef}
-                      onSubmit={(e) => void handleUpdateStep(e, step)}
-                      className="flex flex-col gap-2.5 rounded-[var(--radius-sm)] border border-[var(--color-border)] bg-[var(--color-bg)] p-3 animate-fade-slide-down"
-                    >
-                      <input className="input text-xs" name="title" defaultValue={step.title} required />
-                      <select className="input text-xs" name="status" defaultValue={step.status}>
-                        <option value="UPCOMING">À venir</option>
-                        <option value="IN_PROGRESS">En cours</option>
-                        <option value="COMPLETED">Terminée</option>
-                        <option value="CANCELLED">Annulée</option>
-                      </select>
-                      <div className="grid grid-cols-2 gap-2.5">
-                        <input className="input text-xs" name="date" type="date" defaultValue={step.date} required />
-                        <input className="input text-xs" name="time" type="time" defaultValue={step.time ?? ''} />
-                      </div>
-                      <select className="input text-xs" name="nextStatus" defaultValue="">
-                        <option value="">Statut inchangé</option>
-                        <option value="APPLIED">Postulée</option>
-                        <option value="INTERVIEW">Entretien</option>
-                        <option value="OFFER">Offre</option>
-                        <option value="REJECTED">Refusée</option>
-                      </select>
-                      <textarea className="input text-xs resize-y" name="notes" rows={2} defaultValue={step.notes ?? ''} />
-                      <div className="flex justify-end gap-2">
-                        <button
-                          type="button"
-                          className="btn btn-ghost btn-sm"
-                          onClick={() => {
-                            setEditingStepId(null)
-                            setStepError(null)
-                          }}
-                        >
-                          Annuler
-                        </button>
-                        <button type="submit" className="btn btn-primary btn-sm" disabled={savingStepId === step.id}>
-                          {savingStepId === step.id ? 'Enregistrement…' : 'Enregistrer'}
-                        </button>
-                      </div>
-                    </form>
-                  ) : (
-                    <>
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="min-w-0">
-                          <div className="font-semibold text-sm flex items-center gap-1.5">
-                            <span className="text-base leading-none">{findPresetIcon(step.title)}</span>
-                            <span className="truncate">{step.title}</span>
-                          </div>
-                          <div className="text-xs text-[var(--color-muted)] mt-0.5">
-                            {formatDate(step.date)}{step.time ? ` à ${step.time}` : ''}
-                          </div>
+            {shownSteps.map((step, i) => {
+              // Une étape pas encore confirmée par Supabase ne peut être ni modifiée ni supprimée.
+              const isPending = !steps.some((saved) => saved.id === step.id)
+              return (
+                <div key={step.id} className="flex gap-3 py-3 relative">
+                  {i < shownSteps.length - 1 && (
+                    <div className="absolute left-[11px] top-9 bottom-[-12px] w-0.5 bg-[var(--color-border)]" />
+                  )}
+                  <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-bold flex-shrink-0 mt-0.5 ${DOT_STYLES[step.status]}`}>
+                    {DOT_CHARS[step.status]}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    {editingStepId === step.id ? (
+                      <form
+                        ref={editFormRef}
+                        onSubmit={(e) => void handleUpdateStep(e, step)}
+                        className="flex flex-col gap-2.5 rounded-[var(--radius-sm)] border border-[var(--color-border)] bg-[var(--color-bg)] p-3 animate-fade-slide-down"
+                      >
+                        <input className="input text-xs" name="title" defaultValue={step.title} required />
+                        <select className="input text-xs" name="status" defaultValue={step.status}>
+                          <option value="UPCOMING">À venir</option>
+                          <option value="IN_PROGRESS">En cours</option>
+                          <option value="COMPLETED">Terminée</option>
+                          <option value="CANCELLED">Annulée</option>
+                        </select>
+                        <div className="grid grid-cols-2 gap-2.5">
+                          <input className="input text-xs" name="date" type="date" defaultValue={step.date} required />
+                          <input className="input text-xs" name="time" type="time" defaultValue={step.time ?? ''} />
                         </div>
-                        <div className="flex items-center gap-1 flex-shrink-0">
+                        <select className="input text-xs" name="nextStatus" defaultValue="">
+                          <option value="">Statut inchangé</option>
+                          <option value="APPLIED">Postulée</option>
+                          <option value="INTERVIEW">Entretien</option>
+                          <option value="OFFER">Offre</option>
+                          <option value="REJECTED">Refusée</option>
+                        </select>
+                        <textarea className="input text-xs resize-y" name="notes" rows={2} defaultValue={step.notes ?? ''} />
+                        <div className="flex justify-end gap-2">
                           <button
                             type="button"
-                            className="btn btn-ghost btn-sm px-2"
-                            aria-label="Modifier l'étape"
+                            className="btn btn-ghost btn-sm"
                             onClick={() => {
-                              setEditingStepId(step.id)
+                              setEditingStepId(null)
                               setStepError(null)
                             }}
                           >
-                            <Pencil size={12} />
+                            Annuler
                           </button>
-                          <button
-                            type="button"
-                            className="btn btn-ghost btn-sm px-2 text-[var(--color-danger)] hover:text-[var(--color-danger-dark)]"
-                            aria-label="Supprimer l'étape"
-                            onClick={() => void handleDeleteStep(step.id)}
-                            disabled={deletingStepId === step.id}
-                          >
-                            <Trash2 size={12} />
+                          <button type="submit" className="btn btn-primary btn-sm" disabled={savingStepId === step.id}>
+                            {savingStepId === step.id ? 'Enregistrement…' : 'Enregistrer'}
                           </button>
                         </div>
-                      </div>
-                      {step.notes && <div className="text-xs text-[var(--color-muted)] mt-1 italic">{step.notes}</div>}
-                    </>
-                  )}
+                      </form>
+                    ) : (
+                      <>
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0">
+                            <div className="font-semibold text-sm flex items-center gap-1.5">
+                              <span className="text-base leading-none">{findPresetIcon(step.title)}</span>
+                              <span className="truncate">{step.title}</span>
+                            </div>
+                            <div className="text-xs text-[var(--color-muted)] mt-0.5">
+                              {formatDate(step.date)}{step.time ? ` à ${step.time}` : ''}
+                            </div>
+                          </div>
+                          <div className={cn('flex items-center gap-1 flex-shrink-0', isPending && 'invisible')}>
+                            <button
+                              type="button"
+                              className="btn btn-ghost btn-sm px-2"
+                              aria-label="Modifier l'étape"
+                              disabled={isPending}
+                              onClick={() => {
+                                setEditingStepId(step.id)
+                                setStepError(null)
+                              }}
+                            >
+                              <Pencil size={12} />
+                            </button>
+                            <button
+                              type="button"
+                              className="btn btn-ghost btn-sm px-2 text-[var(--color-danger)] hover:text-[var(--color-danger-dark)]"
+                              aria-label="Supprimer l'étape"
+                              onClick={() => void handleDeleteStep(step.id)}
+                              disabled={isPending || deletingStepId === step.id}
+                            >
+                              <Trash2 size={12} />
+                            </button>
+                          </div>
+                        </div>
+                        {step.notes && <div className="text-xs text-[var(--color-muted)] mt-1 italic">{step.notes}</div>}
+                      </>
+                    )}
+                  </div>
                 </div>
-              </div>
-            ))}
+              )
+            })}
           </div>
         )}
         {stepError && !pickerOpen && <p className="text-xs text-[var(--color-danger)]">{stepError}</p>}

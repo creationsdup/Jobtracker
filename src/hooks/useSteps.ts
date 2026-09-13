@@ -18,11 +18,12 @@ export function useSteps() {
     }
   }, [])
 
-  const addStep = useCallback(async (data: Omit<TimelineStep, 'id' | 'createdAt'>): Promise<string | null> => {
+  // WHY: l'appelant peut fournir l'id pour relier l'étape affichée tout de suite à celle confirmée par Supabase.
+  const addStep = useCallback(async (data: Omit<TimelineStep, 'id' | 'createdAt'> & { id?: string }): Promise<string | null> => {
     const payload = {
-      id: crypto.randomUUID(),
-      createdAt: new Date().toISOString(),
       ...data,
+      id: data.id ?? crypto.randomUUID(),
+      createdAt: new Date().toISOString(),
     }
 
     const { data: inserted, error } = await supabase
