@@ -1,9 +1,9 @@
-import { lazy, Suspense, useState } from 'react'
+import { lazy, Suspense, useCallback, useEffect, useState } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AppShell } from '@/components/layout/AppShell'
 import { LoginPage } from '@/pages/LoginPage'
 import { LiteAccessGate } from '@/components/access/LiteAccessGate'
-import { takeShortcutCodeOnce } from '@/lib/shortcutLocation'
+import { clearShortcutCode, takeShortcutCodeOnce } from '@/lib/shortcutLocation'
 import { ResetPasswordPage } from '@/pages/ResetPasswordPage'
 import { DashboardPage } from '@/pages/DashboardPage'
 import { ApplicationsPage } from '@/pages/ApplicationsPage'
@@ -59,7 +59,17 @@ export function App() {
   const [saveError, setSaveError] = useState<string | null>(null)
   // WHY: hooks toujours appelés avant tout retour anticipé ; si une session existe déjà, le code
   // du raccourci est ignoré (on reste sur le tableau ouvert) — l'adresse est déjà nettoyée.
-  const [shortcutCode] = useState(() => (FEATURES.accessCode ? takeShortcutCodeOnce() : ''))
+  const [shortcutCode, setShortcutCode] = useState(() => (FEATURES.accessCode ? takeShortcutCodeOnce() : ''))
+  const consumeShortcutCode = useCallback(() => {
+    clearShortcutCode()
+    setShortcutCode('')
+  }, [])
+
+  useEffect(() => {
+    // WHY: une session existe déjà au chargement (ex. re-render après StrictMode) : on reste sur
+    // ce tableau et le code ne doit plus jamais être réutilisé plus tard (ex. après un signOut).
+    if (!authLoading && isAuthenticated && shortcutCode) consumeShortcutCode()
+  }, [authLoading, isAuthenticated, shortcutCode, consumeShortcutCode])
 
   if (authLoading) {
     return (
@@ -75,7 +85,7 @@ export function App() {
 
   if (!isAuthenticated || !user) {
     // WHY: en lite, pas d'inscription : on entre par un code d'accès (spec lite-access-code §3.1).
-    if (FEATURES.accessCode) return <LiteAccessGate shortcutCode={shortcutCode} />
+    if (FEATURES.accessCode) return <LiteAccessGate shortcutCode={shortcutCode} onShortcutConsumed={consumeShortcutCode} />
     return <LoginPage onSignIn={signIn} onSignUp={signUp} onSignInWithGoogle={signInWithGoogle} onForgotPassword={sendPasswordReset} />
   }
 

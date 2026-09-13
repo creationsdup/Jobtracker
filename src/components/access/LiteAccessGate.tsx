@@ -15,9 +15,12 @@ interface LiteAccessGateProps {
   // WHY: le fragment #CODE est lu et retiré de l'adresse une seule fois par App (takeShortcutCodeOnce,
   // avant tout retour anticipé) ; ce composant ne lit plus lui-même window.location.hash.
   shortcutCode: string
+  // WHY: après une déconnexion, App remonte une nouvelle instance de ce composant dont le ref
+  // shortcutHandled repart à false ; sans ce callback, elle resoumettrait le même code.
+  onShortcutConsumed: () => void
 }
 
-export function LiteAccessGate({ shortcutCode }: LiteAccessGateProps) {
+export function LiteAccessGate({ shortcutCode, onShortcutConsumed }: LiteAccessGateProps) {
   const { createBoard, enterBoard, openBoard, requestMagicLink } = useBoardAccess()
   const [state, setState] = useState<GateState>({ step: 'code' })
   const [busy, setBusy] = useState(false)
@@ -40,8 +43,9 @@ export function LiteAccessGate({ shortcutCode }: LiteAccessGateProps) {
   useEffect(() => {
     if (!shortcutCode || shortcutHandled.current) return
     shortcutHandled.current = true
+    onShortcutConsumed()
     void handleOpen(shortcutCode)
-  }, [shortcutCode, handleOpen])
+  }, [shortcutCode, handleOpen, onShortcutConsumed])
 
   async function handleCreate() {
     setCreating(true)

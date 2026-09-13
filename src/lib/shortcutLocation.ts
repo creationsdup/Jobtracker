@@ -15,13 +15,37 @@ export function takeShortcutCode(location: LocationLike, replaceUrl: (url: strin
   return code
 }
 
-let cached: string | null = null
+export function createShortcutCodeStore(
+  readLocation: () => LocationLike,
+  replaceUrl: (url: string) => void,
+): { take(): string; clear(): void } {
+  let cached: string | null = null
+  return {
+    take(): string {
+      // WHY: StrictMode exécute les initialisateurs d'état deux fois en dev ; au second passage,
+      // le fragment a déjà été retiré de l'adresse par le premier appel — on mémorise le résultat.
+      if (cached === null) {
+        cached = takeShortcutCode(readLocation(), replaceUrl)
+      }
+      return cached
+    },
+    clear(): void {
+      // WHY: une fois le code consommé (ouverture réussie), il ne doit plus jamais être réutilisé
+      // — notamment si l'app est remontée après une déconnexion (« Quitter ce tableau »).
+      cached = ''
+    },
+  }
+}
+
+// WHY: guard `typeof window` pour rester importable depuis Vitest (environnement node) sans jsdom.
+const browserStore = typeof window === 'undefined'
+  ? null
+  : createShortcutCodeStore(() => window.location, (url) => window.history.replaceState(null, '', url))
 
 export function takeShortcutCodeOnce(): string {
-  // WHY: StrictMode exécute les initialisateurs d'état deux fois en dev ; au second passage,
-  // le fragment a déjà été retiré de l'adresse par le premier appel — on mémorise le résultat.
-  if (cached === null) {
-    cached = takeShortcutCode(window.location, (url) => window.history.replaceState(null, '', url))
-  }
-  return cached
+  return browserStore ? browserStore.take() : ''
+}
+
+export function clearShortcutCode(): void {
+  browserStore?.clear()
 }
