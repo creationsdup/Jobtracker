@@ -10,6 +10,7 @@ import { formatDate } from '@/lib/utils'
 import { calculateJobMatch, applicationToJobMatchInput } from '@/lib/jobMatching'
 import type { Application, ApplicationStatus, UserGoal } from '@/lib/types'
 import { APPLICABLE_STATUSES, STATUS_LABELS } from '@/lib/types'
+import { FEATURES } from '@/config/edition'
 
 type ViewMode = 'list' | 'grid' | 'kanban'
 
@@ -25,7 +26,8 @@ const SORT_OPTIONS: { value: SortMode; label: string }[] = [
   { value: 'date_asc', label: 'Plus anciennes' },
   { value: 'position_asc', label: 'Poste (A-Z)' },
   { value: 'company_asc', label: 'Entreprise (A-Z)' },
-  { value: 'match_desc', label: 'Meilleur match' },
+  // WHY: le score de match dépend de la page Objectifs, absente de l'édition lite.
+  ...(FEATURES.goals ? [{ value: 'match_desc' as const, label: 'Meilleur match' }] : []),
 ]
 
 interface ApplicationsPageProps {

@@ -5,6 +5,7 @@ import { useProfile } from '@/hooks/useProfile'
 import { useTranslation } from '@/lib/i18n/I18nContext'
 import { useDashboardStats } from '@/hooks/useDashboardStats'
 import { useGoals } from '@/hooks/useGoals'
+import { FEATURES } from '@/config/edition'
 import { formatDate } from '@/lib/utils'
 import { StatCard } from '@/components/ui/StatCard'
 import { DashboardCard } from '@/components/ui/DashboardCard'
@@ -177,7 +178,7 @@ export function DashboardPage({ userId, userEmail, applications, loading, onOpen
   const { profile } = useProfile(userId, userEmail)
   const { t, locale } = useTranslation()
   const pipelineStats = useDashboardStats(applications)
-  const { activeGoal: goal } = useGoals(userId)
+  const { activeGoal: goal } = useGoals(FEATURES.goals ? userId : null)
 
   const dateLocale = locale === 'en' ? 'en-US' : 'fr-FR'
   const [today, setToday] = useState(() =>
@@ -420,8 +421,9 @@ export function DashboardPage({ userId, userEmail, applications, loading, onOpen
             )}
           </DashboardCard>
 
+          {/* WHY: sans page Objectifs (lite), la cible de 10 n'est pas modifiable : on n'affiche qu'un compteur. */}
           <DashboardCard
-            title="Objectif du mois"
+            title={FEATURES.goals ? 'Objectif du mois' : 'Activité du mois'}
             action={(
               <select
                 className="text-[12px] capitalize flex-shrink-0 bg-transparent border-0 outline-none cursor-pointer"
@@ -436,7 +438,11 @@ export function DashboardPage({ userId, userEmail, applications, loading, onOpen
             )}
           >
             <div className="flex-1 min-h-0 flex flex-col justify-center gap-6">
-              <GoalRow label="candidatures envoyées" current={sentInMonth} target={monthlyTarget} pct={sentPct} />
+              {FEATURES.goals ? (
+                <GoalRow label="candidatures envoyées" current={sentInMonth} target={monthlyTarget} pct={sentPct} />
+              ) : (
+                <CountRow label="Candidatures envoyées" current={sentInMonth} />
+              )}
               <ConversionRow label="entretiens obtenus" current={interviewsInMonth} pct={interviewsConvPct} />
               <ConversionRow label="offres reçues" current={offersInMonth} pct={offersConvPct} />
             </div>
@@ -640,6 +646,15 @@ export function DashboardPage({ userId, userEmail, applications, loading, onOpen
         </div>
       </div>
       )}
+    </div>
+  )
+}
+
+function CountRow({ label, current }: { label: string; current: number }) {
+  return (
+    <div className="flex items-center justify-between gap-3">
+      <span className="text-[13px]" style={{ color: 'var(--color-text)' }}>{label}</span>
+      <span className="text-[15px] font-bold flex-shrink-0" style={{ color: 'var(--color-text)' }}>{current}</span>
     </div>
   )
 }
