@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { parseShortcutHash } from '@/lib/accessCode'
 import { useBoardAccess } from '@/hooks/useBoardAccess'
 import { AccessCodeScreen } from './AccessCodeScreen'
 import { BoardCreatedScreen } from './BoardCreatedScreen'
@@ -12,13 +11,18 @@ type GateState =
   | { step: 'magic' }
   | { step: 'magic-sent' }
 
-export function LiteAccessGate() {
+interface LiteAccessGateProps {
+  // WHY: le fragment #CODE est lu et retiré de l'adresse une seule fois par App (takeShortcutCodeOnce,
+  // avant tout retour anticipé) ; ce composant ne lit plus lui-même window.location.hash.
+  shortcutCode: string
+}
+
+export function LiteAccessGate({ shortcutCode }: LiteAccessGateProps) {
   const { createBoard, enterBoard, openBoard, requestMagicLink } = useBoardAccess()
   const [state, setState] = useState<GateState>({ step: 'code' })
   const [busy, setBusy] = useState(false)
   const [creating, setCreating] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [shortcutCode] = useState(() => parseShortcutHash(window.location.hash) ?? '')
   const shortcutHandled = useRef(false)
 
   // WHY: en cas de succès, onAuthStateChange (useAuth) bascule l'app et démonte ce composant :
@@ -36,8 +40,6 @@ export function LiteAccessGate() {
   useEffect(() => {
     if (!shortcutCode || shortcutHandled.current) return
     shortcutHandled.current = true
-    // WHY: le code ne doit pas rester dans l'adresse (historique, partage d'écran).
-    window.history.replaceState(null, '', `${window.location.pathname}${window.location.search}`)
     void handleOpen(shortcutCode)
   }, [shortcutCode, handleOpen])
 

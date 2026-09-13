@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AppShell } from '@/components/layout/AppShell'
 import { LoginPage } from '@/pages/LoginPage'
 import { LiteAccessGate } from '@/components/access/LiteAccessGate'
+import { takeShortcutCodeOnce } from '@/lib/shortcutLocation'
 import { ResetPasswordPage } from '@/pages/ResetPasswordPage'
 import { DashboardPage } from '@/pages/DashboardPage'
 import { ApplicationsPage } from '@/pages/ApplicationsPage'
@@ -56,6 +57,9 @@ export function App() {
   const [editingApp, setEditingApp] = useState<Application | null>(null)
   const [detailApp, setDetailApp] = useState<Application | null>(null)
   const [saveError, setSaveError] = useState<string | null>(null)
+  // WHY: hooks toujours appelés avant tout retour anticipé ; si une session existe déjà, le code
+  // du raccourci est ignoré (on reste sur le tableau ouvert) — l'adresse est déjà nettoyée.
+  const [shortcutCode] = useState(() => (FEATURES.accessCode ? takeShortcutCodeOnce() : ''))
 
   if (authLoading) {
     return (
@@ -71,7 +75,7 @@ export function App() {
 
   if (!isAuthenticated || !user) {
     // WHY: en lite, pas d'inscription : on entre par un code d'accès (spec lite-access-code §3.1).
-    if (FEATURES.accessCode) return <LiteAccessGate />
+    if (FEATURES.accessCode) return <LiteAccessGate shortcutCode={shortcutCode} />
     return <LoginPage onSignIn={signIn} onSignUp={signUp} onSignInWithGoogle={signInWithGoogle} onForgotPassword={sendPasswordReset} />
   }
 
