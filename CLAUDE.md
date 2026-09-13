@@ -267,6 +267,17 @@ L'app se construit en deux éditions à partir du même code, choisies **au buil
 
 ---
 
+## 🔑 Accès par code (édition lite)
+
+- En `lite`, pas d'inscription : `LiteAccessGate` (écran « Entre ton code d'accès », création, lien magique) remplace `LoginPage`, et `MyBoardPage` (`/mon-tableau`) remplace `ProfilePage`. Drapeau : `FEATURES.accessCode`.
+- Un tableau = un utilisateur Supabase Auth `board-<uuid>@boards.jobtracker.invalid` créé par la fonction `board-create`. Le code (12 symboles de `23456789ABCDEFGHJKMNPQRSTVWXYZ`) est stocké en `HMAC-SHA-256(CODE_PEPPER)` dans `board_access` ; `board-open` renvoie un `hashed_token` que le client échange avec `verifyOtp({ type: 'magiclink' })`.
+- Fonctions : `board-create` et `board-open` sans JWT, `board-rotate-code` et `board-delete` avec JWT. Toute la logique est dans `supabase/functions/_shared/boardHandlers.ts` (pur, testé par Vitest) ; les `index.ts` restent minces. `deno` et la CLI Supabase ne sont pas installés en local.
+- Règles : ne jamais stocker ni journaliser un code en clair ; ne jamais afficher l'email technique ; pour supprimer un tableau, `board-delete` (pas `delete-account`, qui laisse les lignes keyées par `userId` texte).
+- Configuration Supabase requise : secret `CODE_PEPPER`, migration `20260913120000_board_access.sql`, déploiement des 4 fonctions, « Secure email change » désactivé, SMTP personnalisé, URLs de redirection.
+- Spec : `docs/superpowers/specs/2026-09-13-lite-access-code-design.md`.
+
+---
+
 ## 🎨 Direction design
 
 - **Thème** : Dark mode par défaut, tonalités slate/zinc avec accents verts émeraude (#10b981)
