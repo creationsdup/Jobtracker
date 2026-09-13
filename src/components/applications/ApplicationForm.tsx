@@ -1,12 +1,10 @@
 import { lazy, Suspense, useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from 'react'
-import { SlidersHorizontal, StickyNote } from 'lucide-react'
 import type { Application } from '@/lib/types'
 import { guessCompanyWebsiteFromJobUrl } from '@/lib/jobBoards'
 import { FEATURES } from '@/config/edition'
 import {
   canSaveDraft,
   createDraft,
-  initialSections,
   localDateString,
   patchDraft,
   toPayload,
@@ -15,7 +13,6 @@ import {
   type ApplicationPayload,
 } from '@/lib/applicationDraft'
 import { ApplicationDialog } from './ApplicationDialog'
-import { CollapsibleSection } from './form/CollapsibleSection'
 import { DetailsFields } from './form/DetailsFields'
 import { OfferEssentials } from './form/OfferEssentials'
 import { StatusPicker } from './form/StatusPicker'
@@ -40,7 +37,6 @@ interface ApplicationFormProps {
 export function ApplicationForm({ initial, userId, onSave, onSaveCompanyWebsite, existingCompanyWebsite, lookupCompanyDomain, externalError, onClose }: ApplicationFormProps) {
   const isEditMode = !!initial
   const [draft, setDraft] = useState<ApplicationDraft>(() => createDraft(initial, existingCompanyWebsite))
-  const [sections, setSections] = useState(() => initialSections(createDraft(initial, existingCompanyWebsite)))
   const [saving, setSaving] = useState(false)
   const [importerOpen, setImporterOpen] = useState(false)
   const [logoLookupLoading, setLogoLookupLoading] = useState(false)
@@ -84,9 +80,7 @@ export function ApplicationForm({ initial, userId, onSave, onSaveCompanyWebsite,
 
   function handleImport(data: Partial<ApplicationPayload> & { companyWebsite?: string | null }) {
     const guessedWebsite = data.jobUrl ? guessCompanyWebsiteFromJobUrl(data.jobUrl) : null
-    const next = createDraft(data, data.companyWebsite || guessedWebsite || existingCompanyWebsite)
-    setDraft(next)
-    setSections(initialSections(next))
+    setDraft(createDraft(data, data.companyWebsite || guessedWebsite || existingCompanyWebsite))
     setImporterOpen(false)
   }
 
@@ -110,19 +104,37 @@ export function ApplicationForm({ initial, userId, onSave, onSaveCompanyWebsite,
     }
   }
 
-  const footer = (
+  // Colonne de droite, comme la fiche : les boutons, puis les détails et les notes.
+  const aside = (
     <>
-      <span className="hidden sm:block mr-auto text-xs text-[var(--color-subtle)]">
-        Ctrl/⌘ + Entrée pour {isEditMode ? 'enregistrer' : 'ajouter'}
-      </span>
-      <button type="button" className="btn btn-ghost" onClick={onClose} disabled={saving}>Annuler</button>
-      <button
-        type="submit"
-        className="btn btn-primary disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none disabled:shadow-none"
-        disabled={saving || !canSave}
-      >
-        {saving ? 'Enregistrement…' : isEditMode ? 'Enregistrer' : 'Ajouter la candidature'}
-      </button>
+      <div className="flex flex-col gap-2">
+        <button
+          type="submit"
+          className="btn btn-primary w-full disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none disabled:shadow-none"
+          disabled={saving || !canSave}
+        >
+          {saving ? 'Enregistrement…' : isEditMode ? 'Enregistrer' : 'Ajouter la candidature'}
+        </button>
+        <button type="button" className="btn btn-secondary w-full" onClick={onClose} disabled={saving}>Annuler</button>
+        <span className="hidden sm:block text-center text-xs text-[var(--color-subtle)]">
+          Ctrl/⌘ + Entrée pour {isEditMode ? 'enregistrer' : 'ajouter'}
+        </span>
+        {externalError && <p role="alert" className="text-sm text-[var(--color-danger)]">{externalError}</p>}
+      </div>
+
+      <DetailsFields draft={draft} originalContract={initial?.contractType ?? ''} onChange={patch} />
+
+      <div className="flex flex-col gap-1.5">
+        <label htmlFor="application-notes" className="text-xs font-medium text-[var(--color-ink-secondary)]">Notes</label>
+        <textarea
+          id="application-notes"
+          className="input resize-y"
+          rows={6}
+          placeholder="Contact, impressions, points à préparer…"
+          value={draft.notes}
+          onChange={(e) => patch({ notes: e.target.value })}
+        />
+      </div>
     </>
   )
 
@@ -138,7 +150,7 @@ export function ApplicationForm({ initial, userId, onSave, onSaveCompanyWebsite,
       onClose={onClose}
       onSubmit={handleSubmit}
       onKeyDown={handleKeyDown}
-      footer={footer}
+      aside={aside}
       overlays={importer}
     >
       <OfferEssentials
@@ -156,37 +168,6 @@ export function ApplicationForm({ initial, userId, onSave, onSaveCompanyWebsite,
         onStatusChange={(status) => setDraft((prev) => withStatus(prev, status, localDateString(new Date())))}
         onAppliedAtChange={(appliedAt) => patch({ appliedAt })}
       />
-
-      <div className="flex flex-col gap-2">
-        <CollapsibleSection
-          title="Plus de détails"
-          hint="Lieu, contrat, site de l'entreprise"
-          icon={SlidersHorizontal}
-          open={sections.details}
-          onToggle={() => setSections((s) => ({ ...s, details: !s.details }))}
-        >
-          <DetailsFields draft={draft} originalContract={initial?.contractType ?? ''} onChange={patch} />
-        </CollapsibleSection>
-
-        <CollapsibleSection
-          title="Notes"
-          hint="Contact, impressions, points à préparer"
-          icon={StickyNote}
-          open={sections.notes}
-          onToggle={() => setSections((s) => ({ ...s, notes: !s.notes }))}
-        >
-          <textarea
-            aria-label="Notes"
-            className="input resize-y"
-            rows={4}
-            placeholder="Contact, impressions, points à préparer…"
-            value={draft.notes}
-            onChange={(e) => patch({ notes: e.target.value })}
-          />
-        </CollapsibleSection>
-      </div>
-
-      {externalError && <p role="alert" className="text-sm text-[var(--color-danger)]">{externalError}</p>}
     </ApplicationDialog>
   )
 }
