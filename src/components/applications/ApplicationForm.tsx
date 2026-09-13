@@ -90,9 +90,18 @@ export function ApplicationForm({ initial, userId, onSave, onSaveCompanyWebsite,
     // WHY: condition littérale pour que Rollup supprime l'import de lib/ai du build lite (spec §3.3).
     if (__APP_EDITION__ !== 'full') return
     setAiLogoLookupLoading(true)
-    const { guessCompanyDomain } = await import('@/lib/ai')
-    const domain = await guessCompanyDomain(company)
-    setAiLogoLookupLoading(false)
+    let domain: string | null = null
+    try {
+      // WHY: si l'import dynamique ou l'appel IA échoue (déploiement obsolète, hors-ligne), on se
+      // comporte comme si aucun domaine n'avait été trouvé plutôt que de laisser planter le flux
+      // ou bloquer aiLogoLookupLoading à true indéfiniment.
+      const { guessCompanyDomain } = await import('@/lib/ai')
+      domain = await guessCompanyDomain(company)
+    } catch {
+      return
+    } finally {
+      setAiLogoLookupLoading(false)
+    }
     if (!domain) return
     setFormData((prev) => (prev.companyWebsite.trim() || prev.company.trim() !== company ? prev : { ...prev, companyWebsite: domain }))
     await onSaveCompanyWebsite(company, domain)
