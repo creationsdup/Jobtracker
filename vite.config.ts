@@ -25,7 +25,8 @@ export default defineConfig(({ mode }) => {
             'vendor-react': ['react', 'react-dom', 'react-router-dom'],
             'vendor-dnd': ['@dnd-kit/core', '@dnd-kit/sortable', '@dnd-kit/utilities'],
             'vendor-supabase': ['@supabase/supabase-js', '@supabase/ssr'],
-            'vendor-pdf': ['pdfjs-dist'],
+            // WHY: pdfjs ne sert qu'à la Bibliothèque ; le déclarer en lite forcerait son chunk dans dist/.
+            ...(edition === 'full' ? { 'vendor-pdf': ['pdfjs-dist'] } : {}),
           },
         },
       },
