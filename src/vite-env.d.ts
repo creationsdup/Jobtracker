@@ -8,3 +8,6 @@ interface ImportMetaEnv {
 interface ImportMeta {
   readonly env: ImportMetaEnv
 }
+
+// Édition injectée au build par vite.config.ts (define) — voir src/config/edition.ts.
+declare const __APP_EDITION__: 'lite' | 'full'

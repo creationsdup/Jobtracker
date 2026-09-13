@@ -1,25 +1,35 @@
-import { defineConfig } from 'vite'
+import { defineConfig, loadEnv } from 'vite'
 import react from '@vitejs/plugin-react'
 import { fileURLToPath, URL } from 'node:url'
+import { resolveEdition } from './src/config/editionCore'
 
-export default defineConfig({
-  plugins: [react()],
-  resolve: {
-    alias: {
-      '@': fileURLToPath(new URL('./src', import.meta.url)),
+export default defineConfig(({ mode }) => {
+  // WHY: loadEnv lit .env.local ET l'environnement du shell / de l'hébergeur, ce dernier primant :
+  // `VITE_EDITION=lite npm run build` donne bien une édition lite même si .env.local dit full.
+  const edition = resolveEdition(loadEnv(mode, process.cwd(), '').VITE_EDITION)
+
+  return {
+    plugins: [react()],
+    define: {
+      __APP_EDITION__: JSON.stringify(edition),
     },
-  },
-  build: {
-    rollupOptions: {
-      output: {
-        manualChunks: {
-          'vendor-react': ['react', 'react-dom', 'react-router-dom'],
-          'vendor-dnd': ['@dnd-kit/core', '@dnd-kit/sortable', '@dnd-kit/utilities'],
-          'vendor-supabase': ['@supabase/supabase-js', '@supabase/ssr'],
-          'vendor-pdf': ['pdfjs-dist'],
-        },
+    resolve: {
+      alias: {
+        '@': fileURLToPath(new URL('./src', import.meta.url)),
       },
     },
-    chunkSizeWarningLimit: 600,
-  },
+    build: {
+      rollupOptions: {
+        output: {
+          manualChunks: {
+            'vendor-react': ['react', 'react-dom', 'react-router-dom'],
+            'vendor-dnd': ['@dnd-kit/core', '@dnd-kit/sortable', '@dnd-kit/utilities'],
+            'vendor-supabase': ['@supabase/supabase-js', '@supabase/ssr'],
+            'vendor-pdf': ['pdfjs-dist'],
+          },
+        },
+      },
+      chunkSizeWarningLimit: 600,
+    },
+  }
 })
