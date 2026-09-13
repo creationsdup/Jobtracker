@@ -18,6 +18,7 @@ async function callBoardFunction<T>(
   body: Record<string, unknown> = {},
 ): Promise<{ data: T } | { error: string }> {
   const { data, error } = await supabase.functions.invoke<T>(name, { body })
+  // WHY: chaque fonction board-* renvoie un corps JSON en cas de succès ; un 2xx sans corps est une réponse anormale, traitée volontairement comme un échec.
   if (!error && data) return { data }
   // WHY: une réponse HTTP non-2xx arrive avec la Response dans error.context ; sinon, pas de réponse (réseau).
   const context = (error as { context?: unknown } | null)?.context
