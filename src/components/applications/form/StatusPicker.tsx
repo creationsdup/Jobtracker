@@ -1,8 +1,7 @@
-import { APPLICABLE_STATUSES, STATUS_LABELS, type ApplicationStatus } from '@/lib/types'
-import { isStatusSelected, type ChoiceOption } from '@/lib/applicationDraft'
+import type { ApplicationStatus } from '@/lib/types'
+import { isStatusSelected } from '@/lib/applicationDraft'
+import { STATUS_CHOICES } from '@/lib/applicationSummary'
 import { ChoiceChips } from './ChoiceChips'
-
-const STATUS_OPTIONS: ChoiceOption<ApplicationStatus>[] = APPLICABLE_STATUSES.map((value) => ({ value, label: STATUS_LABELS[value] }))
 
 interface StatusPickerProps {
   status: ApplicationStatus
@@ -17,7 +16,7 @@ export function StatusPicker({ status, appliedAt, onStatusChange, onAppliedAtCha
     <div className="flex flex-col gap-3">
       <ChoiceChips
         label="Statut"
-        options={STATUS_OPTIONS}
+        options={STATUS_CHOICES}
         isSelected={(column) => isStatusSelected(status, column)}
         onSelect={onStatusChange}
       />

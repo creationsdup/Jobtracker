@@ -1,15 +1,17 @@
-import { lazy, Suspense, useEffect, useRef, useState } from 'react'
-import { X, MapPin, FileText, Link as LinkIcon, Plus, Mail, Pencil, Trash2, Send, Target, ChevronDown } from 'lucide-react'
-import { StatusBadge } from './StatusBadge'
-import { CompanyLogo } from './CompanyLogo'
+import { lazy, Suspense, useRef, useState } from 'react'
+import { ListChecks, Mail, Pencil, Plus, Send, Target, Trash2 } from 'lucide-react'
 import { formatDate } from '@/lib/utils'
 import type { Application, TimelineStep, StepStatus, ApplicationStatus, UserGoal } from '@/lib/types'
-import { MatchScoreBadge } from './MatchScoreBadge'
 import { MatchDetailsContent } from './MatchDetailsContent'
+import { ApplicationDialog } from './ApplicationDialog'
+import { CollapsibleSection } from './form/CollapsibleSection'
+import { DetailInfoSections, DetailSummary } from './detail/DetailSummary'
 import { useProfile } from '@/hooks/useProfile'
 import { useExperiences } from '@/hooks/useExperiences'
 import { calculateJobMatch, applicationToJobMatchInput } from '@/lib/jobMatching'
 import { deriveApplicationStatusFromSteps, TIMELINE_PRESETS } from '@/lib/timelineStatus'
+import { createDraft, initialSections, isStatusSelected } from '@/lib/applicationDraft'
+import { stepCountLabel } from '@/lib/applicationSummary'
 import { FEATURES } from '@/config/edition'
 
 // WHY: condition littérale (pas FEATURES.ai) pour que Rollup supprime la lettre IA — et lib/ai —
@@ -32,6 +34,8 @@ interface ApplicationDetailProps {
   resolveLogo?: (company: string) => string | undefined
   goal?: UserGoal | null
 }
+
+type SectionKey = 'details' | 'notes' | 'match'
 
 const DOT_STYLES: Record<StepStatus, string> = {
   COMPLETED:  'bg-green-100 text-green-700 border-2 border-green-500',
@@ -66,7 +70,12 @@ export function ApplicationDetail({
   goal,
 }: ApplicationDetailProps) {
   const match = goal ? calculateJobMatch(applicationToJobMatchInput(application), goal) : null
-  const [matchExpanded, setMatchExpanded] = useState(false)
+  const [sections, setSections] = useState<Record<SectionKey, boolean>>(() => ({
+    ...initialSections(createDraft(application)),
+    match: false,
+  }))
+  const [pendingStatus, setPendingStatus] = useState<ApplicationStatus | null>(null)
+  const [statusError, setStatusError] = useState<string | null>(null)
   const [addingStep, setAddingStep] = useState(false)
   const [editingStepId, setEditingStepId] = useState<string | null>(null)
   const [savingStepId, setSavingStepId] = useState<string | null>(null)
@@ -80,12 +89,22 @@ export function ApplicationDetail({
   const { profile } = useProfile(application.userId, userEmail)
   // WHY: les expériences ne servent qu'à la lettre IA ; pas de requête sur "Experience" en lite.
   const { experiences } = useExperiences(FEATURES.ai ? application.userId : null)
+  const logoUrl = resolveLogo?.(application.company) ?? null
+  // WHY: la puce cliquée s'allume tout de suite, sans attendre la réponse de Supabase.
+  const shownApplication = pendingStatus ? { ...application, status: pendingStatus } : application
 
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [onClose])
+  function toggleSection(key: SectionKey) {
+    setSections((current) => ({ ...current, [key]: !current[key] }))
+  }
+
+  async function handleStatusSelect(column: ApplicationStatus) {
+    if (isStatusSelected(shownApplication.status, column)) return
+    setStatusError(null)
+    setPendingStatus(column)
+    const err = await onStatusChange(column)
+    setPendingStatus(null)
+    if (err) setStatusError(err)
+  }
 
   async function syncApplicationStatus(nextSteps: TimelineStep[], explicitStatus?: ApplicationStatus | '') {
     const targetStatus = explicitStatus || deriveApplicationStatusFromSteps(nextSteps) || (nextSteps.length === 0 ? 'WISHLIST' : null)
@@ -258,176 +277,173 @@ export function ApplicationDetail({
     setDeletingStepId(null)
   }
 
-  return (
-    <div
-      className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 animate-fade-in"
-      onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
-    >
-      <div className="absolute inset-y-0 right-0 w-full max-w-2xl bg-[var(--color-surface)] shadow-[var(--shadow-lg)] flex flex-col h-full animate-slide-in-right">
-        <div className="flex items-start justify-between px-6 pt-5 pb-5 border-b border-[var(--color-border)] flex-shrink-0">
-          <div className="flex items-center gap-3">
-            <CompanyLogo company={application.company} logoUrl={resolveLogo?.(application.company) ?? null} size={44} />
-            <div>
-              <h3 className="text-lg font-bold">{application.position}</h3>
-              <p className="text-sm text-[var(--color-muted)]">{application.company}</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-1 flex-shrink-0">
-            {FEATURES.ai && (
-              <button className="btn btn-secondary btn-sm" onClick={() => setCoverLetterOpen(true)}>
-                <Mail size={13} />
-                Lettre IA
-              </button>
-            )}
-            <button className="btn btn-secondary btn-sm" onClick={onEdit}>
-              <Pencil size={13} />
-              Modifier
-            </button>
-            <div className="w-px h-5 bg-[var(--color-border)] mx-1" />
-            <button className="btn btn-ghost btn-sm p-2 text-[var(--color-danger)] hover:text-[var(--color-danger-dark)]" onClick={onDelete} title="Supprimer">
-              <Trash2 size={14} />
-            </button>
-            <button className="btn btn-ghost p-1" onClick={onClose}><X size={18} /></button>
-          </div>
+  const coverLetter = coverLetterOpen && CoverLetterGenerator && (
+    <Suspense fallback={null}>
+      <CoverLetterGenerator
+        application={application}
+        profile={profile ? { ...profile, email: profile.email || userEmail } : null}
+        experiences={experiences}
+        onClose={() => setCoverLetterOpen(false)}
+      />
+    </Suspense>
+  )
+
+  // Colonne de droite : les actions, puis la timeline.
+  const aside = (
+    <>
+      <div className="flex flex-wrap gap-2">
+        <button type="button" className="btn btn-primary flex-1" onClick={onEdit}>
+          <Pencil size={14} aria-hidden />
+          Modifier
+        </button>
+        {FEATURES.ai && (
+          <button type="button" className="btn btn-secondary flex-1" onClick={() => setCoverLetterOpen(true)}>
+            <Mail size={14} aria-hidden />
+            Lettre IA
+          </button>
+        )}
+        <button
+          type="button"
+          className="btn btn-secondary text-[var(--color-danger)] hover:text-[var(--color-danger-dark)] hover:border-[var(--color-danger)]"
+          onClick={onDelete}
+        >
+          <Trash2 size={14} aria-hidden />
+          Supprimer
+        </button>
+      </div>
+
+      <section className="flex flex-col gap-3" aria-label="Timeline">
+        <div className="flex items-center justify-between gap-2">
+          <h3 className="text-sm font-semibold flex items-center gap-1.5 text-[var(--color-ink)]">
+            <ListChecks size={14} aria-hidden />
+            Timeline
+          </h3>
+          <span className="inline-flex items-center rounded-full border border-[var(--color-border)] bg-[var(--color-bg)] px-2.5 py-1 text-[11px] font-semibold text-[var(--color-muted)]">
+            {stepCountLabel(steps.length)}
+          </span>
         </div>
 
-        <div className="flex-1 overflow-y-auto px-6 pb-6 flex flex-col gap-6 mt-5">
-          {/* Meta */}
-          <div className="flex flex-wrap gap-2 items-center">
-            <StatusBadge status={application.status} />
-            {application.location && (
-              <span className="flex items-center gap-1 text-xs text-[var(--color-muted)]">
-                <MapPin size={11} />{application.location}
-              </span>
-            )}
-            {application.contractType && (
-              <span
-                className="flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full"
-                style={{ background: 'var(--color-cerulean-light)', color: 'var(--color-accent)' }}
-              >
-                <FileText size={11} />{application.contractType}
-              </span>
-            )}
-            {application.jobUrl && (
-              <a
-                href={application.jobUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="btn btn-secondary btn-sm flex items-center gap-1"
-              >
-                <LinkIcon size={11} />Voir l'offre
-              </a>
-            )}
-          </div>
+        <div className="grid grid-cols-2 gap-2">
+          <button
+            type="button"
+            className="inline-flex items-center justify-center gap-2 rounded-[var(--radius-sm)] border border-[var(--color-border)] bg-white px-3 py-2 text-xs font-semibold text-[var(--color-ink)] transition hover:bg-[var(--color-bg)] disabled:opacity-50"
+            onClick={() => void handleRelance()}
+            disabled={addingStep}
+          >
+            <Send size={13} />
+            Relancer
+          </button>
+          <button
+            type="button"
+            className="inline-flex items-center justify-center gap-2 rounded-[var(--radius-sm)] bg-[var(--color-primary)] px-3 py-2 text-xs font-semibold text-white transition hover:bg-[var(--color-primary-dark)]"
+            aria-expanded={pickerOpen}
+            onClick={() => {
+              setPickerOpen((current) => !current)
+              setCustomStepOpen(false)
+              setStepError(null)
+            }}
+          >
+            <Plus size={13} />
+            Ajouter une étape
+          </button>
+        </div>
 
-          {match && (
-            <div className="rounded-[var(--radius-sm)] bg-[var(--color-bg)] p-3">
-              <div
-                role="button"
-                tabIndex={0}
-                className="w-full flex items-center justify-between cursor-pointer"
-                onClick={() => setMatchExpanded((v) => !v)}
-                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setMatchExpanded((v) => !v) } }}
-                aria-expanded={matchExpanded}
-              >
-                <h4 className="text-sm font-semibold flex items-center gap-1.5">
-                  <Target size={13} />
-                  Correspondance avec votre objectif
-                </h4>
-                <div className="flex items-center gap-1.5">
-                  <MatchScoreBadge result={match} onClick={() => setMatchExpanded((v) => !v)} />
-                  <ChevronDown
-                    size={14}
-                    style={{ color: 'var(--color-muted)', transform: matchExpanded ? 'rotate(180deg)' : undefined, transition: 'transform 150ms' }}
-                  />
-                </div>
-              </div>
-              {matchExpanded && (
-                <div className="mt-3 pt-3 border-t" style={{ borderColor: 'var(--color-border)' }}>
-                  <MatchDetailsContent result={match} showHeader={false} />
-                </div>
-              )}
-            </div>
-          )}
-
-          {application.notes && (
-            <div className="flex flex-col gap-1.5">
-              <h4 className="text-sm font-semibold">Notes</h4>
-              <p className="text-sm text-[var(--color-muted)] bg-[var(--color-bg)] rounded-[var(--radius-sm)] p-3">{application.notes}</p>
-            </div>
-          )}
-
-          {/* Timeline */}
-          <div className="border-t border-[var(--color-border)] pt-4">
-            <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-              <div className="flex items-center gap-2">
-                <h4 className="text-sm font-semibold">Timeline</h4>
-                <span className="inline-flex items-center rounded-full bg-white/80 px-2.5 py-1 text-[11px] font-semibold text-[var(--color-muted)] border border-[rgba(60,52,137,0.12)]">
-                  {steps.length} étape{steps.length > 1 ? 's' : ''}
-                </span>
-              </div>
-              <div className="flex items-center gap-2">
+        {pickerOpen && (
+          <div className="rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] p-3 animate-fade-slide-down">
+            <div className="grid grid-cols-2 gap-2">
+              {TIMELINE_PRESETS.map((preset) => (
                 <button
+                  key={preset.title}
                   type="button"
-                  className="inline-flex items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--color-border)] bg-white px-3 py-2 text-xs font-semibold text-[var(--color-ink)] transition hover:bg-[var(--color-bg)] disabled:opacity-50"
-                  onClick={() => void handleRelance()}
+                  className="flex min-h-[96px] flex-col items-start justify-between rounded-[var(--radius-sm)] border border-[var(--color-border)] bg-white p-2.5 text-left transition hover:-translate-y-0.5 hover:border-[var(--color-accent)] hover:shadow-[var(--shadow-md)]"
+                  onClick={() => void handlePresetSelect(preset)}
                   disabled={addingStep}
                 >
-                  <Send size={13} />
-                  Relancer
+                  <div className="text-xl leading-none">{preset.icon}</div>
+                  <div>
+                    <div className="text-[13px] font-semibold text-[var(--color-ink)]">{preset.title}</div>
+                    <div className="mt-0.5 text-[11px] leading-4 text-[var(--color-muted)]">{preset.subtitle}</div>
+                  </div>
                 </button>
-                <button
-                  type="button"
-                  className="inline-flex items-center gap-2 rounded-[var(--radius-sm)] bg-[var(--color-primary)] px-3 py-2 text-xs font-semibold text-white shadow-[0_12px_24px_rgba(59,130,246,0.22)] transition hover:bg-[var(--color-primary-dark)]"
-                  onClick={() => {
-                    setPickerOpen((current) => !current)
-                    setCustomStepOpen(false)
-                    setStepError(null)
-                  }}
-                >
-                  <Plus size={13} />
-                  Ajouter
-                </button>
-              </div>
+              ))}
             </div>
 
-            {pickerOpen && (
-              <div className="mb-5 rounded-[var(--radius)] border border-[rgba(60,52,137,0.12)] bg-white/85 p-4 shadow-[0_16px_36px_rgba(31,27,77,0.08)] backdrop-blur-sm animate-fade-slide-down">
-                <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-                  {TIMELINE_PRESETS.map((preset) => (
-                    <button
-                      key={preset.title}
-                      type="button"
-                      className="flex min-h-[118px] flex-col items-start justify-between rounded-[var(--radius-sm)] border border-[rgba(60,52,137,0.12)] bg-[rgba(255,255,255,0.92)] p-3 text-left transition hover:-translate-y-0.5 hover:border-[rgba(59,130,246,0.36)] hover:shadow-[0_14px_28px_rgba(59,130,246,0.12)]"
-                      onClick={() => void handlePresetSelect(preset)}
-                      disabled={addingStep}
-                    >
-                      <div className="text-2xl leading-none">{preset.icon}</div>
-                      <div>
-                        <div className="text-sm font-semibold text-[var(--color-ink)]">{preset.title}</div>
-                        <div className="mt-1 text-[11px] leading-4 text-[var(--color-muted)]">{preset.subtitle}</div>
-                      </div>
-                    </button>
-                  ))}
+            {customStepOpen && (
+              <form ref={formRef} onSubmit={handleAddStep} className="mt-3 flex flex-col gap-2.5 rounded-[var(--radius-sm)] border border-[var(--color-border)] bg-white p-3 animate-fade-slide-down">
+                <div className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--color-muted)]">
+                  Étape libre
                 </div>
+                <input className="input text-xs" name="title" placeholder="Nom de l'étape" required />
+                <select className="input text-xs" name="status" defaultValue="UPCOMING">
+                  <option value="UPCOMING">À venir</option>
+                  <option value="IN_PROGRESS">En cours</option>
+                  <option value="COMPLETED">Terminée</option>
+                  <option value="CANCELLED">Annulée</option>
+                </select>
+                <div className="grid grid-cols-2 gap-2.5">
+                  <input className="input text-xs" name="date" type="date" defaultValue={new Date().toISOString().split('T')[0]} required />
+                  <input className="input text-xs" name="time" type="time" />
+                </div>
+                <select className="input text-xs" name="nextStatus" defaultValue="">
+                  <option value="">Statut inchangé</option>
+                  <option value="APPLIED">Postulée</option>
+                  <option value="INTERVIEW">Entretien</option>
+                  <option value="OFFER">Offre</option>
+                  <option value="REJECTED">Refusée</option>
+                </select>
+                <textarea className="input text-xs resize-y" name="notes" rows={2} placeholder="Notes..." />
+                <div className="flex justify-end gap-2">
+                  <button
+                    type="button"
+                    className="btn btn-ghost btn-sm"
+                    onClick={() => {
+                      setCustomStepOpen(false)
+                      setStepError(null)
+                    }}
+                  >
+                    Annuler
+                  </button>
+                  <button type="submit" className="btn btn-primary btn-sm" disabled={addingStep}>
+                    {addingStep ? 'Ajout…' : 'Créer l’étape'}
+                  </button>
+                </div>
+              </form>
+            )}
 
-                {customStepOpen && (
-                  <form ref={formRef} onSubmit={handleAddStep} className="mt-4 flex flex-col gap-3 rounded-[var(--radius-sm)] border border-[rgba(60,52,137,0.12)] bg-[var(--color-bg)]/85 p-4 animate-fade-slide-down">
-                    <div className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--color-muted)]">
-                      Étape libre
-                    </div>
-                    <div className="grid gap-3 md:grid-cols-2">
-                      <input className="input text-xs" name="title" placeholder="Nom de l'étape" required />
-                      <select className="input text-xs" name="status" defaultValue="UPCOMING">
+            {stepError && <p className="mt-3 text-xs text-[var(--color-danger)]">{stepError}</p>}
+          </div>
+        )}
+
+        {steps.length === 0 ? (
+          <p className="text-xs text-[var(--color-muted)] py-2">Aucune étape. Ajoutez la première !</p>
+        ) : (
+          <div className="flex flex-col">
+            {steps.map((step, i) => (
+              <div key={step.id} className="flex gap-3 py-3 relative">
+                {i < steps.length - 1 && (
+                  <div className="absolute left-[11px] top-9 bottom-[-12px] w-0.5 bg-[var(--color-border)]" />
+                )}
+                <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-bold flex-shrink-0 mt-0.5 ${DOT_STYLES[step.status]}`}>
+                  {DOT_CHARS[step.status]}
+                </div>
+                <div className="flex-1 min-w-0">
+                  {editingStepId === step.id ? (
+                    <form
+                      ref={editFormRef}
+                      onSubmit={(e) => void handleUpdateStep(e, step)}
+                      className="flex flex-col gap-2.5 rounded-[var(--radius-sm)] border border-[var(--color-border)] bg-[var(--color-bg)] p-3 animate-fade-slide-down"
+                    >
+                      <input className="input text-xs" name="title" defaultValue={step.title} required />
+                      <select className="input text-xs" name="status" defaultValue={step.status}>
                         <option value="UPCOMING">À venir</option>
                         <option value="IN_PROGRESS">En cours</option>
                         <option value="COMPLETED">Terminée</option>
                         <option value="CANCELLED">Annulée</option>
                       </select>
-                    </div>
-                    <div className="grid gap-3 md:grid-cols-3">
-                      <input className="input text-xs" name="date" type="date" defaultValue={new Date().toISOString().split('T')[0]} required />
-                      <input className="input text-xs" name="time" type="time" />
+                      <div className="grid grid-cols-2 gap-2.5">
+                        <input className="input text-xs" name="date" type="date" defaultValue={step.date} required />
+                        <input className="input text-xs" name="time" type="time" defaultValue={step.time ?? ''} />
+                      </div>
                       <select className="input text-xs" name="nextStatus" defaultValue="">
                         <option value="">Statut inchangé</option>
                         <option value="APPLIED">Postulée</option>
@@ -435,142 +451,95 @@ export function ApplicationDetail({
                         <option value="OFFER">Offre</option>
                         <option value="REJECTED">Refusée</option>
                       </select>
-                    </div>
-                    <textarea className="input text-xs resize-y" name="notes" rows={2} placeholder="Notes..." />
-                    <div className="flex justify-end gap-2">
-                      <button
-                        type="button"
-                        className="btn btn-ghost btn-sm"
-                        onClick={() => {
-                          setCustomStepOpen(false)
-                          setStepError(null)
-                        }}
-                      >
-                        Annuler
-                      </button>
-                      <button type="submit" className="btn btn-primary btn-sm" disabled={addingStep}>
-                        {addingStep ? 'Ajout…' : 'Créer l’étape'}
-                      </button>
-                    </div>
-                  </form>
-                )}
-
-                {stepError && <p className="mt-3 text-xs text-[var(--color-danger)]">{stepError}</p>}
-              </div>
-            )}
-
-            {steps.length === 0 ? (
-              <p className="text-xs text-[var(--color-muted)] py-2">Aucune étape. Ajoutez la première !</p>
-            ) : (
-              <div className="flex flex-col">
-                {steps.map((step, i) => (
-                  <div key={step.id} className="flex gap-4 py-3 relative">
-                    {i < steps.length - 1 && (
-                      <div className="absolute left-[11px] top-9 bottom-[-12px] w-0.5 bg-[var(--color-border)]" />
-                    )}
-                    <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-bold flex-shrink-0 mt-0.5 ${DOT_STYLES[step.status]}`}>
-                      {DOT_CHARS[step.status]}
-                    </div>
-                    <div className="flex-1">
-                      {editingStepId === step.id ? (
-                        <form
-                          ref={editFormRef}
-                          onSubmit={(e) => void handleUpdateStep(e, step)}
-                          className="flex flex-col gap-3 rounded-[var(--radius-sm)] border border-[rgba(60,52,137,0.12)] bg-[var(--color-bg)]/85 p-4 animate-fade-slide-down"
+                      <textarea className="input text-xs resize-y" name="notes" rows={2} defaultValue={step.notes ?? ''} />
+                      <div className="flex justify-end gap-2">
+                        <button
+                          type="button"
+                          className="btn btn-ghost btn-sm"
+                          onClick={() => {
+                            setEditingStepId(null)
+                            setStepError(null)
+                          }}
                         >
-                          <div className="grid gap-3 md:grid-cols-2">
-                            <input className="input text-xs" name="title" defaultValue={step.title} required />
-                            <select className="input text-xs" name="status" defaultValue={step.status}>
-                              <option value="UPCOMING">À venir</option>
-                              <option value="IN_PROGRESS">En cours</option>
-                              <option value="COMPLETED">Terminée</option>
-                              <option value="CANCELLED">Annulée</option>
-                            </select>
+                          Annuler
+                        </button>
+                        <button type="submit" className="btn btn-primary btn-sm" disabled={savingStepId === step.id}>
+                          {savingStepId === step.id ? 'Enregistrement…' : 'Enregistrer'}
+                        </button>
+                      </div>
+                    </form>
+                  ) : (
+                    <>
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <div className="font-semibold text-sm flex items-center gap-1.5">
+                            <span className="text-base leading-none">{findPresetIcon(step.title)}</span>
+                            <span className="truncate">{step.title}</span>
                           </div>
-                          <div className="grid gap-3 md:grid-cols-3">
-                            <input className="input text-xs" name="date" type="date" defaultValue={step.date} required />
-                            <input className="input text-xs" name="time" type="time" defaultValue={step.time ?? ''} />
-                            <select className="input text-xs" name="nextStatus" defaultValue="">
-                              <option value="">Statut inchangé</option>
-                              <option value="APPLIED">Postulée</option>
-                              <option value="INTERVIEW">Entretien</option>
-                              <option value="OFFER">Offre</option>
-                              <option value="REJECTED">Refusée</option>
-                            </select>
+                          <div className="text-xs text-[var(--color-muted)] mt-0.5">
+                            {formatDate(step.date)}{step.time ? ` à ${step.time}` : ''}
                           </div>
-                          <textarea className="input text-xs resize-y" name="notes" rows={2} defaultValue={step.notes ?? ''} />
-                          <div className="flex justify-end gap-2">
-                            <button
-                              type="button"
-                              className="btn btn-ghost btn-sm"
-                              onClick={() => {
-                                setEditingStepId(null)
-                                setStepError(null)
-                              }}
-                            >
-                              Annuler
-                            </button>
-                            <button type="submit" className="btn btn-primary btn-sm" disabled={savingStepId === step.id}>
-                              {savingStepId === step.id ? 'Enregistrement…' : 'Enregistrer'}
-                            </button>
-                          </div>
-                        </form>
-                      ) : (
-                        <>
-                          <div className="flex items-start justify-between gap-3">
-                            <div>
-                              <div className="font-semibold text-sm flex items-center gap-1.5">
-                                <span className="text-base leading-none">{findPresetIcon(step.title)}</span>
-                                {step.title}
-                              </div>
-                              <div className="text-xs text-[var(--color-muted)] mt-0.5">
-                                {formatDate(step.date)}{step.time ? ` à ${step.time}` : ''}
-                              </div>
-                            </div>
-                            <div className="flex items-center gap-1">
-                              <button
-                                type="button"
-                                className="btn btn-ghost btn-sm px-2"
-                                onClick={() => {
-                                  setEditingStepId(step.id)
-                                  setStepError(null)
-                                }}
-                              >
-                                <Pencil size={12} />
-                              </button>
-                              <button
-                                type="button"
-                                className="btn btn-ghost btn-sm px-2 text-[var(--color-danger)] hover:text-[var(--color-danger-dark)]"
-                                onClick={() => void handleDeleteStep(step.id)}
-                                disabled={deletingStepId === step.id}
-                              >
-                                <Trash2 size={12} />
-                              </button>
-                            </div>
-                          </div>
-                          {step.notes && <div className="text-xs text-[var(--color-muted)] mt-1 italic">{step.notes}</div>}
-                        </>
-                      )}
-                    </div>
-                  </div>
-                ))}
+                        </div>
+                        <div className="flex items-center gap-1 flex-shrink-0">
+                          <button
+                            type="button"
+                            className="btn btn-ghost btn-sm px-2"
+                            aria-label="Modifier l'étape"
+                            onClick={() => {
+                              setEditingStepId(step.id)
+                              setStepError(null)
+                            }}
+                          >
+                            <Pencil size={12} />
+                          </button>
+                          <button
+                            type="button"
+                            className="btn btn-ghost btn-sm px-2 text-[var(--color-danger)] hover:text-[var(--color-danger-dark)]"
+                            aria-label="Supprimer l'étape"
+                            onClick={() => void handleDeleteStep(step.id)}
+                            disabled={deletingStepId === step.id}
+                          >
+                            <Trash2 size={12} />
+                          </button>
+                        </div>
+                      </div>
+                      {step.notes && <div className="text-xs text-[var(--color-muted)] mt-1 italic">{step.notes}</div>}
+                    </>
+                  )}
+                </div>
               </div>
-            )}
-            {stepError && !pickerOpen && <p className="mt-3 text-xs text-[var(--color-danger)]">{stepError}</p>}
+            ))}
           </div>
-        </div>
-      </div>
+        )}
+        {stepError && !pickerOpen && <p className="text-xs text-[var(--color-danger)]">{stepError}</p>}
+      </section>
+    </>
+  )
 
-      {coverLetterOpen && CoverLetterGenerator && (
-        <Suspense fallback={null}>
-          <CoverLetterGenerator
-            application={application}
-            profile={profile ? { ...profile, email: profile.email || userEmail } : null}
-            experiences={experiences}
-            onClose={() => setCoverLetterOpen(false)}
-          />
-        </Suspense>
-      )}
-    </div>
+  return (
+    <ApplicationDialog title="Fiche candidature" onClose={onClose} aside={aside} overlays={coverLetter}>
+      <DetailSummary
+        application={shownApplication}
+        logoUrl={logoUrl}
+        statusError={statusError}
+        onStatusSelect={(status) => void handleStatusSelect(status)}
+      />
+
+      <div className="flex flex-col gap-2">
+        <DetailInfoSections application={application} logoUrl={logoUrl} sections={sections} onToggleSection={toggleSection} />
+
+        {match && (
+          <CollapsibleSection
+            title="Correspondance avec votre objectif"
+            hint="Voir le détail du score"
+            icon={Target}
+            open={sections.match}
+            onToggle={() => toggleSection('match')}
+          >
+            <MatchDetailsContent result={match} showHeader={false} />
+          </CollapsibleSection>
+        )}
+      </div>
+    </ApplicationDialog>
   )
 }

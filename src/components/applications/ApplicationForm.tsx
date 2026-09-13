@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from 'react'
-import { SlidersHorizontal, StickyNote, X } from 'lucide-react'
+import { SlidersHorizontal, StickyNote } from 'lucide-react'
 import type { Application } from '@/lib/types'
 import { guessCompanyWebsiteFromJobUrl } from '@/lib/jobBoards'
 import { FEATURES } from '@/config/edition'
@@ -14,6 +14,7 @@ import {
   type ApplicationDraft,
   type ApplicationPayload,
 } from '@/lib/applicationDraft'
+import { ApplicationDialog } from './ApplicationDialog'
 import { CollapsibleSection } from './form/CollapsibleSection'
 import { DetailsFields } from './form/DetailsFields'
 import { OfferEssentials } from './form/OfferEssentials'
@@ -49,12 +50,6 @@ export function ApplicationForm({ initial, userId, onSave, onSaveCompanyWebsite,
   useEffect(() => {
     if (!isEditMode) linkInputRef.current?.focus()
   }, [isEditMode])
-
-  useEffect(() => {
-    const onKey = (e: globalThis.KeyboardEvent) => { if (e.key === 'Escape') onClose() }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [onClose])
 
   function patch(changes: Partial<ApplicationDraft>) {
     setDraft((prev) => patchDraft(prev, changes, lookupCompanyDomain))
@@ -115,98 +110,83 @@ export function ApplicationForm({ initial, userId, onSave, onSaveCompanyWebsite,
     }
   }
 
-  return (
-    <div
-      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 backdrop-blur-sm animate-fade-in sm:p-6"
-      onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
-    >
-      <form
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="application-form-title"
-        noValidate
-        onSubmit={handleSubmit}
-        onKeyDown={handleKeyDown}
-        className="w-full sm:max-w-[560px] max-h-[92dvh] sm:max-h-[calc(100dvh-48px)] flex flex-col bg-[var(--color-surface)] rounded-t-[var(--radius-xl)] sm:rounded-[var(--radius-xl)] shadow-[var(--shadow-lg)]"
+  const footer = (
+    <>
+      <span className="hidden sm:block mr-auto text-xs text-[var(--color-subtle)]">
+        Ctrl/⌘ + Entrée pour {isEditMode ? 'enregistrer' : 'ajouter'}
+      </span>
+      <button type="button" className="btn btn-ghost" onClick={onClose} disabled={saving}>Annuler</button>
+      <button
+        type="submit"
+        className="btn btn-primary disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none disabled:shadow-none"
+        disabled={saving || !canSave}
       >
-        <header className="flex items-center justify-between gap-3 px-6 pt-5 pb-4">
-          <h2 id="application-form-title" className="text-lg font-bold text-[var(--color-ink)]">
-            {isEditMode ? 'Modifier la candidature' : 'Nouvelle candidature'}
-          </h2>
-          <button type="button" className="btn btn-ghost p-1.5" onClick={onClose} aria-label="Fermer">
-            <X size={18} />
-          </button>
-        </header>
+        {saving ? 'Enregistrement…' : isEditMode ? 'Enregistrer' : 'Ajouter la candidature'}
+      </button>
+    </>
+  )
 
-        <div className="flex-1 overflow-y-auto px-6 pb-6 flex flex-col gap-5">
-          <OfferEssentials
-            draft={draft}
-            onChange={patch}
-            linkInputRef={linkInputRef}
-            onImportClick={!isEditMode && FEATURES.ai ? () => setImporterOpen(true) : undefined}
-            onCompanyBlur={handleCompanyBlur}
-            logoLookupLoading={logoLookupLoading}
+  const importer = importerOpen && JobOfferImporter && (
+    <Suspense fallback={null}>
+      <JobOfferImporter onImport={handleImport} onClose={() => setImporterOpen(false)} />
+    </Suspense>
+  )
+
+  return (
+    <ApplicationDialog
+      title={isEditMode ? 'Modifier la candidature' : 'Nouvelle candidature'}
+      onClose={onClose}
+      onSubmit={handleSubmit}
+      onKeyDown={handleKeyDown}
+      footer={footer}
+      overlays={importer}
+    >
+      <OfferEssentials
+        draft={draft}
+        onChange={patch}
+        linkInputRef={linkInputRef}
+        onImportClick={!isEditMode && FEATURES.ai ? () => setImporterOpen(true) : undefined}
+        onCompanyBlur={handleCompanyBlur}
+        logoLookupLoading={logoLookupLoading}
+      />
+
+      <StatusPicker
+        status={draft.status}
+        appliedAt={draft.appliedAt}
+        onStatusChange={(status) => setDraft((prev) => withStatus(prev, status, localDateString(new Date())))}
+        onAppliedAtChange={(appliedAt) => patch({ appliedAt })}
+      />
+
+      <div className="flex flex-col gap-2">
+        <CollapsibleSection
+          title="Plus de détails"
+          hint="Lieu, contrat, site de l'entreprise"
+          icon={SlidersHorizontal}
+          open={sections.details}
+          onToggle={() => setSections((s) => ({ ...s, details: !s.details }))}
+        >
+          <DetailsFields draft={draft} originalContract={initial?.contractType ?? ''} onChange={patch} />
+        </CollapsibleSection>
+
+        <CollapsibleSection
+          title="Notes"
+          hint="Contact, impressions, points à préparer"
+          icon={StickyNote}
+          open={sections.notes}
+          onToggle={() => setSections((s) => ({ ...s, notes: !s.notes }))}
+        >
+          <textarea
+            aria-label="Notes"
+            className="input resize-y"
+            rows={4}
+            placeholder="Contact, impressions, points à préparer…"
+            value={draft.notes}
+            onChange={(e) => patch({ notes: e.target.value })}
           />
+        </CollapsibleSection>
+      </div>
 
-          <StatusPicker
-            status={draft.status}
-            appliedAt={draft.appliedAt}
-            onStatusChange={(status) => setDraft((prev) => withStatus(prev, status, localDateString(new Date())))}
-            onAppliedAtChange={(appliedAt) => patch({ appliedAt })}
-          />
-
-          <div className="flex flex-col gap-2">
-            <CollapsibleSection
-              title="Plus de détails"
-              hint="Lieu, contrat, site de l'entreprise"
-              icon={SlidersHorizontal}
-              open={sections.details}
-              onToggle={() => setSections((s) => ({ ...s, details: !s.details }))}
-            >
-              <DetailsFields draft={draft} originalContract={initial?.contractType ?? ''} onChange={patch} />
-            </CollapsibleSection>
-
-            <CollapsibleSection
-              title="Notes"
-              hint="Contact, impressions, points à préparer"
-              icon={StickyNote}
-              open={sections.notes}
-              onToggle={() => setSections((s) => ({ ...s, notes: !s.notes }))}
-            >
-              <textarea
-                aria-label="Notes"
-                className="input resize-y"
-                rows={4}
-                placeholder="Contact, impressions, points à préparer…"
-                value={draft.notes}
-                onChange={(e) => patch({ notes: e.target.value })}
-              />
-            </CollapsibleSection>
-          </div>
-
-          {externalError && <p role="alert" className="text-sm text-[var(--color-danger)]">{externalError}</p>}
-        </div>
-
-        <footer className="flex items-center justify-end gap-2 px-6 pt-4 pb-[max(1rem,env(safe-area-inset-bottom))] border-t border-[var(--color-border)]">
-          <span className="hidden sm:block mr-auto text-xs text-[var(--color-subtle)]">
-            Ctrl/⌘ + Entrée pour {isEditMode ? 'enregistrer' : 'ajouter'}
-          </span>
-          <button type="button" className="btn btn-ghost" onClick={onClose} disabled={saving}>Annuler</button>
-          <button
-            type="submit"
-            className="btn btn-primary disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none disabled:shadow-none"
-            disabled={saving || !canSave}
-          >
-            {saving ? 'Enregistrement…' : isEditMode ? 'Enregistrer' : 'Ajouter la candidature'}
-          </button>
-        </footer>
-      </form>
-
-      {importerOpen && JobOfferImporter && (
-        <Suspense fallback={null}>
-          <JobOfferImporter onImport={handleImport} onClose={() => setImporterOpen(false)} />
-        </Suspense>
-      )}
-    </div>
+      {externalError && <p role="alert" className="text-sm text-[var(--color-danger)]">{externalError}</p>}
+    </ApplicationDialog>
   )
 }
