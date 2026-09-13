@@ -7,6 +7,8 @@ import { SidebarItem } from './SidebarItem'
 import { useProfile } from '@/hooks/useProfile'
 import { useTranslation } from '@/lib/i18n/I18nContext'
 import type { TranslationKey } from '@/lib/i18n/translations'
+import { FEATURES } from '@/config/edition'
+import { filterByFeature, type FeatureKey } from '@/config/editionCore'
 
 interface SidebarProps {
   userId: string
@@ -16,12 +18,14 @@ interface SidebarProps {
 }
 
 // eslint-disable-next-line react-refresh/only-export-components -- shared nav config co-located with the component that owns it
-export const NAV_LINKS: { to: string; labelKey: TranslationKey; icon: typeof LayoutDashboard }[] = [
+export const NAV_LINKS: { to: string; labelKey: TranslationKey; icon: typeof LayoutDashboard; feature?: FeatureKey }[] = [
   { to: '/',             labelKey: 'sidebar.dashboard',    icon: LayoutDashboard },
   { to: '/applications', labelKey: 'sidebar.applications', icon: Briefcase },
-  { to: '/goals',        labelKey: 'sidebar.goals',        icon: Target },
-  { to: '/library',      labelKey: 'sidebar.library',      icon: BookOpen },
+  { to: '/goals',        labelKey: 'sidebar.goals',        icon: Target,   feature: 'goals' },
+  { to: '/library',      labelKey: 'sidebar.library',      icon: BookOpen, feature: 'library' },
 ]
+
+export const VISIBLE_NAV_LINKS = filterByFeature(NAV_LINKS, FEATURES)
 
 const COLLAPSE_KEY = 'jobtracker-sidebar-collapsed'
 
@@ -82,7 +86,7 @@ export function Sidebar({ userId, userEmail, applicationsCount, onLogout }: Side
 
       {/* ── Nav ── */}
       <nav className="flex-1 flex flex-col gap-1 px-3.5 pt-5 overflow-y-auto no-scrollbar">
-        {NAV_LINKS.map(({ to, labelKey, icon }) => (
+        {VISIBLE_NAV_LINKS.map(({ to, labelKey, icon }) => (
           <SidebarItem
             key={to}
             to={to}

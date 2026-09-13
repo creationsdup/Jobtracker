@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { lazy, Suspense, useState } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AppShell } from '@/components/layout/AppShell'
 import { LoginPage } from '@/pages/LoginPage'
@@ -6,9 +6,7 @@ import { ResetPasswordPage } from '@/pages/ResetPasswordPage'
 import { DashboardPage } from '@/pages/DashboardPage'
 import { ApplicationsPage } from '@/pages/ApplicationsPage'
 import { KanbanPage } from '@/pages/KanbanPage'
-import { LibraryPage } from '@/pages/LibraryPage'
 import { ProfilePage } from '@/pages/ProfilePage'
-import { GoalsPage } from '@/pages/GoalsPage'
 import { ApplicationForm } from '@/components/applications/ApplicationForm'
 import { ApplicationDetail } from '@/components/applications/ApplicationDetail'
 import { useAuth } from '@/hooks/useAuth'
@@ -18,13 +16,25 @@ import { useGoals } from '@/hooks/useGoals'
 import { useOrgLogos } from '@/hooks/useOrgLogos'
 import { useCompanyDomains } from '@/hooks/useCompanyDomains'
 import { extractDomain } from '@/lib/url'
+import { FEATURES } from '@/config/edition'
 import type { Application } from '@/lib/types'
+
+// WHY: condition littérale (pas FEATURES) pour que Rollup supprime ces pages — et l'IA / pdfjs
+// qu'elles importent — du build lite. Voir spec §3.3.
+const GoalsPage = __APP_EDITION__ === 'full'
+  ? lazy(() => import('@/pages/GoalsPage').then((m) => ({ default: m.GoalsPage })))
+  : null
+const LibraryPage = __APP_EDITION__ === 'full'
+  ? lazy(() => import('@/pages/LibraryPage').then((m) => ({ default: m.LibraryPage })))
+  : null
+
+const PAGE_FALLBACK = <div className="text-[var(--color-muted)] text-sm">Chargement...</div>
 
 export function App() {
   const { user, loading: authLoading, isAuthenticated, isPasswordRecovery, signIn, signInWithGoogle, signUp, signOut, sendPasswordReset, completePasswordRecovery } = useAuth()
   const { applications, loading: appsLoading, addApplication, updateApplication, updateStatus, deleteApplication } = useApplications(user?.id ?? null)
   const { fetchStepsForApplication, addStep, updateStep, deleteStep, deleteStepsForApplication, getStepsForApplication } = useSteps()
-  const { activeGoal: goal } = useGoals(user?.id ?? null)
+  const { activeGoal: goal } = useGoals(FEATURES.goals ? user?.id ?? null : null)
   const { logos: orgLogos, setOrgWebsite } = useOrgLogos(user?.id ?? null)
   const { lookup: lookupCompanyDomain, contribute: contributeCompanyDomain } = useCompanyDomains()
 
@@ -122,8 +132,12 @@ export function App() {
               resolveLogo={resolveLogo}
             />
           } />
-          <Route path="library" element={<LibraryPage userId={user.id} userEmail={user.email} />} />
-          <Route path="goals" element={<GoalsPage userId={user.id} applications={applications} />} />
+          {LibraryPage && (
+            <Route path="library" element={<Suspense fallback={PAGE_FALLBACK}><LibraryPage userId={user.id} userEmail={user.email} /></Suspense>} />
+          )}
+          {GoalsPage && (
+            <Route path="goals" element={<Suspense fallback={PAGE_FALLBACK}><GoalsPage userId={user.id} applications={applications} /></Suspense>} />
+          )}
           <Route path="profile" element={<ProfilePage userId={user.id} userEmail={user.email} />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>

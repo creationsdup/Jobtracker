@@ -1,6 +1,6 @@
 import { NavLink } from 'react-router-dom'
 import { cn } from '@/lib/utils'
-import { NAV_LINKS } from './Sidebar'
+import { VISIBLE_NAV_LINKS } from './Sidebar'
 import { useTranslation } from '@/lib/i18n/I18nContext'
 
 export function MobileBottomNav() {
@@ -9,13 +9,13 @@ export function MobileBottomNav() {
     <nav
       className="md:hidden fixed bottom-0 left-0 right-0 z-50 grid"
       style={{
-        gridTemplateColumns: `repeat(${NAV_LINKS.length}, minmax(0, 1fr))`,
+        gridTemplateColumns: `repeat(${VISIBLE_NAV_LINKS.length}, minmax(0, 1fr))`,
         background: 'var(--color-primary)',
         borderTop: '1px solid rgba(0, 126, 167, 0.2)',
         paddingBottom: 'env(safe-area-inset-bottom)',
       }}
     >
-      {NAV_LINKS.map(({ to, labelKey, icon: Icon }) => (
+      {VISIBLE_NAV_LINKS.map(({ to, labelKey, icon: Icon }) => (
         <NavLink
           key={to}
           to={to}
