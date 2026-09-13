@@ -248,6 +248,24 @@ Toujours `build` + `sync` avant de relancer un build Xcode après une modif du c
 
 ---
 
+## 🧩 Éditions lite / full
+
+L'app se construit en deux éditions à partir du même code, choisies **au build** par `VITE_EDITION` :
+
+| Édition | Contenu | Usage |
+|---|---|---|
+| `lite` (**défaut**) | Accueil, Candidatures (liste/grille/kanban, formulaire, fiche détail), Profil | Déploiement public |
+| `full` | Tout, dont IA, Objectifs (score de match) et Bibliothèque | Usage personnel |
+
+- En local, mettre `VITE_EDITION=full` dans `.env.local` pour retrouver toutes les fonctions. Sans variable, on obtient `lite` (fail-closed). Une valeur invalide fait échouer le build.
+- `src/config/editionCore.ts` : logique pure (`resolveEdition`, `featuresFor`, `filterByFeature`). `src/config/edition.ts` : `EDITION` et `FEATURES` pour l'UI.
+- `vite.config.ts` injecte la constante `__APP_EDITION__` (`define`).
+- **Règle** : un `import()` / `React.lazy` de code IA, Objectifs ou Bibliothèque doit être protégé par la condition littérale `__APP_EDITION__ === 'full'`, jamais par `FEATURES.*` (non repliable par Rollup → chunks IA émis dans `dist/`).
+- Déploiement public : `npm run build:lite` (build + `scripts/check-lite-bundle.mjs`, qui refuse tout `dist/` contenant `api.openai.com`, `sk-proj-`, `ai-assistant` ou pdfjs). Ne jamais définir `VITE_OPENAI_API_KEY` sur l'hébergeur public.
+- Spec : `docs/superpowers/specs/2026-09-13-lite-edition-design.md`.
+
+---
+
 ## 🎨 Direction design
 
 - **Thème** : Dark mode par défaut, tonalités slate/zinc avec accents verts émeraude (#10b981)
