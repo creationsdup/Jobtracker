@@ -1,6 +1,6 @@
 import { lazy, Suspense, useRef, useState } from 'react'
-import { ListChecks, Mail, Pencil, Plus, Send, Target, Trash2 } from 'lucide-react'
-import { formatDate } from '@/lib/utils'
+import { ListChecks, Mail, Pencil, Plus, Send, Target, Trash2, X } from 'lucide-react'
+import { cn, formatDate } from '@/lib/utils'
 import type { Application, TimelineStep, StepStatus, ApplicationStatus, UserGoal } from '@/lib/types'
 import { MatchDetailsContent } from './MatchDetailsContent'
 import { ApplicationDialog } from './ApplicationDialog'
@@ -116,6 +116,12 @@ export function ApplicationDetail({
   function stopEditing() {
     setEditError(null)
     setEditing(false)
+  }
+
+  function closePicker() {
+    setPickerOpen(false)
+    setCustomStepOpen(false)
+    setStepError(null)
   }
 
   async function handleEditSave(data: ApplicationPayload) {
@@ -338,10 +344,16 @@ export function ApplicationDetail({
     </Suspense>
   )
 
-  // Colonne de droite : les actions, puis la timeline.
+  // Colonne de droite : les actions et la timeline. Sur grand écran, le choix d'étape s'ouvre
+  // dans une colonne à côté de la timeline ; sur écran étroit, juste sous les boutons.
   const aside = (
-    <>
-      <div className="flex flex-wrap gap-2">
+    <div
+      className={cn(
+        'flex flex-col gap-5',
+        pickerOpen && 'lg:grid lg:grid-cols-[minmax(0,1fr)_280px] lg:grid-rows-[auto_auto_1fr] lg:gap-x-6 lg:items-start',
+      )}
+    >
+      <div className="flex flex-wrap gap-2 lg:col-start-1">
         <button type="button" className="btn btn-primary flex-1" onClick={startEditing}>
           <Pencil size={14} aria-hidden />
           Modifier
@@ -362,7 +374,7 @@ export function ApplicationDetail({
         </button>
       </div>
 
-      <section className="flex flex-col gap-3" aria-label="Timeline">
+      <div className="flex flex-col gap-3 lg:col-start-1">
         <div className="flex items-center justify-between gap-2">
           <h3 className="text-sm font-semibold flex items-center gap-1.5 text-[var(--color-ink)]">
             <ListChecks size={14} aria-hidden />
@@ -388,8 +400,11 @@ export function ApplicationDetail({
             className="inline-flex items-center justify-center gap-2 rounded-[var(--radius-sm)] bg-[var(--color-primary)] px-3 py-2 text-xs font-semibold text-white transition hover:bg-[var(--color-primary-dark)]"
             aria-expanded={pickerOpen}
             onClick={() => {
-              setPickerOpen((current) => !current)
-              setCustomStepOpen(false)
+              if (pickerOpen) {
+                closePicker()
+                return
+              }
+              setPickerOpen(true)
               setStepError(null)
             }}
           >
@@ -397,73 +412,78 @@ export function ApplicationDetail({
             Ajouter une étape
           </button>
         </div>
+      </div>
 
-        {pickerOpen && (
-          <div className="rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] p-3 animate-fade-slide-down">
-            <div className="grid grid-cols-2 gap-2">
-              {TIMELINE_PRESETS.map((preset) => (
-                <button
-                  key={preset.title}
-                  type="button"
-                  className="flex min-h-[96px] flex-col items-start justify-between rounded-[var(--radius-sm)] border border-[var(--color-border)] bg-white p-2.5 text-left transition hover:-translate-y-0.5 hover:border-[var(--color-accent)] hover:shadow-[var(--shadow-md)]"
-                  onClick={() => void handlePresetSelect(preset)}
-                  disabled={addingStep}
-                >
-                  <div className="text-xl leading-none">{preset.icon}</div>
-                  <div>
-                    <div className="text-[13px] font-semibold text-[var(--color-ink)]">{preset.title}</div>
-                    <div className="mt-0.5 text-[11px] leading-4 text-[var(--color-muted)]">{preset.subtitle}</div>
-                  </div>
-                </button>
-              ))}
-            </div>
-
-            {customStepOpen && (
-              <form ref={formRef} onSubmit={handleAddStep} className="mt-3 flex flex-col gap-2.5 rounded-[var(--radius-sm)] border border-[var(--color-border)] bg-white p-3 animate-fade-slide-down">
-                <div className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--color-muted)]">
-                  Étape libre
-                </div>
-                <input className="input text-xs" name="title" placeholder="Nom de l'étape" required />
-                <select className="input text-xs" name="status" defaultValue="UPCOMING">
-                  <option value="UPCOMING">À venir</option>
-                  <option value="IN_PROGRESS">En cours</option>
-                  <option value="COMPLETED">Terminée</option>
-                  <option value="CANCELLED">Annulée</option>
-                </select>
-                <div className="grid grid-cols-2 gap-2.5">
-                  <input className="input text-xs" name="date" type="date" defaultValue={new Date().toISOString().split('T')[0]} required />
-                  <input className="input text-xs" name="time" type="time" />
-                </div>
-                <select className="input text-xs" name="nextStatus" defaultValue="">
-                  <option value="">Statut inchangé</option>
-                  <option value="APPLIED">Postulée</option>
-                  <option value="INTERVIEW">Entretien</option>
-                  <option value="OFFER">Offre</option>
-                  <option value="REJECTED">Refusée</option>
-                </select>
-                <textarea className="input text-xs resize-y" name="notes" rows={2} placeholder="Notes..." />
-                <div className="flex justify-end gap-2">
-                  <button
-                    type="button"
-                    className="btn btn-ghost btn-sm"
-                    onClick={() => {
-                      setCustomStepOpen(false)
-                      setStepError(null)
-                    }}
-                  >
-                    Annuler
-                  </button>
-                  <button type="submit" className="btn btn-primary btn-sm" disabled={addingStep}>
-                    {addingStep ? 'Ajout…' : 'Créer l’étape'}
-                  </button>
-                </div>
-              </form>
-            )}
-
-            {stepError && <p className="mt-3 text-xs text-[var(--color-danger)]">{stepError}</p>}
+      {pickerOpen && (
+        <div className="lg:col-start-2 lg:row-start-1 lg:row-span-3 flex flex-col gap-2 rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] p-3 animate-fade-slide-down">
+          <div className="flex items-center justify-between gap-2">
+            <h4 className="text-sm font-semibold text-[var(--color-ink)]">Ajouter une étape</h4>
+            <button type="button" className="btn btn-ghost p-1" aria-label="Fermer le choix d'étape" onClick={closePicker}>
+              <X size={14} />
+            </button>
           </div>
-        )}
 
+          {TIMELINE_PRESETS.map((preset) => (
+            <button
+              key={preset.title}
+              type="button"
+              title={preset.subtitle}
+              className="flex w-full min-h-[40px] items-center gap-2.5 rounded-[var(--radius-sm)] border border-[var(--color-border)] bg-white px-3 py-2 text-left transition hover:border-[var(--color-accent)] hover:shadow-[var(--shadow-md)] disabled:opacity-50"
+              onClick={() => void handlePresetSelect(preset)}
+              disabled={addingStep}
+            >
+              <span className="text-base leading-none flex-shrink-0" aria-hidden>{preset.icon}</span>
+              <span className="truncate text-[13px] font-semibold text-[var(--color-ink)]">{preset.title}</span>
+            </button>
+          ))}
+
+          {customStepOpen && (
+            <form ref={formRef} onSubmit={handleAddStep} className="mt-1 flex flex-col gap-2.5 rounded-[var(--radius-sm)] border border-[var(--color-border)] bg-white p-3 animate-fade-slide-down">
+              <div className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--color-muted)]">
+                Étape libre
+              </div>
+              <input className="input text-xs" name="title" placeholder="Nom de l'étape" required />
+              <select className="input text-xs" name="status" defaultValue="UPCOMING">
+                <option value="UPCOMING">À venir</option>
+                <option value="IN_PROGRESS">En cours</option>
+                <option value="COMPLETED">Terminée</option>
+                <option value="CANCELLED">Annulée</option>
+              </select>
+              <div className="grid grid-cols-2 gap-2.5">
+                <input className="input text-xs" name="date" type="date" defaultValue={new Date().toISOString().split('T')[0]} required />
+                <input className="input text-xs" name="time" type="time" />
+              </div>
+              <select className="input text-xs" name="nextStatus" defaultValue="">
+                <option value="">Statut inchangé</option>
+                <option value="APPLIED">Postulée</option>
+                <option value="INTERVIEW">Entretien</option>
+                <option value="OFFER">Offre</option>
+                <option value="REJECTED">Refusée</option>
+              </select>
+              <textarea className="input text-xs resize-y" name="notes" rows={2} placeholder="Notes..." />
+              <div className="flex justify-end gap-2">
+                <button
+                  type="button"
+                  className="btn btn-ghost btn-sm"
+                  onClick={() => {
+                    setCustomStepOpen(false)
+                    setStepError(null)
+                  }}
+                >
+                  Annuler
+                </button>
+                <button type="submit" className="btn btn-primary btn-sm" disabled={addingStep}>
+                  {addingStep ? 'Ajout…' : 'Créer l’étape'}
+                </button>
+              </div>
+            </form>
+          )}
+
+          {stepError && <p className="text-xs text-[var(--color-danger)]">{stepError}</p>}
+        </div>
+      )}
+
+      <div className="lg:col-start-1">
         {steps.length === 0 ? (
           <p className="text-xs text-[var(--color-muted)] py-2">Aucune étape. Ajoutez la première !</p>
         ) : (
@@ -562,12 +582,19 @@ export function ApplicationDetail({
           </div>
         )}
         {stepError && !pickerOpen && <p className="text-xs text-[var(--color-danger)]">{stepError}</p>}
-      </section>
-    </>
+      </div>
+    </div>
   )
 
   return (
-    <ApplicationDialog title="Fiche candidature" onClose={onClose} aside={aside} overlays={coverLetter} appear={!switchedInPlace}>
+    <ApplicationDialog
+      title="Fiche candidature"
+      onClose={onClose}
+      aside={aside}
+      wideAside={pickerOpen}
+      overlays={coverLetter}
+      appear={!switchedInPlace}
+    >
       <DetailSummary
         application={shownApplication}
         logoUrl={logoUrl}
