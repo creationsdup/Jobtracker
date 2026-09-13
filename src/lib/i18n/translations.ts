@@ -11,6 +11,7 @@ export const translations = {
     'sidebar.logout': 'Déconnexion',
     'sidebar.collapse': 'Réduire la navigation',
     'sidebar.expand': 'Agrandir la navigation',
+    'sidebar.myBoard': 'Mon tableau',
 
     'login.welcomeBack': 'Bon retour !',
     'login.createAccount': 'Créez votre compte',
@@ -140,6 +141,7 @@ export const translations = {
     'sidebar.logout': 'Log out',
     'sidebar.collapse': 'Collapse navigation',
     'sidebar.expand': 'Expand navigation',
+    'sidebar.myBoard': 'My board',
 
     'login.welcomeBack': 'Welcome back!',
     'login.createAccount': 'Create your account',

@@ -8,6 +8,7 @@ import { DashboardPage } from '@/pages/DashboardPage'
 import { ApplicationsPage } from '@/pages/ApplicationsPage'
 import { KanbanPage } from '@/pages/KanbanPage'
 import { ProfilePage } from '@/pages/ProfilePage'
+import { MyBoardPage } from '@/pages/MyBoardPage'
 import { ApplicationForm } from '@/components/applications/ApplicationForm'
 import { ApplicationDetail } from '@/components/applications/ApplicationDetail'
 import { useAuth } from '@/hooks/useAuth'
@@ -141,7 +142,9 @@ export function App() {
           {GoalsPage && (
             <Route path="goals" element={<Suspense fallback={PAGE_FALLBACK}><GoalsPage userId={user.id} applications={applications} /></Suspense>} />
           )}
-          <Route path="profile" element={<ProfilePage userId={user.id} userEmail={user.email} />} />
+          {FEATURES.accessCode
+            ? <Route path="mon-tableau" element={<MyBoardPage />} />
+            : <Route path="profile" element={<ProfilePage userId={user.id} userEmail={user.email} />} />}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
       </Routes>
