@@ -1,12 +1,17 @@
-import { useEffect, useState } from 'react'
+import { lazy, Suspense, useEffect, useState } from 'react'
 import { X, ChevronLeft, ChevronRight } from 'lucide-react'
 import type { Application, ApplicationStatus } from '@/lib/types'
 import { guessCompanyWebsiteFromJobUrl } from '@/lib/jobBoards'
-import { guessCompanyDomain } from '@/lib/ai'
-import { JobOfferImporter } from './JobOfferImporter'
+import { FEATURES } from '@/config/edition'
 import { ApplicationFormStepOffer, type ApplicationFormData } from './steps/ApplicationFormStepOffer'
 import { ApplicationFormStepTracking } from './steps/ApplicationFormStepTracking'
 import { ApplicationFormStepNotes } from './steps/ApplicationFormStepNotes'
+
+// WHY: condition littérale (pas FEATURES.ai) pour que Rollup supprime l'import d'offre — et lib/ai —
+// du build lite. Voir spec §3.3.
+const JobOfferImporter = __APP_EDITION__ === 'full'
+  ? lazy(() => import('./JobOfferImporter').then((m) => ({ default: m.JobOfferImporter })))
+  : null
 
 const STEPS = [
   { id: 1, label: "L'offre" },
@@ -78,11 +83,14 @@ export function ApplicationForm({ initial, userId, onSave, onSaveCompanyWebsite,
   // Si la saisie ne correspond à aucune entrée connue de la banque de logos, demande à l'IA
   // de reconnaître l'entreprise (sigle, marque) et trouver son domaine, puis l'enregistre dans
   // le catalogue partagé pour que les prochaines saisies (par n'importe quel utilisateur) soient
-  // instantanées.
+  // instantanées. Désactivé en édition lite (pas d'IA).
   async function handleCompanyBlur() {
     const company = formData.company.trim()
     if (!company || formData.companyWebsite.trim() || lookupCompanyDomain(company)) return
+    // WHY: condition littérale pour que Rollup supprime l'import de lib/ai du build lite (spec §3.3).
+    if (__APP_EDITION__ !== 'full') return
     setAiLogoLookupLoading(true)
+    const { guessCompanyDomain } = await import('@/lib/ai')
     const domain = await guessCompanyDomain(company)
     setAiLogoLookupLoading(false)
     if (!domain) return
@@ -175,7 +183,7 @@ export function ApplicationForm({ initial, userId, onSave, onSaveCompanyWebsite,
             <ApplicationFormStepOffer
               value={formData}
               onChange={patchFormData}
-              showImport={!initial}
+              showImport={!initial && FEATURES.ai}
               onImportClick={() => setImporterOpen(true)}
               onCompanyBlur={handleCompanyBlur}
               aiLogoLookupLoading={aiLogoLookupLoading}
@@ -216,11 +224,13 @@ export function ApplicationForm({ initial, userId, onSave, onSaveCompanyWebsite,
         </div>
       </div>
 
-      {importerOpen && (
-        <JobOfferImporter
-          onImport={handleImport}
-          onClose={() => setImporterOpen(false)}
-        />
+      {importerOpen && JobOfferImporter && (
+        <Suspense fallback={null}>
+          <JobOfferImporter
+            onImport={handleImport}
+            onClose={() => setImporterOpen(false)}
+          />
+        </Suspense>
       )}
     </div>
   )

@@ -1,16 +1,22 @@
-import { useEffect, useRef, useState } from 'react'
+import { lazy, Suspense, useEffect, useRef, useState } from 'react'
 import { X, MapPin, FileText, Link as LinkIcon, Plus, Mail, Pencil, Trash2, Send, Target, ChevronDown } from 'lucide-react'
 import { StatusBadge } from './StatusBadge'
 import { CompanyLogo } from './CompanyLogo'
 import { formatDate } from '@/lib/utils'
 import type { Application, TimelineStep, StepStatus, ApplicationStatus, UserGoal } from '@/lib/types'
-import { CoverLetterGenerator } from './CoverLetterGenerator'
 import { MatchScoreBadge } from './MatchScoreBadge'
 import { MatchDetailsContent } from './MatchDetailsContent'
 import { useProfile } from '@/hooks/useProfile'
 import { useExperiences } from '@/hooks/useExperiences'
 import { calculateJobMatch, applicationToJobMatchInput } from '@/lib/jobMatching'
 import { deriveApplicationStatusFromSteps, TIMELINE_PRESETS } from '@/lib/timelineStatus'
+import { FEATURES } from '@/config/edition'
+
+// WHY: condition littérale (pas FEATURES.ai) pour que Rollup supprime la lettre IA — et lib/ai —
+// du build lite. Voir spec §3.3.
+const CoverLetterGenerator = __APP_EDITION__ === 'full'
+  ? lazy(() => import('./CoverLetterGenerator').then((m) => ({ default: m.CoverLetterGenerator })))
+  : null
 
 interface ApplicationDetailProps {
   application: Application
@@ -72,7 +78,8 @@ export function ApplicationDetail({
   const formRef = useRef<HTMLFormElement>(null)
   const editFormRef = useRef<HTMLFormElement>(null)
   const { profile } = useProfile(application.userId, userEmail)
-  const { experiences } = useExperiences(application.userId)
+  // WHY: les expériences ne servent qu'à la lettre IA ; pas de requête sur "Experience" en lite.
+  const { experiences } = useExperiences(FEATURES.ai ? application.userId : null)
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
@@ -266,10 +273,12 @@ export function ApplicationDetail({
             </div>
           </div>
           <div className="flex items-center gap-1 flex-shrink-0">
-            <button className="btn btn-secondary btn-sm" onClick={() => setCoverLetterOpen(true)}>
-              <Mail size={13} />
-              Lettre IA
-            </button>
+            {FEATURES.ai && (
+              <button className="btn btn-secondary btn-sm" onClick={() => setCoverLetterOpen(true)}>
+                <Mail size={13} />
+                Lettre IA
+              </button>
+            )}
             <button className="btn btn-secondary btn-sm" onClick={onEdit}>
               <Pencil size={13} />
               Modifier
@@ -552,13 +561,15 @@ export function ApplicationDetail({
         </div>
       </div>
 
-      {coverLetterOpen && (
-        <CoverLetterGenerator
-          application={application}
-          profile={profile ? { ...profile, email: profile.email || userEmail } : null}
-          experiences={experiences}
-          onClose={() => setCoverLetterOpen(false)}
-        />
+      {coverLetterOpen && CoverLetterGenerator && (
+        <Suspense fallback={null}>
+          <CoverLetterGenerator
+            application={application}
+            profile={profile ? { ...profile, email: profile.email || userEmail } : null}
+            experiences={experiences}
+            onClose={() => setCoverLetterOpen(false)}
+          />
+        </Suspense>
       )}
     </div>
   )
