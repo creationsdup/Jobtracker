@@ -8,7 +8,7 @@
  *
  * Voir docs/superpowers/specs/2026-09-13-lite-edition-design.md §5.
  */
-import { existsSync, readdirSync, readFileSync } from 'node:fs'
+import { existsSync, readdirSync, readFileSync, realpathSync } from 'node:fs'
 import { basename, join, relative, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -41,7 +41,10 @@ export function scanDist(distDir) {
   return violations
 }
 
-const isMain = process.argv[1] !== undefined && resolve(process.argv[1]) === fileURLToPath(import.meta.url)
+// WHY: process.argv[1] n'est pas résolu à travers les symlinks par Node ; comparer les chemins
+// réels (realpathSync) évite qu'un appel via un lien symbolique fasse échouer silencieusement
+// cette détection et sorte en exit 0 sans avoir scanné dist/.
+const isMain = process.argv[1] !== undefined && realpathSync(process.argv[1]) === fileURLToPath(import.meta.url)
 
 if (isMain) {
   const distDir = resolve(process.argv[2] ?? 'dist')
