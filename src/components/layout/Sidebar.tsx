@@ -1,6 +1,6 @@
 import { NavLink } from 'react-router-dom'
 import { useEffect, useState } from 'react'
-import { LayoutDashboard, Briefcase, Target, BookOpen, LogOut, Menu, Settings } from 'lucide-react'
+import { LayoutDashboard, Briefcase, Target, BookOpen, LogOut, Menu } from 'lucide-react'
 import { getInitial } from '@/lib/utils'
 import { JobTrackerLogo } from '@/components/ui/JobTrackerLogo'
 import { SidebarItem } from './SidebarItem'
@@ -102,10 +102,6 @@ export function Sidebar({ userId, userEmail, applicationsCount, onLogout }: Side
       {/* ── Profile footer ── */}
       <div className="px-3.5 py-4">
         <div className="mx-1.5 mb-3 h-px" style={{ background: 'var(--color-nav-divider)' }} />
-        {FEATURES.accessCode ? (
-          // WHY: en lite, l'email du compte est technique (board-…@boards.jobtracker.invalid) : ni nom ni email affichés.
-          <SidebarItem to="/mon-tableau" label={t('sidebar.myBoard')} icon={Settings} collapsed={collapsed} />
-        ) : (
         <div className={`flex items-center gap-2.5 px-2 ${collapsed ? 'flex-col' : ''}`}>
           <NavLink
             to="/profile"
@@ -144,7 +140,6 @@ export function Sidebar({ userId, userEmail, applicationsCount, onLogout }: Side
             <LogOut size={15} />
           </button>
         </div>
-        )}
       </div>
     </aside>
   )

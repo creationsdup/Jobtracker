@@ -1,4 +1,6 @@
 import { useState, type FormEvent, type ReactNode } from 'react'
+import { Link } from 'react-router-dom'
+import { ArrowLeft } from 'lucide-react'
 import { isBoardEmail } from '@/lib/accessCode'
 import { cn } from '@/lib/utils'
 import { useBoardAccess } from '@/hooks/useBoardAccess'
@@ -102,6 +104,10 @@ export function MyBoardPage() {
 
   return (
     <div className="mx-auto w-full max-w-[560px]">
+      <Link to="/" className="mb-6 inline-flex items-center gap-1.5 text-[13px] font-medium text-[var(--color-accent)] no-underline hover:underline">
+        <ArrowLeft size={15} />
+        Retour au tableau
+      </Link>
       <Eyebrow>Réglages</Eyebrow>
       <Title>Mon tableau</Title>
 

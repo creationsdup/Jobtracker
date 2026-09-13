@@ -1,34 +1,22 @@
 import { useMemo, useState } from 'react'
-import { Search, LayoutList, LayoutGrid, Columns, ArrowUpDown, ChevronDown, Plus } from 'lucide-react'
+import { Search, LayoutList, LayoutGrid, Columns, ArrowUpDown, Plus } from 'lucide-react'
 import { ApplicationCard } from '@/components/applications/ApplicationCard'
 import { StatusBadge } from '@/components/applications/StatusBadge'
 import { MatchScoreBadge } from '@/components/applications/MatchScoreBadge'
 import { CompanyLogo } from '@/components/applications/CompanyLogo'
 import { CandidateTable } from '@/components/applications/CandidateTable'
+import { FilterSelect } from '@/components/applications/FilterSelect'
 import { KanbanPage } from '@/pages/KanbanPage'
 import { formatDate } from '@/lib/utils'
 import { calculateJobMatch, applicationToJobMatchInput } from '@/lib/jobMatching'
+import { STATUS_OPTIONS, filterAndSortApplications, sortOptions, type SortMode } from '@/lib/applicationFilters'
 import type { Application, ApplicationStatus, UserGoal } from '@/lib/types'
-import { APPLICABLE_STATUSES, STATUS_LABELS } from '@/lib/types'
 import { FEATURES } from '@/config/edition'
 
 type ViewMode = 'list' | 'grid' | 'kanban'
 
-type SortMode = 'date_desc' | 'date_asc' | 'position_asc' | 'company_asc' | 'match_desc'
-
-const STATUS_OPTIONS: { value: ApplicationStatus | ''; label: string }[] = [
-  { value: '', label: 'Tous les statuts' },
-  ...APPLICABLE_STATUSES.map((value) => ({ value, label: STATUS_LABELS[value] })),
-]
-
-const SORT_OPTIONS: { value: SortMode; label: string }[] = [
-  { value: 'date_desc', label: 'Plus récentes' },
-  { value: 'date_asc', label: 'Plus anciennes' },
-  { value: 'position_asc', label: 'Poste (A-Z)' },
-  { value: 'company_asc', label: 'Entreprise (A-Z)' },
-  // WHY: le score de match dépend de la page Objectifs, absente de l'édition lite.
-  ...(FEATURES.goals ? [{ value: 'match_desc' as const, label: 'Meilleur match' }] : []),
-]
+// WHY: le score de match dépend de la page Objectifs, absente de l'édition lite.
+const SORT_OPTIONS = sortOptions(FEATURES.goals)
 
 interface ApplicationsPageProps {
   applications: Application[]
@@ -104,36 +92,6 @@ function ViewBtn({ active, onClick, children }: { active: boolean; onClick: () =
   )
 }
 
-// ─── Filter select (pill-styled, custom chevron) ──────────────────────────────
-
-function FilterSelect({ value, onChange, options, icon }: {
-  value: string
-  onChange: (value: string) => void
-  options: { value: string; label: string }[]
-  icon?: React.ReactNode
-}) {
-  return (
-    <div className="relative">
-      {icon && (
-        <span className="absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none text-[var(--color-muted)]">
-          {icon}
-        </span>
-      )}
-      <select
-        className={`appearance-none rounded-full text-[13px] font-medium cursor-pointer outline-none transition-colors ${icon ? 'pl-9' : 'pl-4'} pr-9 py-2 bg-white hover:bg-[var(--color-bg)]`}
-        style={{ border: '1px solid var(--color-border)', color: 'var(--color-text)' }}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-      >
-        {options.map((o) => (
-          <option key={o.value} value={o.value}>{o.label}</option>
-        ))}
-      </select>
-      <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-[var(--color-muted)]" />
-    </div>
-  )
-}
-
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
 export function ApplicationsPage({ applications, loading, goal, onOpenDetail, onStatusChange, onAdd, onEdit, onDelete, resolveLogo }: ApplicationsPageProps) {
@@ -148,31 +106,10 @@ export function ApplicationsPage({ applications, loading, goal, onOpenDetail, on
     [applications],
   )
 
-  const filtered = useMemo(() => {
-    const q = search.toLowerCase()
-    const result = applications
-      .filter((a) => !q || a.company.toLowerCase().includes(q) || a.position.toLowerCase().includes(q))
-      .filter((a) => !statusFilter || a.status === statusFilter)
-      .filter((a) => !contractFilter || a.contractType === contractFilter)
-
-    return [...result].sort((a, b) => {
-      switch (sortMode) {
-        case 'date_asc':
-          return new Date(a.appliedAt ?? a.createdAt).getTime() - new Date(b.appliedAt ?? b.createdAt).getTime()
-        case 'position_asc':
-          return a.position.localeCompare(b.position)
-        case 'company_asc':
-          return a.company.localeCompare(b.company)
-        case 'match_desc': {
-          const scoreOf = (app: Application) => goal ? calculateJobMatch(applicationToJobMatchInput(app), goal).totalScore : -1
-          return scoreOf(b) - scoreOf(a)
-        }
-        case 'date_desc':
-        default:
-          return new Date(b.appliedAt ?? b.createdAt).getTime() - new Date(a.appliedAt ?? a.createdAt).getTime()
-      }
-    })
-  }, [applications, search, statusFilter, contractFilter, sortMode, goal])
+  const filtered = useMemo(
+    () => filterAndSortApplications(applications, { search, status: statusFilter, contract: contractFilter, sort: sortMode }, goal),
+    [applications, search, statusFilter, contractFilter, sortMode, goal],
+  )
 
   return (
     <div className="flex flex-col gap-4">

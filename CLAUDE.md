@@ -255,7 +255,7 @@ L'app se construit en deux éditions à partir du même code, choisies **au buil
 
 | Édition | Contenu | Usage |
 |---|---|---|
-| `lite` (**défaut**) | Accueil, Candidatures (liste/grille/kanban, formulaire, fiche détail), « Mon tableau » (accès par code, sans inscription) | Déploiement public |
+| `lite` (**défaut**) | Une seule page : le tableau des candidatures (`BoardPage` dans `LiteShell` — barre du haut, 4 chiffres, bascule Colonnes / Liste, formulaire, fiche détail), « Mon tableau » (accès par code, sans inscription) | Déploiement public |
 | `full` | Tout, dont IA, Objectifs (score de match) et Bibliothèque | Usage personnel |
 
 - En local, mettre `VITE_EDITION=full` dans `.env.local` pour retrouver toutes les fonctions. Sans variable, on obtient `lite` (fail-closed). Une valeur invalide fait échouer le build.

@@ -1,6 +1,8 @@
 import { lazy, Suspense, useCallback, useEffect, useState } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AppShell } from '@/components/layout/AppShell'
+import { LiteShell } from '@/components/layout/LiteShell'
+import { BoardPage } from '@/pages/BoardPage'
 import { LoginPage } from '@/pages/LoginPage'
 import { LiteAccessGate } from '@/components/access/LiteAccessGate'
 import { clearShortcutCode, takeShortcutCodeOnce } from '@/lib/shortcutLocation'
@@ -113,43 +115,73 @@ export function App() {
     fetchStepsForApplication(current.id)
   }
 
+  function openNewApplication() {
+    setEditingApp(null)
+    setFormOpen(true)
+  }
+
+  function openEditApplication(app: Application) {
+    setEditingApp(app)
+    setFormOpen(true)
+  }
+
   return (
     <BrowserRouter>
       <Routes>
         <Route
-          element={
+          element={FEATURES.accessCode ? (
+            <LiteShell onAddApplication={openNewApplication} />
+          ) : (
             <AppShell
               userId={user.id}
               userEmail={user.email}
               applicationsCount={applications.filter((a) => !['REJECTED', 'WITHDRAWN', 'ACCEPTED'].includes(a.status)).length}
               onLogout={signOut}
-              onAddApplication={() => { setEditingApp(null); setFormOpen(true) }}
+              onAddApplication={openNewApplication}
             />
-          }
+          )}
         >
-          <Route index element={<DashboardPage userId={user.id} userEmail={user.email} applications={applications} loading={appsLoading} onOpenDetail={handleOpenDetail} resolveLogo={resolveLogo} />} />
-          <Route path="applications" element={
-            <ApplicationsPage
-              applications={applications}
-              loading={appsLoading}
-              goal={goal}
-              onOpenDetail={handleOpenDetail}
-              onStatusChange={updateStatus}
-              onAdd={() => { setEditingApp(null); setFormOpen(true) }}
-              onEdit={(app) => { setEditingApp(app); setFormOpen(true) }}
-              onDelete={handleDelete}
-              resolveLogo={resolveLogo}
-            />
-          } />
-          <Route path="kanban" element={
-            <KanbanPage
-              applications={applications}
-              goal={goal}
-              onStatusChange={updateStatus}
-              onOpenDetail={handleOpenDetail}
-              resolveLogo={resolveLogo}
-            />
-          } />
+          {FEATURES.accessCode ? (
+            // WHY: en lite, le tableau est l'unique page ; /applications et /kanban retombent sur « * » → /.
+            <Route index element={
+              <BoardPage
+                applications={applications}
+                loading={appsLoading}
+                onOpenDetail={handleOpenDetail}
+                onStatusChange={updateStatus}
+                onAdd={openNewApplication}
+                onEdit={openEditApplication}
+                onDelete={handleDelete}
+                resolveLogo={resolveLogo}
+              />
+            } />
+          ) : (
+            <>
+              <Route index element={<DashboardPage userId={user.id} userEmail={user.email} applications={applications} loading={appsLoading} onOpenDetail={handleOpenDetail} resolveLogo={resolveLogo} />} />
+              <Route path="applications" element={
+                <ApplicationsPage
+                  applications={applications}
+                  loading={appsLoading}
+                  goal={goal}
+                  onOpenDetail={handleOpenDetail}
+                  onStatusChange={updateStatus}
+                  onAdd={openNewApplication}
+                  onEdit={openEditApplication}
+                  onDelete={handleDelete}
+                  resolveLogo={resolveLogo}
+                />
+              } />
+              <Route path="kanban" element={
+                <KanbanPage
+                  applications={applications}
+                  goal={goal}
+                  onStatusChange={updateStatus}
+                  onOpenDetail={handleOpenDetail}
+                  resolveLogo={resolveLogo}
+                />
+              } />
+            </>
+          )}
           {LibraryPage && (
             <Route path="library" element={<Suspense fallback={PAGE_FALLBACK}><LibraryPage userId={user.id} userEmail={user.email} /></Suspense>} />
           )}
