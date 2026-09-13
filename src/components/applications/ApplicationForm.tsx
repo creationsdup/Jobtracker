@@ -1,11 +1,23 @@
-import { lazy, Suspense, useEffect, useState } from 'react'
-import { X, ChevronLeft, ChevronRight } from 'lucide-react'
-import type { Application, ApplicationStatus } from '@/lib/types'
+import { lazy, Suspense, useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from 'react'
+import { SlidersHorizontal, StickyNote, X } from 'lucide-react'
+import type { Application } from '@/lib/types'
 import { guessCompanyWebsiteFromJobUrl } from '@/lib/jobBoards'
 import { FEATURES } from '@/config/edition'
-import { ApplicationFormStepOffer, type ApplicationFormData } from './steps/ApplicationFormStepOffer'
-import { ApplicationFormStepTracking } from './steps/ApplicationFormStepTracking'
-import { ApplicationFormStepNotes } from './steps/ApplicationFormStepNotes'
+import {
+  canSaveDraft,
+  createDraft,
+  initialSections,
+  localDateString,
+  patchDraft,
+  toPayload,
+  withStatus,
+  type ApplicationDraft,
+  type ApplicationPayload,
+} from '@/lib/applicationDraft'
+import { CollapsibleSection } from './form/CollapsibleSection'
+import { DetailsFields } from './form/DetailsFields'
+import { OfferEssentials } from './form/OfferEssentials'
+import { StatusPicker } from './form/StatusPicker'
 
 // WHY: condition littérale (pas FEATURES.ai) pour que Rollup supprime l'import d'offre — et lib/ai —
 // du build lite. Voir spec §3.3.
@@ -13,16 +25,10 @@ const JobOfferImporter = __APP_EDITION__ === 'full'
   ? lazy(() => import('./JobOfferImporter').then((m) => ({ default: m.JobOfferImporter })))
   : null
 
-const STEPS = [
-  { id: 1, label: "L'offre" },
-  { id: 2, label: 'Suivi' },
-  { id: 3, label: 'Notes' },
-] as const
-
 interface ApplicationFormProps {
   initial?: Application | null
   userId: string
-  onSave: (data: Omit<Application, 'id' | 'createdAt' | 'updatedAt'>) => Promise<void>
+  onSave: (data: ApplicationPayload) => Promise<void>
   onSaveCompanyWebsite: (company: string, website: string) => Promise<string | null>
   existingCompanyWebsite?: string | null
   lookupCompanyDomain: (company: string) => string | undefined
@@ -30,54 +36,28 @@ interface ApplicationFormProps {
   onClose: () => void
 }
 
-function buildFormData(
-  initial: Application | null | undefined,
-  imported: Partial<Omit<Application, 'id' | 'createdAt' | 'updatedAt'>> | null,
-  existingCompanyWebsite: string | null | undefined,
-): ApplicationFormData {
-  const source = imported ?? initial
-  return {
-    company: source?.company ?? '',
-    position: source?.position ?? '',
-    location: source?.location ?? '',
-    contractType: source?.contractType ?? '',
-    jobUrl: source?.jobUrl ?? '',
-    companyWebsite: existingCompanyWebsite ?? '',
-    status: source?.status ?? 'WISHLIST',
-    appliedAt: source?.appliedAt ?? '',
-    notes: source?.notes ?? '',
-  }
-}
-
 export function ApplicationForm({ initial, userId, onSave, onSaveCompanyWebsite, existingCompanyWebsite, lookupCompanyDomain, externalError, onClose }: ApplicationFormProps) {
+  const isEditMode = !!initial
+  const [draft, setDraft] = useState<ApplicationDraft>(() => createDraft(initial, existingCompanyWebsite))
+  const [sections, setSections] = useState(() => initialSections(createDraft(initial, existingCompanyWebsite)))
   const [saving, setSaving] = useState(false)
   const [importerOpen, setImporterOpen] = useState(false)
-  const [importedData, setImportedData] = useState<Partial<Omit<Application, 'id' | 'createdAt' | 'updatedAt'>> | null>(null)
-  const [step, setStep] = useState(1)
-  const [formData, setFormData] = useState<ApplicationFormData>(() => buildFormData(initial, importedData, existingCompanyWebsite))
-  const [aiLogoLookupLoading, setAiLogoLookupLoading] = useState(false)
-
-  const isEditMode = !!initial
+  const [logoLookupLoading, setLogoLookupLoading] = useState(false)
+  const linkInputRef = useRef<HTMLInputElement>(null)
+  const canSave = canSaveDraft(draft)
 
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    if (!isEditMode) linkInputRef.current?.focus()
+  }, [isEditMode])
+
+  useEffect(() => {
+    const onKey = (e: globalThis.KeyboardEvent) => { if (e.key === 'Escape') onClose() }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [onClose])
 
-  function patchFormData(patch: Partial<ApplicationFormData>) {
-    setFormData((prev) => {
-      const next = { ...prev, ...patch }
-      if (patch.jobUrl !== undefined && !prev.companyWebsite.trim()) {
-        const guessed = guessCompanyWebsiteFromJobUrl(patch.jobUrl)
-        if (guessed) next.companyWebsite = guessed
-      }
-      if (patch.company !== undefined && !prev.companyWebsite.trim()) {
-        const known = lookupCompanyDomain(patch.company.trim())
-        if (known) next.companyWebsite = known
-      }
-      return next
-    })
+  function patch(changes: Partial<ApplicationDraft>) {
+    setDraft((prev) => patchDraft(prev, changes, lookupCompanyDomain))
   }
 
   // Si la saisie ne correspond à aucune entrée connue de la banque de logos, demande à l'IA
@@ -85,160 +65,146 @@ export function ApplicationForm({ initial, userId, onSave, onSaveCompanyWebsite,
   // le catalogue partagé pour que les prochaines saisies (par n'importe quel utilisateur) soient
   // instantanées. Désactivé en édition lite (pas d'IA).
   async function handleCompanyBlur() {
-    const company = formData.company.trim()
-    if (!company || formData.companyWebsite.trim() || lookupCompanyDomain(company)) return
+    const company = draft.company.trim()
+    if (!company || draft.companyWebsite.trim() || lookupCompanyDomain(company)) return
     // WHY: condition littérale pour que Rollup supprime l'import de lib/ai du build lite (spec §3.3).
     if (__APP_EDITION__ !== 'full') return
-    setAiLogoLookupLoading(true)
+    setLogoLookupLoading(true)
     let domain: string | null = null
     try {
       // WHY: si l'import dynamique ou l'appel IA échoue (déploiement obsolète, hors-ligne), on se
       // comporte comme si aucun domaine n'avait été trouvé plutôt que de laisser planter le flux
-      // ou bloquer aiLogoLookupLoading à true indéfiniment.
+      // ou bloquer logoLookupLoading à true indéfiniment.
       const { guessCompanyDomain } = await import('@/lib/ai')
       domain = await guessCompanyDomain(company)
     } catch {
       return
     } finally {
-      setAiLogoLookupLoading(false)
+      setLogoLookupLoading(false)
     }
     if (!domain) return
-    setFormData((prev) => (prev.companyWebsite.trim() || prev.company.trim() !== company ? prev : { ...prev, companyWebsite: domain }))
+    setDraft((prev) => (prev.companyWebsite.trim() || prev.company.trim() !== company ? prev : { ...prev, companyWebsite: domain }))
     await onSaveCompanyWebsite(company, domain)
   }
 
-  function handleImport(data: Partial<Omit<Application, 'id' | 'createdAt' | 'updatedAt'>> & { companyWebsite?: string | null }) {
-    setImportedData(data)
+  function handleImport(data: Partial<ApplicationPayload> & { companyWebsite?: string | null }) {
     const guessedWebsite = data.jobUrl ? guessCompanyWebsiteFromJobUrl(data.jobUrl) : null
-    const resolvedWebsite = data.companyWebsite || guessedWebsite || existingCompanyWebsite
-    setFormData(buildFormData(initial, data, resolvedWebsite))
+    const next = createDraft(data, data.companyWebsite || guessedWebsite || existingCompanyWebsite)
+    setDraft(next)
+    setSections(initialSections(next))
     setImporterOpen(false)
   }
 
-  const step1Valid = formData.company.trim().length > 0 && formData.position.trim().length > 0
-
-  function goNext() {
-    if (step === 1 && !step1Valid) return
-    setStep((s) => Math.min(3, s + 1))
-  }
-
-  function goPrev() {
-    setStep((s) => Math.max(1, s - 1))
-  }
-
-  function canNavigateToStep(target: number) {
-    return isEditMode || target <= step
-  }
-
-  function goToStep(target: number) {
-    if (canNavigateToStep(target)) setStep(target)
-  }
-
-  async function handleSubmit() {
-    if (!step1Valid) { setStep(1); return }
+  async function handleSubmit(e?: FormEvent) {
+    e?.preventDefault()
+    if (!canSave || saving) return
     setSaving(true)
-    const website = formData.companyWebsite.trim()
-    if (website) await onSaveCompanyWebsite(formData.company.trim(), website)
-    await onSave({
-      userId,
-      company: formData.company.trim(),
-      position: formData.position.trim(),
-      location: formData.location.trim() || null,
-      contractType: formData.contractType.trim() || null,
-      jobUrl: formData.jobUrl.trim() || null,
-      status: formData.status as ApplicationStatus,
-      notes: formData.notes.trim() || null,
-      appliedAt: formData.appliedAt || null,
-    })
-    setSaving(false)
+    try {
+      const website = draft.companyWebsite.trim()
+      if (website) await onSaveCompanyWebsite(draft.company.trim(), website)
+      await onSave(toPayload(draft, userId))
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  function handleKeyDown(e: KeyboardEvent<HTMLFormElement>) {
+    if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+      e.preventDefault()
+      void handleSubmit()
+    }
   }
 
   return (
-    <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50" onClick={(e) => { if (e.target === e.currentTarget) onClose() }}>
-      <div className="absolute inset-y-0 right-0 w-full max-w-xl bg-[var(--color-surface)] shadow-[var(--shadow-lg)] flex flex-col h-full">
-        <div className="flex items-center justify-between px-8 pt-7 pb-5 border-b border-[var(--color-border)]">
-          <h3 className="text-lg font-bold">{initial ? 'Modifier la candidature' : 'Nouvelle candidature'}</h3>
-          <button className="btn btn-ghost p-1" onClick={onClose}><X size={18} /></button>
-        </div>
+    <div
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 backdrop-blur-sm animate-fade-in sm:p-6"
+      onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
+    >
+      <form
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="application-form-title"
+        noValidate
+        onSubmit={handleSubmit}
+        onKeyDown={handleKeyDown}
+        className="w-full sm:max-w-[560px] max-h-[92dvh] sm:max-h-[calc(100dvh-48px)] flex flex-col bg-[var(--color-surface)] rounded-t-[var(--radius-xl)] sm:rounded-[var(--radius-xl)] shadow-[var(--shadow-lg)]"
+      >
+        <header className="flex items-center justify-between gap-3 px-6 pt-5 pb-4">
+          <h2 id="application-form-title" className="text-lg font-bold text-[var(--color-ink)]">
+            {isEditMode ? 'Modifier la candidature' : 'Nouvelle candidature'}
+          </h2>
+          <button type="button" className="btn btn-ghost p-1.5" onClick={onClose} aria-label="Fermer">
+            <X size={18} />
+          </button>
+        </header>
 
-        <div className="px-8 pt-5 pb-2 flex items-center gap-3">
-          {STEPS.map((s, idx) => (
-            <div key={s.id} className="flex items-center gap-3 flex-1">
-              <button
-                type="button"
-                onClick={() => goToStep(s.id)}
-                disabled={!canNavigateToStep(s.id)}
-                className="flex items-center gap-2 text-sm font-medium disabled:cursor-not-allowed"
-                style={{ color: step === s.id ? 'var(--color-primary)' : 'var(--color-muted)' }}
-              >
-                <span
-                  className="flex items-center justify-center w-6 h-6 rounded-full text-xs font-bold"
-                  style={{
-                    background: step >= s.id ? 'var(--color-primary)' : 'var(--color-border)',
-                    color: step >= s.id ? '#fff' : 'var(--color-muted)',
-                  }}
-                >
-                  {s.id}
-                </span>
-                {s.label}
-              </button>
-              {idx < STEPS.length - 1 && <div className="flex-1 h-px bg-[var(--color-border)]" />}
-            </div>
-          ))}
-        </div>
+        <div className="flex-1 overflow-y-auto px-6 pb-6 flex flex-col gap-5">
+          <OfferEssentials
+            draft={draft}
+            onChange={patch}
+            linkInputRef={linkInputRef}
+            onImportClick={!isEditMode && FEATURES.ai ? () => setImporterOpen(true) : undefined}
+            onCompanyBlur={handleCompanyBlur}
+            logoLookupLoading={logoLookupLoading}
+          />
 
-        <div className="flex-1 overflow-y-auto px-8 py-6">
-          {step === 1 && (
-            <ApplicationFormStepOffer
-              value={formData}
-              onChange={patchFormData}
-              showImport={!initial && FEATURES.ai}
-              onImportClick={() => setImporterOpen(true)}
-              onCompanyBlur={handleCompanyBlur}
-              aiLogoLookupLoading={aiLogoLookupLoading}
-            />
-          )}
-          {step === 2 && (
-            <ApplicationFormStepTracking value={formData} onChange={patchFormData} />
-          )}
-          {step === 3 && (
-            <ApplicationFormStepNotes value={formData} onChange={patchFormData} />
-          )}
+          <StatusPicker
+            status={draft.status}
+            appliedAt={draft.appliedAt}
+            onStatusChange={(status) => setDraft((prev) => withStatus(prev, status, localDateString(new Date())))}
+            onAppliedAtChange={(appliedAt) => patch({ appliedAt })}
+          />
 
-          {externalError && (
-            <p className="text-sm text-[var(--color-danger)] mt-4">{externalError}</p>
-          )}
-        </div>
+          <div className="flex flex-col gap-2">
+            <CollapsibleSection
+              title="Plus de détails"
+              hint="Lieu, contrat, site de l'entreprise"
+              icon={SlidersHorizontal}
+              open={sections.details}
+              onToggle={() => setSections((s) => ({ ...s, details: !s.details }))}
+            >
+              <DetailsFields draft={draft} originalContract={initial?.contractType ?? ''} onChange={patch} />
+            </CollapsibleSection>
 
-        <div className="flex items-center justify-between gap-3 px-8 py-5 border-t border-[var(--color-border)]">
-          <button type="button" className="btn btn-secondary" onClick={onClose} disabled={saving}>Annuler</button>
-          <div className="flex items-center gap-2">
-            {step > 1 && (
-              <button type="button" className="btn btn-secondary" onClick={goPrev} disabled={saving}>
-                <ChevronLeft size={16} />
-                Précédent
-              </button>
-            )}
-            {step < 3 ? (
-              <button type="button" className="btn btn-primary" onClick={goNext} disabled={saving || (step === 1 && !step1Valid)}>
-                Suivant
-                <ChevronRight size={16} />
-              </button>
-            ) : (
-              <button type="button" className="btn btn-primary" onClick={handleSubmit} disabled={saving}>
-                {saving ? 'Enregistrement…' : 'Enregistrer'}
-              </button>
-            )}
+            <CollapsibleSection
+              title="Notes"
+              hint="Contact, impressions, points à préparer"
+              icon={StickyNote}
+              open={sections.notes}
+              onToggle={() => setSections((s) => ({ ...s, notes: !s.notes }))}
+            >
+              <textarea
+                aria-label="Notes"
+                className="input resize-y"
+                rows={4}
+                placeholder="Contact, impressions, points à préparer…"
+                value={draft.notes}
+                onChange={(e) => patch({ notes: e.target.value })}
+              />
+            </CollapsibleSection>
           </div>
+
+          {externalError && <p role="alert" className="text-sm text-[var(--color-danger)]">{externalError}</p>}
         </div>
-      </div>
+
+        <footer className="flex items-center justify-end gap-2 px-6 pt-4 pb-[max(1rem,env(safe-area-inset-bottom))] border-t border-[var(--color-border)]">
+          <span className="hidden sm:block mr-auto text-xs text-[var(--color-subtle)]">
+            Ctrl/⌘ + Entrée pour {isEditMode ? 'enregistrer' : 'ajouter'}
+          </span>
+          <button type="button" className="btn btn-ghost" onClick={onClose} disabled={saving}>Annuler</button>
+          <button
+            type="submit"
+            className="btn btn-primary disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none disabled:shadow-none"
+            disabled={saving || !canSave}
+          >
+            {saving ? 'Enregistrement…' : isEditMode ? 'Enregistrer' : 'Ajouter la candidature'}
+          </button>
+        </footer>
+      </form>
 
       {importerOpen && JobOfferImporter && (
         <Suspense fallback={null}>
-          <JobOfferImporter
-            onImport={handleImport}
-            onClose={() => setImporterOpen(false)}
-          />
+          <JobOfferImporter onImport={handleImport} onClose={() => setImporterOpen(false)} />
         </Suspense>
       )}
     </div>
