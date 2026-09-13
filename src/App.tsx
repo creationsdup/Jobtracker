@@ -2,6 +2,7 @@ import { lazy, Suspense, useState } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AppShell } from '@/components/layout/AppShell'
 import { LoginPage } from '@/pages/LoginPage'
+import { LiteAccessGate } from '@/components/access/LiteAccessGate'
 import { ResetPasswordPage } from '@/pages/ResetPasswordPage'
 import { DashboardPage } from '@/pages/DashboardPage'
 import { ApplicationsPage } from '@/pages/ApplicationsPage'
@@ -68,6 +69,8 @@ export function App() {
   }
 
   if (!isAuthenticated || !user) {
+    // WHY: en lite, pas d'inscription : on entre par un code d'accès (spec lite-access-code §3.1).
+    if (FEATURES.accessCode) return <LiteAccessGate />
     return <LoginPage onSignIn={signIn} onSignUp={signUp} onSignInWithGoogle={signInWithGoogle} onForgotPassword={sendPasswordReset} />
   }
 

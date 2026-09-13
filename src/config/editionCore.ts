@@ -2,7 +2,7 @@
 // pour être importable par vite.config.ts et testable par Vitest.
 
 export type Edition = 'lite' | 'full'
-export type FeatureKey = 'goals' | 'library' | 'ai'
+export type FeatureKey = 'goals' | 'library' | 'ai' | 'accessCode'
 export type FeatureFlags = Record<FeatureKey, boolean>
 
 export function resolveEdition(raw: string | undefined): Edition {
@@ -15,7 +15,8 @@ export function resolveEdition(raw: string | undefined): Edition {
 
 export function featuresFor(edition: Edition): FeatureFlags {
   const full = edition === 'full'
-  return { goals: full, library: full, ai: full }
+  // WHY: accessCode est le seul drapeau propre à lite (entrée par code au lieu des comptes classiques).
+  return { goals: full, library: full, ai: full, accessCode: !full }
 }
 
 export function filterByFeature<T extends { feature?: FeatureKey }>(items: readonly T[], flags: FeatureFlags): T[] {

@@ -22,12 +22,12 @@ describe('resolveEdition', () => {
 })
 
 describe('featuresFor', () => {
-  it('désactive toutes les fonctionnalités en lite', () => {
-    expect(featuresFor('lite')).toEqual({ goals: false, library: false, ai: false })
+  it("désactive les fonctionnalités complètes et active l'accès par code en lite", () => {
+    expect(featuresFor('lite')).toEqual({ goals: false, library: false, ai: false, accessCode: true })
   })
 
-  it('active toutes les fonctionnalités en full', () => {
-    expect(featuresFor('full')).toEqual({ goals: true, library: true, ai: true })
+  it('active les fonctionnalités complètes et garde les comptes classiques en full', () => {
+    expect(featuresFor('full')).toEqual({ goals: true, library: true, ai: true, accessCode: false })
   })
 })
 
@@ -38,8 +38,8 @@ describe('filterByFeature', () => {
     { id: 'apps' },
     { id: 'library', feature: 'library' },
   ]
-  const NONE: FeatureFlags = { goals: false, library: false, ai: false }
-  const ALL: FeatureFlags = { goals: true, library: true, ai: true }
+  const NONE: FeatureFlags = { goals: false, library: false, ai: false, accessCode: false }
+  const ALL: FeatureFlags = { goals: true, library: true, ai: true, accessCode: true }
 
   it('ne garde que les entrées sans feature quand tout est désactivé', () => {
     expect(filterByFeature(ITEMS, NONE).map((item) => item.id)).toEqual(['home', 'apps'])
