@@ -71,8 +71,8 @@ Libellé « RÉGLAGES », titre « Mon tableau », quatre sections :
    - « en attente de confirmation » (`user.new_email` présent) : « Un email de confirmation a été envoyé à <new_email>. Clique sur le lien reçu pour terminer. » + « Renvoyer » ;
    - « sécurisé » : « Sécurisé avec <email> ».
    - Email déjà utilisé : « Cet email est déjà utilisé par un autre compte. » ; format invalide : « Cet email n'est pas valide. »
-2. **Code d'accès** — « Ton code a fuité ? Génère-en un nouveau : l'ancien ne marchera plus. » ; bouton « Générer un nouveau code » → confirmation dans la page (« L'ancien code ne marchera plus. Continuer ? » + « Générer » / « Annuler ») → `CodeRevealPanel` (code affiché une fois, copier, « J'ai noté mon code » pour fermer).
-3. **Quitter ce tableau** — « Ferme le tableau sur cet appareil. Il faudra retaper le code. » → `supabase.auth.signOut()` → accueil.
+2. **Code d'accès** — « Ton code a fuité ? Génère-en un nouveau : l'ancien ne marchera plus et les autres appareils devront le retaper. » ; bouton « Générer un nouveau code » → confirmation dans la page (« L'ancien code ne marchera plus. Continuer ? » + « Générer » / « Annuler ») → `CodeRevealPanel` (code affiché une fois, copier, « J'ai noté mon code » pour fermer). Générer un nouveau code révoque aussi les sessions ouvertes sur les autres appareils (`board-rotate-code`, §4.4) : les sessions ouvertes sur les autres appareils sont fermées, seule celle qui vient de générer le code reste connectée.
+3. **Quitter ce tableau** — « Ferme le tableau sur cet appareil. Il faudra retaper le code. » → `supabase.auth.signOut({ scope: 'local' })` (ferme uniquement cet appareil) → accueil.
 4. **Supprimer mon tableau** (rouge) — « Efface définitivement le tableau et toutes ses candidatures. » → `DeleteBoardDialog` : taper `SUPPRIMER` pour activer « Supprimer définitivement » → fonction `board-delete` (§4.4) → `signOut()` → accueil.
 
 Aucune boîte de dialogue native du navigateur (`window.confirm`, `alert`) sur ces écrans.
@@ -114,6 +114,7 @@ create table public.access_attempts (
   primary key (bucket, window_start)
 );
 alter table public.access_attempts enable row level security;  -- aucune policy
+create index access_attempts_window_start_idx on public.access_attempts (window_start);
 
 create function public.hit_rate_limit(p_bucket text, p_limit integer, p_window_seconds integer)
 returns boolean
@@ -130,23 +131,50 @@ begin
   on conflict (bucket, window_start) do update set hits = public.access_attempts.hits + 1
   returning hits into v_hits;
 
-  delete from public.access_attempts
-  where bucket = p_bucket and window_start < now() - interval '24 hours';
+  -- WHY: purge globale (pas seulement le bucket courant), sinon un bucket qui n'est plus jamais
+  -- rappelé garde ses lignes indéfiniment.
+  delete from public.access_attempts where window_start < now() - interval '24 hours';
 
   return v_hits <= p_limit;
 end;
 $$;
 revoke all on function public.hit_rate_limit(text, integer, integer) from public, anon, authenticated;
 grant execute on function public.hit_rate_limit(text, integer, integer) to service_role;
+
+-- Défense en profondeur : RLS est déjà activée sans policy, on retire aussi les droits directs.
+revoke all on table public.board_access, public.access_attempts from anon, authenticated;
+
+-- Suppression atomique (une transaction) des données d'un tableau, appelée par board-delete avant
+-- admin.deleteUser. cv_documents et ats_analyses ne sont pas listées : elles cascadent déjà depuis
+-- auth.users. tasks.user_id et user_goals.user_id référencent auth.users sans cascade : sans cette
+-- fonction, admin.deleteUser échouerait (contrainte de clé étrangère) si ces tables contiennent des
+-- lignes pour le tableau.
+create function public.delete_board_data(p_user_id uuid)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  delete from "TimelineStep" where "applicationId" in (select id from "Application" where "userId" = p_user_id::text);
+  delete from "Application" where "userId" = p_user_id::text;
+  delete from "OrgLogo" where "userId" = p_user_id::text;
+  delete from "Profile" where id = p_user_id;
+  delete from public.tasks where user_id = p_user_id;
+  delete from public.user_goals where user_id = p_user_id;
+end;
+$$;
+revoke all on function public.delete_board_data(uuid) from public, anon, authenticated;
+grant execute on function public.delete_board_data(uuid) to service_role;
 ```
 
 ### 4.4 Fonctions serveur (Deno, même structure que `delete-account`)
 
 Code partagé dans `supabase/functions/_shared/` (imports relatifs avec extension `.ts`) :
 - `accessCode.ts` — module pur §4.6 ;
+- `clientIp.ts` — module pur : `clientIpFromHeaders(get)` détermine l'IP appelante à partir de `cf-connecting-ip` (non falsifiable par le client) sinon de la **dernière** entrée de `x-forwarded-for` (la première peut être fixée par le client, l'infrastructure ajoute la vraie IP en dernier), sinon `'unknown'` ; une IPv6 est regroupée par `/64` (`h1:h2:h3:h4::/64`) pour ne pas fragmenter la limite par adresse, une IPv4 (y compris IPv4-mappée `::ffff:a.b.c.d`) reste une adresse exacte ;
 - `http.ts` — en-têtes CORS (identiques à `delete-account`), `json(payload, status)`, réponse `OPTIONS` ;
-- `supabaseAdmin.ts` — client `service_role` depuis `SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY`, `getCaller(req)` (utilisateur du JWT via `auth.getUser`, `null` si absent ou invalide) ;
-- `rateLimit.ts` — `clientIpBucket(req, action, pepper)` (première valeur de `x-forwarded-for`, `HMAC-SHA-256(CODE_PEPPER, 'ip:' + ip)`, préfixe `action:`) et `allow(bucket, limit, windowSeconds)` (RPC `hit_rate_limit`).
+- `supabaseDeps.ts` — client `service_role` depuis `SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY`, `getCaller(ctx, req): Promise<{ id, token } | null>` (utilisateur du JWT via `auth.getUser`, `null` si absent ou invalide), `ipKey(ctx, req)` (`clientIpFromHeaders` puis `HMAC-SHA-256(CODE_PEPPER, 'ip:' + ip)`) et `allow(bucket, limit, windowSeconds)` (RPC `hit_rate_limit`).
 
 Secret requis : `CODE_PEPPER`. Toute fonction renvoie 500 `{ error: 'server_misconfigured' }` s'il manque un secret.
 
@@ -159,8 +187,8 @@ Secret requis : `CODE_PEPPER`. Toute fonction renvoie 500 `{ error: 'server_misc
 
 - **`board-create`** : limite (429 `{ error: 'rate_limited' }`) → génère le code → `admin.createUser` → insert `board_access` (en cas de conflit d'unicité sur `code_hash` : nouveau code, un seul réessai) → `admin.generateLink({ type: 'magiclink', email })` → `{ code, tokenHash: properties.hashed_token }`. Si une étape échoue après la création de l'utilisateur, il est supprimé (`admin.deleteUser`) avant de répondre 500 `{ error: 'create_failed' }`.
 - **`board-open`** : limite (429) → normalise ; format invalide → 400 `{ error: 'invalid_format' }` → lookup par `code_hash` ; absent → 401 `{ error: 'invalid_code' }` → `admin.getUserById` → `generateLink` magiclink sur l'email **actuel** (technique ou réel) → `last_opened_at = now()` → `{ tokenHash }`. Le code marche donc aussi après sécurisation.
-- **`board-rotate-code`** : `getCaller` (401 sinon) → limite `rotate:<user_id>` (429) → nouveau code → `update board_access set code_hash, code_rotated_at = now() where user_id` ; aucune ligne mise à jour (compte classique sans tableau) → 404 `{ error: 'not_a_board' }` → `{ code }`.
-- **`board-delete`** : `getCaller` (401 sinon) → vérifie qu'une ligne `board_access` existe (404 `not_a_board` sinon, pour ne jamais supprimer un compte classique par cette voie) → supprime, avec le client `service_role` et dans cet ordre : `"TimelineStep"` des candidatures de l'utilisateur, `"Application"` (`userId`), `"OrgLogo"` (`userId`), `"Profile"` (`id`) → `admin.deleteUser(user_id)` (la ligne `board_access` part en cascade) → `{ success: true }`. WHY une fonction dédiée : `delete-account` ne supprime pas les lignes keyées par `userId` texte (pas de cascade depuis `auth.users`) et porte une modification non commitée de l'utilisateur, que cette branche ne touche pas.
+- **`board-rotate-code`** : `getCaller` (401 sinon) → limite `rotate:<user_id>` (429) → nouveau code → `update board_access set code_hash, code_rotated_at = now() where user_id` ; aucune ligne mise à jour (compte classique sans tableau) → 404 `{ error: 'not_a_board' }` → sur succès, `admin.auth.admin.signOut(caller.token, 'others')` pour révoquer les sessions ouvertes sur les autres appareils avec l'ancien code (best-effort : un échec de révocation ne bloque pas la réponse, l'ancien code est de toute façon déjà refusé) → `{ code }`.
+- **`board-delete`** : `getCaller` (401 sinon) → vérifie qu'une ligne `board_access` existe (404 `not_a_board` sinon, pour ne jamais supprimer un compte classique par cette voie) → `admin.rpc('delete_board_data', { p_user_id })` (une transaction : `"TimelineStep"`, `"Application"`, `"OrgLogo"`, `"Profile"`, `tasks`, `user_goals` — §4.3) → `admin.deleteUser(user_id)` (la ligne `board_access` part en cascade) → `{ success: true }`. WHY une fonction dédiée : `delete-account` ne supprime pas les lignes keyées par `userId` texte (pas de cascade depuis `auth.users`) et porte une modification non commitée de l'utilisateur, que cette branche ne touche pas.
 - Côté client, `tokenHash` est échangé par `supabase.auth.verifyOtp({ token_hash, type: 'magiclink' })`, qui crée une session persistée normale.
 - CORS : mêmes en-têtes que `delete-account` (`*`) ; la restriction au domaine de prod reste un prérequis de lancement (hors périmètre).
 
@@ -226,7 +254,8 @@ Actions sur le projet live, hors du dépôt, réalisées par l'utilisateur (ou p
 | Savoir si un code ou un email existe | Erreurs génériques ; même écran « Regarde ta boîte mail » |
 | Fuite de la base | Codes stockés en HMAC avec pepper secret ; IP hachées |
 | Code dans l'historique / les logs serveur | Raccourci en fragment `#` (jamais envoyé au serveur) et retiré de l'adresse ; code jamais journalisé |
-| Code qui a fuité | « Générer un nouveau code » invalide l'ancien immédiatement |
+| Code qui a fuité | « Générer un nouveau code » invalide l'ancien immédiatement et révoque les sessions ouvertes ailleurs (`admin.auth.admin.signOut(token, 'others')`) |
+| En-tête IP falsifié par le client | `cf-connecting-ip` (posé par l'infrastructure, non falsifiable) sinon la dernière entrée de `x-forwarded-for` ; jamais la première, que le client peut fixer lui-même |
 | Création massive de tableaux par un robot | 5 créations / heure / IP (captcha hors périmètre) |
 | Faute de frappe à la sécurisation | Email remplacé seulement après clic sur le lien reçu |
 | Création de compte via lien magique | `shouldCreateUser: false` |
@@ -237,6 +266,9 @@ Actions sur le projet live, hors du dépôt, réalisées par l'utilisateur (ou p
 
 - **Vitest** :
   - `accessCode` : alphabet (30 symboles, aucun de `0 O 1 I L U`) ; `generateAccessCode` (longueur 12, symboles de l'alphabet, 1 000 codes tous différents) ; `normalizeAccessCode` (minuscules, espaces, tirets) ; `isValidAccessCode` (longueur, symbole interdit) ; `formatAccessCode` ; `parseShortcutHash` (`#k7q2-m9xp-4rwd` → `K7Q2M9XP4RWD`, `#access_token=…` → `null`, `''` → `null`, code invalide → `null`) ; `hashAccessCode` (déterministe, dépend du pepper, 64 caractères hex) ; `isBoardEmail` (`board-x@boards.jobtracker.invalid` → vrai, email réel → faux, `null` → faux).
+  - `clientIp` : `cf-connecting-ip` l'emporte sur un `x-forwarded-for` falsifié ; dernière entrée de `x-forwarded-for` retenue sinon ; `'unknown'` sans en-tête ; espaces retirés ; deux IPv6 du même `/64` (forme complète et compressée) donnent la même clé, deux `/64` différents donnent des clés différentes ; `::ffff:1.2.3.4` → `1.2.3.4`.
+  - `shortcutLocation` (`takeShortcutCode`) : fragment valide → code normalisé + `replaceUrl` appelé avec `pathname + search` ; retour de lien magique ou fragment vide → chaîne vide et `replaceUrl` non appelé.
+  - `boardHandlers` : en plus des cas de la version initiale, `insertAccess` renvoyant `'error'` (pas `'conflict'`) → 500 `create_failed`, un seul appel à `insertAccess` (pas de réessai), `deleteUser` appelé ; `handleRotate`/`handleDelete` prennent un `BoardCaller | null` (`{ id, token }`) ; `revokeOtherSessions` appelé avec le jeton de l'appelant après une mise à jour réussie du code, jamais appelé sur `not_found`/`error`, et la réponse reste 200 avec le code même si `revokeOtherSessions` renvoie `false`.
   - `editionCore` : drapeau `accessCode` (lite `true`, full `false`).
 - **Non-régression** : `npx tsc`, `npm run lint`, `npm test`, `npm run build:lite` (contrôle du bundle toujours propre), `npm run build:full`.
 - **Intégration sur le projet Supabase** (après §4.7, avec accord) : créer un tableau → l'ouvrir avec le code dans un autre navigateur → ajouter une candidature et une étape → nouveau code : l'ancien est refusé (401), le nouveau marche → 11 codes faux : 429 → sécuriser avec un email → recevoir et suivre le lien magique → supprimer le tableau : code refusé ensuite, aucune ligne `board_access`, `"Application"`, `"TimelineStep"` restante pour cet utilisateur.

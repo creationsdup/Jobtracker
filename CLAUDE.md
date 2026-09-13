@@ -255,7 +255,7 @@ L'app se construit en deux éditions à partir du même code, choisies **au buil
 
 | Édition | Contenu | Usage |
 |---|---|---|
-| `lite` (**défaut**) | Accueil, Candidatures (liste/grille/kanban, formulaire, fiche détail), Profil | Déploiement public |
+| `lite` (**défaut**) | Accueil, Candidatures (liste/grille/kanban, formulaire, fiche détail), « Mon tableau » (accès par code, sans inscription) | Déploiement public |
 | `full` | Tout, dont IA, Objectifs (score de match) et Bibliothèque | Usage personnel |
 
 - En local, mettre `VITE_EDITION=full` dans `.env.local` pour retrouver toutes les fonctions. Sans variable, on obtient `lite` (fail-closed). Une valeur invalide fait échouer le build.
@@ -274,6 +274,7 @@ L'app se construit en deux éditions à partir du même code, choisies **au buil
 - Fonctions : `board-create` et `board-open` sans JWT, `board-rotate-code` et `board-delete` avec JWT. Toute la logique est dans `supabase/functions/_shared/boardHandlers.ts` (pur, testé par Vitest) ; les `index.ts` restent minces. `deno` et la CLI Supabase ne sont pas installés en local.
 - Règles : ne jamais stocker ni journaliser un code en clair ; ne jamais afficher l'email technique ; pour supprimer un tableau, `board-delete` (pas `delete-account`, qui laisse les lignes keyées par `userId` texte).
 - Configuration Supabase requise : secret `CODE_PEPPER`, migration `20260913120000_board_access.sql`, déploiement des 4 fonctions, « Secure email change » désactivé, SMTP personnalisé, URLs de redirection.
+- IP de rate-limit : `cf-connecting-ip` sinon la dernière entrée de `x-forwarded-for` (jamais la première, falsifiable par le client) ; une IPv6 est regroupée par /64. Générer un nouveau code révoque les sessions ouvertes sur les autres appareils (`admin.auth.admin.signOut(token, 'others')`). « Quitter » ferme uniquement la session locale (`scope: 'local'`). La suppression d'un tableau exécute `delete_board_data` (une transaction) avant `admin.deleteUser`.
 - Spec : `docs/superpowers/specs/2026-09-13-lite-access-code-design.md`.
 
 ---
