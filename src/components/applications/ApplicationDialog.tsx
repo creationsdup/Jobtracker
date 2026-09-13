@@ -20,7 +20,7 @@ interface ApplicationDialogProps {
   appear?: boolean
 }
 
-const PANEL_CLASS = 'w-full max-h-[92dvh] sm:max-h-[calc(100dvh-48px)] flex flex-col bg-[var(--color-surface)] rounded-t-[var(--radius-xl)] sm:rounded-[var(--radius-xl)] shadow-[var(--shadow-lg)] transition-[max-width] duration-300 ease-out'
+const PANEL_CLASS = 'w-full max-h-[92dvh] sm:max-h-[calc(100dvh-48px)] flex flex-col bg-[var(--color-surface)] rounded-t-[var(--radius-xl)] sm:rounded-[var(--radius-xl)] shadow-[var(--shadow-lg)]'
 
 // Cadre commun au formulaire et à la fiche d'une candidature : fenêtre centrée (pleine largeur sur
 // téléphone), en-tête, contenu qui défile, colonne de droite et pied facultatifs.

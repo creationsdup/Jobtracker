@@ -415,7 +415,8 @@ export function ApplicationDetail({
       </div>
 
       {pickerOpen && (
-        <div className="lg:col-start-2 lg:row-start-1 lg:row-span-3 flex flex-col gap-2 rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] p-3 animate-fade-slide-down">
+        // WHY: pas d'animation d'apparition — la fenêtre s'élargit d'un coup, seuls les boutons s'ajoutent.
+        <div className="lg:col-start-2 lg:row-start-1 lg:row-span-3 flex flex-col gap-2 rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg)] p-3">
           <div className="flex items-center justify-between gap-2">
             <h4 className="text-sm font-semibold text-[var(--color-ink)]">Ajouter une étape</h4>
             <button type="button" className="btn btn-ghost p-1" aria-label="Fermer le choix d'étape" onClick={closePicker}>
@@ -438,7 +439,7 @@ export function ApplicationDetail({
           ))}
 
           {customStepOpen && (
-            <form ref={formRef} onSubmit={handleAddStep} className="mt-1 flex flex-col gap-2.5 rounded-[var(--radius-sm)] border border-[var(--color-border)] bg-white p-3 animate-fade-slide-down">
+            <form ref={formRef} onSubmit={handleAddStep} className="mt-1 flex flex-col gap-2.5 rounded-[var(--radius-sm)] border border-[var(--color-border)] bg-white p-3">
               <div className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--color-muted)]">
                 Étape libre
               </div>
