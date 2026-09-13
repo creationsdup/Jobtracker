@@ -68,7 +68,9 @@ export function useBoardAccess() {
   }, [])
 
   const leaveBoard = useCallback(async (): Promise<void> => {
-    await supabase.auth.signOut()
+    // WHY: « Quitter » ne doit fermer que cet appareil ; un signOut global déconnecterait aussi
+    // les autres appareils qui ont ouvert le même tableau avec le code.
+    await supabase.auth.signOut({ scope: 'local' })
   }, [])
 
   const deleteBoard = useCallback(async (): Promise<string | null> => {

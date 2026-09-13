@@ -34,7 +34,7 @@ function Help({ children }: { children: ReactNode }) {
 
 export function MyBoardPage() {
   const { secureWithEmail, rotateCode, leaveBoard, deleteBoard } = useBoardAccess()
-  const { email, pendingEmail, refresh } = useBoardUser()
+  const { email, pendingEmail, loading, refresh } = useBoardUser()
 
   const [newEmail, setNewEmail] = useState('')
   const [emailBusy, setEmailBusy] = useState(false)
@@ -90,11 +90,15 @@ export function MyBoardPage() {
     }
   }
 
-  const pill = secured
-    ? <Pill tone="success">sécurisé</Pill>
-    : pendingEmail
-      ? <Pill tone="info">en attente de confirmation</Pill>
-      : <Pill tone="warning">non sécurisé</Pill>
+  // WHY: sans cette garde, la pastille affiche « non sécurisé » le temps que le premier
+  // getUser() résolve, ce qui donne un flash trompeur avant que l'état réel soit connu.
+  const pill = loading
+    ? null
+    : secured
+      ? <Pill tone="success">sécurisé</Pill>
+      : pendingEmail
+        ? <Pill tone="info">en attente de confirmation</Pill>
+        : <Pill tone="warning">non sécurisé</Pill>
 
   return (
     <div className="mx-auto w-full max-w-[560px]">
@@ -102,7 +106,9 @@ export function MyBoardPage() {
       <Title>Mon tableau</Title>
 
       <Section title={<>Sécuriser avec mon email{pill}</>}>
-        {secured ? (
+        {loading ? (
+          <Help>Chargement…</Help>
+        ) : secured ? (
           <Help>Sécurisé avec {email}</Help>
         ) : pendingEmail ? (
           <>
@@ -128,7 +134,7 @@ export function MyBoardPage() {
           </>
         ) : rotateStep === 'idle' ? (
           <>
-            <Help>Ton code a fuité ? Génère-en un nouveau : l'ancien ne marchera plus.</Help>
+            <Help>Ton code a fuité ? Génère-en un nouveau : l'ancien ne marchera plus et les autres appareils devront le retaper.</Help>
             <SecondaryButton onClick={() => setRotateStep('confirm')}>Générer un nouveau code</SecondaryButton>
           </>
         ) : (
