@@ -223,3 +223,27 @@ body {
     display: none;
   }
 }
+
+/* ===== KANBAN : carte soulevée pendant le glisser ===== */
+/* La copie qui suit le pointeur se soulève, puis se repose pendant l'atterrissage
+   (dnd-kit pose .kanban-overlay-dropping sur le calque au moment du lâcher). */
+.kanban-lift {
+  box-shadow: var(--shadow-soft);
+  transition: transform 160ms cubic-bezier(0.2, 0, 0, 1), box-shadow 160ms ease-out;
+}
+.kanban-lift[data-lifted='true'] {
+  transform: scale(1.03) rotate(1.5deg);
+  box-shadow: var(--shadow-lg);
+}
+.kanban-overlay-dropping .kanban-lift[data-lifted='true'] {
+  transform: none;
+  box-shadow: var(--shadow-soft);
+}
+@media (prefers-reduced-motion: reduce) {
+  .kanban-lift {
+    transition: none;
+  }
+  .kanban-lift[data-lifted='true'] {
+    transform: none;
+  }
+}

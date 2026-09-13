@@ -1,22 +1,19 @@
 // src/pages/KanbanPage.tsx
-// Kanban avec drag & drop via @dnd-kit
-// Installation requise : npm install @dnd-kit/core @dnd-kit/sortable @dnd-kit/utilities
+// Kanban avec glisser-déposer via @dnd-kit : une carte lâchée change de colonne tout de suite,
+// l'enregistrement Supabase suit en arrière-plan.
 import {
-  DndContext, DragEndEvent, DragOverlay, DragStartEvent,
-  PointerSensor, useDroppable, useSensor, useSensors, closestCorners,
+  DndContext, DragOverlay, PointerSensor, defaultDropAnimationSideEffects, pointerWithin, rectIntersection,
+  useDroppable, useSensor, useSensors,
+  type CollisionDetection, type DragEndEvent, type DragStartEvent, type DropAnimation,
 } from '@dnd-kit/core'
-import { SortableContext, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable'
-import { CSS } from '@dnd-kit/utilities'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Search } from 'lucide-react'
-import { formatDate } from '@/lib/utils'
-import { calculateJobMatch, applicationToJobMatchInput } from '@/lib/jobMatching'
-import { MatchScoreBadge } from '@/components/applications/MatchScoreBadge'
-import { MatchDetailsModal } from '@/components/applications/MatchDetailsModal'
-import { CompanyLogo } from '@/components/applications/CompanyLogo'
+import { KanbanCard, KanbanCardOverlay } from '@/components/applications/KanbanCard'
 import { EmptyDropZone } from '@/components/ui/EmptyDropZone'
+import { applyPendingMoves, resolveDropStatus, settlePendingMoves, withMove, withoutMove, type PendingMoves } from '@/lib/kanbanDrag'
 import type { Application, ApplicationStatus, UserGoal } from '@/lib/types'
 import { KANBAN_COLUMNS, STATUS_LABELS } from '@/lib/types'
+import { cn } from '@/lib/utils'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -42,52 +39,26 @@ const COLUMN_TINT: Record<ApplicationStatus, { bg: string; accent: string }> = {
   WITHDRAWN:      { bg: 'var(--color-red-light)',        accent: 'var(--color-danger)' },
 }
 
-// ─── Sortable Card ────────────────────────────────────────────────────────────
+// WHY: seules les colonnes reçoivent une carte ; on vise celle sous le pointeur, sinon la plus proche.
+const collisionDetection: CollisionDetection = (args) => {
+  const underPointer = pointerWithin(args)
+  return underPointer.length > 0 ? underPointer : rectIntersection(args)
+}
 
-function SortableCard({ app, goal, onOpen, logoUrl }: { app: Application; goal?: UserGoal | null; onOpen: () => void; logoUrl?: string }) {
-  const match = goal ? calculateJobMatch(applicationToJobMatchInput(app), goal) : null
-  const [showDetails, setShowDetails] = useState(false)
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: app.id })
+// La copie soulevée vient se poser dans la nouvelle colonne pendant que la carte réelle reste masquée.
+const DROP_ANIMATION: DropAnimation = {
+  duration: 220,
+  easing: 'cubic-bezier(0.2, 0, 0, 1)',
+  sideEffects: defaultDropAnimationSideEffects({
+    styles: { active: { opacity: '0' } },
+    className: { dragOverlay: 'kanban-overlay-dropping' },
+  }),
+}
 
-  return (
-    <div
-      ref={setNodeRef}
-      style={{
-        transform: CSS.Transform.toString(transform),
-        transition,
-        opacity: isDragging ? 0.4 : 1,
-        background: '#ffffff',
-        border: '1px solid rgba(148, 163, 184, 0.25)',
-        boxShadow: 'var(--shadow-soft)',
-      }}
-      {...attributes}
-      {...listeners}
-      className="rounded-[var(--radius-lg)] px-3.5 py-3.5 cursor-grab active:cursor-grabbing select-none transition-shadow hover:shadow-[var(--shadow-md)]"
-      onClick={onOpen}
-    >
-      <div className="flex items-start gap-2.5">
-        <CompanyLogo company={app.company} logoUrl={logoUrl} size={32} />
-        <div className="min-w-0 flex-1">
-          <p className="font-semibold text-sm leading-snug text-[var(--color-text)] break-words" title={app.position}>{app.position}</p>
-          <p className="text-xs text-[var(--color-muted)] mt-1 truncate" title={app.company}>{app.company}</p>
-        </div>
-      </div>
-      <div className="flex items-center gap-2 mt-3 text-[11px] text-[var(--color-muted)]">
-        <span className="truncate">{app.location ?? '—'}</span>
-        {app.appliedAt && (
-          <>
-            <span className="flex-shrink-0">·</span>
-            <span className="flex-shrink-0 whitespace-nowrap">{formatDate(app.appliedAt)}</span>
-          </>
-        )}
-      </div>
-      <div className="flex items-center justify-between gap-2 mt-2.5 pt-2.5 border-t" style={{ borderColor: 'var(--color-border)' }}>
-        {match ? <MatchScoreBadge result={match} onClick={() => setShowDetails(true)} /> : <span />}
-        <span className="text-[11px] font-semibold" style={{ color: 'var(--color-accent)' }}>Voir →</span>
-      </div>
-      {showDetails && match && <MatchDetailsModal result={match} onClose={() => setShowDetails(false)} />}
-    </div>
-  )
+function prefersReducedMotion(): boolean {
+  return typeof window !== 'undefined'
+    && typeof window.matchMedia === 'function'
+    && window.matchMedia('(prefers-reduced-motion: reduce)').matches
 }
 
 // ─── Column ───────────────────────────────────────────────────────────────────
@@ -101,13 +72,18 @@ function KanbanColumn({
   onOpen: (app: Application) => void
   resolveLogo: (company: string) => string | undefined
 }) {
-  const { setNodeRef } = useDroppable({ id: status })
+  const { setNodeRef, isOver } = useDroppable({ id: status })
   const tint = COLUMN_TINT[status]
 
   return (
     <div
-      className="flex flex-col gap-3 w-[82vw] sm:w-[270px] min-w-[230px] sm:min-w-[270px] flex-shrink-0 snap-start rounded-[var(--radius-lg)] p-2.5"
-      style={{ background: tint.bg, border: '1px solid rgba(148, 163, 184, 0.18)' }}
+      ref={setNodeRef}
+      className="flex flex-col gap-3 w-[82vw] sm:w-[270px] min-w-[230px] sm:min-w-[270px] flex-shrink-0 snap-start rounded-[var(--radius-lg)] p-2.5 transition-shadow duration-150"
+      style={{
+        background: tint.bg,
+        border: '1px solid rgba(148, 163, 184, 0.18)',
+        boxShadow: isOver ? `inset 0 0 0 2px ${tint.accent}` : undefined,
+      }}
     >
       <div
         className="px-3.5 py-2.5 flex items-center justify-between rounded-[12px] bg-white"
@@ -123,14 +99,12 @@ function KanbanColumn({
         >{apps.length}</span>
       </div>
 
-      <SortableContext items={apps.map(a => a.id)} strategy={verticalListSortingStrategy}>
-        <div ref={setNodeRef} className="flex flex-col gap-2.5 min-h-[80px]">
-          {apps.map(app => (
-            <SortableCard key={app.id} app={app} goal={goal} onOpen={() => onOpen(app)} logoUrl={resolveLogo(app.company)} />
-          ))}
-          {apps.length === 0 && <EmptyDropZone />}
-        </div>
-      </SortableContext>
+      <div className="flex flex-col gap-2.5 min-h-[80px]">
+        {apps.map(app => (
+          <KanbanCard key={app.id} app={app} goal={goal} onOpen={() => onOpen(app)} logoUrl={resolveLogo(app.company)} />
+        ))}
+        {apps.length === 0 && <EmptyDropZone />}
+      </div>
     </div>
   )
 }
@@ -138,46 +112,53 @@ function KanbanColumn({
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
 export function KanbanPage({ applications, goal, onStatusChange, onOpenDetail, resolveLogo, standalone = true }: KanbanPageProps) {
-  const [activeApp, setActiveApp] = useState<Application | null>(null)
+  const [activeId, setActiveId] = useState<string | null>(null)
   const [search, setSearch] = useState('')
   const [dragError, setDragError] = useState<string | null>(null)
+  const [pendingMoves, setPendingMoves] = useState<PendingMoves>({})
+  const [reducedMotion] = useState(prefersReducedMotion)
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
   )
 
+  // WHY: une carte lâchée s'affiche aussitôt dans sa nouvelle colonne, sans attendre la réponse de Supabase.
+  const displayed = useMemo(() => applyPendingMoves(applications, pendingMoves), [applications, pendingMoves])
+
+  useEffect(() => {
+    setPendingMoves((prev) => settlePendingMoves(prev, applications))
+  }, [applications])
+
   const visibleApplications = useMemo(() => {
     const q = search.trim().toLowerCase()
-    if (!q) return applications
-    return applications.filter((a) => a.company.toLowerCase().includes(q) || a.position.toLowerCase().includes(q))
-  }, [applications, search])
+    if (!q) return displayed
+    return displayed.filter((a) => a.company.toLowerCase().includes(q) || a.position.toLowerCase().includes(q))
+  }, [displayed, search])
 
   const grouped = KANBAN_COLUMNS.reduce<Record<ApplicationStatus, Application[]>>((acc, col) => {
     acc[col] = visibleApplications.filter(a => a.status === col)
     return acc
   }, {} as Record<ApplicationStatus, Application[]>)
 
+  const activeApp = activeId ? displayed.find((a) => a.id === activeId) ?? null : null
+
   function handleDragStart(event: DragStartEvent) {
-    const app = applications.find(a => a.id === event.active.id)
-    setActiveApp(app ?? null)
+    setActiveId(String(event.active.id))
   }
 
   function handleDragEnd(event: DragEndEvent) {
-    setActiveApp(null)
-    const { active, over } = event
-    if (!over) return
-
-    // Find target column — `over.id` can be a card id or a column status
-    const targetStatus = KANBAN_COLUMNS.find(col => col === over.id)
-      ?? applications.find(a => a.id === over.id)?.status
-
-    if (!targetStatus) return
-    const draggedApp = applications.find(a => a.id === active.id)
-    if (!draggedApp || draggedApp.status === targetStatus) return
+    setActiveId(null)
+    const draggedId = String(event.active.id)
+    const targetStatus = resolveDropStatus(event.over?.id, displayed)
+    const dragged = displayed.find((a) => a.id === draggedId)
+    if (!targetStatus || !dragged || dragged.status === targetStatus) return
 
     setDragError(null)
-    onStatusChange(draggedApp.id, targetStatus).then((err) => {
-      if (err) setDragError(err)
+    setPendingMoves((prev) => withMove(prev, draggedId, targetStatus))
+    onStatusChange(draggedId, targetStatus).then((err) => {
+      if (!err) return
+      setPendingMoves((prev) => withoutMove(prev, draggedId))
+      setDragError(err)
     })
   }
 
@@ -207,11 +188,13 @@ export function KanbanPage({ applications, goal, onStatusChange, onOpenDetail, r
 
       <DndContext
         sensors={sensors}
-        collisionDetection={closestCorners}
+        collisionDetection={collisionDetection}
         onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
+        onDragCancel={() => setActiveId(null)}
       >
-        <div className="flex gap-4 pb-4 overflow-x-auto snap-x snap-mandatory">
+        {/* WHY: l'aimantation du défilement contrarie le défilement automatique pendant le glisser. */}
+        <div className={cn('flex gap-4 pb-4 overflow-x-auto', activeApp ? 'snap-none' : 'snap-x snap-mandatory')}>
           {KANBAN_COLUMNS.map(col => (
             <KanbanColumn
               key={col}
@@ -224,15 +207,9 @@ export function KanbanPage({ applications, goal, onStatusChange, onOpenDetail, r
           ))}
         </div>
 
-        <DragOverlay>
+        <DragOverlay dropAnimation={reducedMotion ? null : DROP_ANIMATION}>
           {activeApp && (
-            <div className="rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-3 shadow-xl opacity-90 rotate-1 cursor-grabbing flex items-start gap-3">
-              <CompanyLogo company={activeApp.company} logoUrl={resolveLogo(activeApp.company)} size={32} />
-              <div className="min-w-0">
-                <p className="font-semibold text-sm">{activeApp.position}</p>
-                <p className="text-xs text-[var(--color-muted)] mt-0.5">{activeApp.company}</p>
-              </div>
-            </div>
+            <KanbanCardOverlay app={activeApp} goal={goal} logoUrl={resolveLogo(activeApp.company)} />
           )}
         </DragOverlay>
       </DndContext>
