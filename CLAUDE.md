@@ -101,7 +101,7 @@ Un prototype HTML/JSX complet existe dans `candidature-prototype/`. Il contient 
 | `user_goals` | `id uuid`, `user_id uuid` → `auth.users.id` | ✅ | `auth.uid() = user_id` (ALL) — **remplace `"UserGoal"` (legacy, voir plus bas)** |
 | `company_domains` | `id uuid` (pas de `user_id`, catalogue partagé) | ✅ | SELECT public ; INSERT libre (authenticated) ; UPDATE limité aux lignes dont `domain` est vide (durci le 2026-06-19, voir `supabase/migrations/20260619030000_harden_company_domains_and_resume_rls.sql`) |
 
-`"Application"` a un FK `resumeId → "Resume".id` et `userId → "User".id`, mais ces deux tables cibles sont **legacy** (voir ci-dessous) — ne pas s'appuyer sur elles pour de nouvelles features.
+`"Application"` a un FK `resumeId → "Resume".id` (table **legacy**, voir ci-dessous) — ne pas s'appuyer dessus pour de nouvelles features. Les FK `userId → "User".id` de `"Application"`, `"OrgLogo"`, `"Experience"`, `"Resume"` et `"UserGoal"` ont été **supprimées le 2026-09-13** (`supabase/migrations/20260913140000_drop_legacy_user_fks.sql`) : `"User"` ne contenait que le compte de l'auteur, donc tout autre compte (tableaux par code, nouveaux comptes classiques) ne pouvait rien enregistrer. La propriété des lignes repose sur les policies RLS `"userId" = auth.uid()::text`.
 
 ### Tables legacy / orphelines (RLS activé, aucune policy = deny-all côté client, mais code mort)
 

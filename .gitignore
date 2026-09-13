@@ -29,6 +29,9 @@ npm-debug.log*
 # Git worktrees for isolated feature work
 .worktrees/
 
+# Supabase CLI local state (version cache, linked project)
+supabase/.temp/
+
 # Capacitor / Xcode
 ios/App/Pods/
 ios/App/build/
