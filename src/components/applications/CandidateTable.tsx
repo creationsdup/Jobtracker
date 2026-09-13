@@ -6,6 +6,7 @@ import { MatchDetailsModal } from './MatchDetailsModal'
 import { CompanyLogo } from './CompanyLogo'
 import { formatDate } from '@/lib/utils'
 import { calculateJobMatch, applicationToJobMatchInput } from '@/lib/jobMatching'
+import { FEATURES } from '@/config/edition'
 import type { Application, UserGoal } from '@/lib/types'
 
 interface CandidateTableProps {
@@ -29,12 +30,14 @@ export function CandidateTable({ applications, goal, onOpenDetail, onEdit, onDel
           <col className="w-[14%]" />
           <col className="w-[14%]" />
           <col className="w-[12%]" />
-          <col className="w-[10%]" />
+          {/* WHY: en lite, goal est toujours null et la colonne Match resterait vide en permanence
+              (voir FEATURES.goals — spec §4.5) : on ne la rend pas du tout. */}
+          {FEATURES.goals && <col className="w-[10%]" />}
           <col className="w-[6%]" />
         </colgroup>
         <thead>
           <tr style={{ borderBottom: '1px solid var(--color-border)' }}>
-            {['Poste', 'Entreprise', 'Lieu', 'Statut', 'Date', 'Match', ''].map((col) => (
+            {['Poste', 'Entreprise', 'Lieu', 'Statut', 'Date', ...(FEATURES.goals ? ['Match'] : []), ''].map((col) => (
               <th
                 key={col}
                 className="px-3 py-3 text-[11px] font-semibold uppercase tracking-[0.08em] truncate"
@@ -69,9 +72,11 @@ export function CandidateTable({ applications, goal, onOpenDetail, onEdit, onDel
                 <td className="px-3 py-3.5 text-[13px] truncate" style={{ color: 'var(--color-muted)' }}>
                   {formatDate(app.appliedAt ?? app.createdAt)}
                 </td>
-                <td className="px-3 py-3.5">
-                  {match ? <MatchScoreBadge result={match} onClick={() => setDetailsFor(match)} /> : <span className="text-[12px]" style={{ color: 'var(--color-subtle)' }}>—</span>}
-                </td>
+                {FEATURES.goals && (
+                  <td className="px-3 py-3.5">
+                    {match ? <MatchScoreBadge result={match} onClick={() => setDetailsFor(match)} /> : <span className="text-[12px]" style={{ color: 'var(--color-subtle)' }}>—</span>}
+                  </td>
+                )}
                 <td className="px-2 py-3.5 text-right" onClick={(e) => e.stopPropagation()}>
                   <div className="flex items-center justify-end gap-1">
                     <button
