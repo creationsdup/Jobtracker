@@ -104,7 +104,7 @@ export function ApplicationForm({ initial, userId, onSave, onSaveCompanyWebsite,
     }
   }
 
-  // Colonne de droite, comme la fiche : les boutons, puis les détails et les notes.
+  // Colonne de droite : les boutons, puis les notes sur toute la hauteur restante.
   const aside = (
     <>
       <div className="flex flex-col gap-2">
@@ -122,13 +122,11 @@ export function ApplicationForm({ initial, userId, onSave, onSaveCompanyWebsite,
         {externalError && <p role="alert" className="text-sm text-[var(--color-danger)]">{externalError}</p>}
       </div>
 
-      <DetailsFields draft={draft} originalContract={initial?.contractType ?? ''} onChange={patch} />
-
-      <div className="flex flex-col gap-1.5">
+      <div className="flex flex-col gap-1.5 md:flex-1">
         <label htmlFor="application-notes" className="text-xs font-medium text-[var(--color-ink-secondary)]">Notes</label>
         <textarea
           id="application-notes"
-          className="input resize-y"
+          className="input resize-y md:resize-none md:flex-1 min-h-[160px]"
           rows={6}
           placeholder="Contact, impressions, points à préparer…"
           value={draft.notes}
@@ -168,6 +166,8 @@ export function ApplicationForm({ initial, userId, onSave, onSaveCompanyWebsite,
         onStatusChange={(status) => setDraft((prev) => withStatus(prev, status, localDateString(new Date())))}
         onAppliedAtChange={(appliedAt) => patch({ appliedAt })}
       />
+
+      <DetailsFields draft={draft} originalContract={initial?.contractType ?? ''} onChange={patch} />
     </ApplicationDialog>
   )
 }
