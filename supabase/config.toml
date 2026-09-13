@@ -22,3 +22,16 @@ content_path = "./supabase/templates/email_change.html"
 [auth.email.template.invite]
 subject = "Vous avez été invité(e) sur JobTracker"
 content_path = "./supabase/templates/invite.html"
+
+# Accès par code (édition lite) — voir docs/superpowers/specs/2026-09-13-lite-access-code-design.md §4.4
+[functions.board-create]
+verify_jwt = false
+
+[functions.board-open]
+verify_jwt = false
+
+[functions.board-rotate-code]
+verify_jwt = true
+
+[functions.board-delete]
+verify_jwt = true
