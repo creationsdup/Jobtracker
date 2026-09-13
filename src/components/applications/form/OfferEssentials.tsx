@@ -1,8 +1,6 @@
 import type { RefObject } from 'react'
 import { Link2, Sparkles } from 'lucide-react'
 import type { ApplicationDraft } from '@/lib/applicationDraft'
-import { cn } from '@/lib/utils'
-import { CompanyLogo } from '../CompanyLogo'
 
 interface OfferEssentialsProps {
   draft: ApplicationDraft
@@ -17,8 +15,6 @@ const LABEL_CLASS = 'text-xs font-medium text-[var(--color-ink-secondary)]'
 
 // L'essentiel d'une candidature : le lien de l'offre (facultatif), l'entreprise et le poste.
 export function OfferEssentials({ draft, onChange, linkInputRef, onImportClick, onCompanyBlur, logoLookupLoading }: OfferEssentialsProps) {
-  const hasCompany = draft.company.trim().length > 0
-
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-center gap-2">
@@ -51,22 +47,15 @@ export function OfferEssentials({ draft, onChange, linkInputRef, onImportClick, 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div className="flex flex-col gap-1.5">
           <label htmlFor="application-company" className={LABEL_CLASS}>Entreprise</label>
-          <div className="relative">
-            {hasCompany && (
-              <span className="absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none">
-                <CompanyLogo company={draft.company} logoUrl={draft.companyWebsite || null} size={22} />
-              </span>
-            )}
-            <input
-              id="application-company"
-              autoComplete="organization"
-              className={cn('input', hasCompany && 'pl-10')}
-              placeholder="Airbus"
-              value={draft.company}
-              onChange={(e) => onChange({ company: e.target.value })}
-              onBlur={onCompanyBlur}
-            />
-          </div>
+          <input
+            id="application-company"
+            autoComplete="organization"
+            className="input"
+            placeholder="Airbus"
+            value={draft.company}
+            onChange={(e) => onChange({ company: e.target.value })}
+            onBlur={onCompanyBlur}
+          />
           {logoLookupLoading && <span className="text-xs text-[var(--color-muted)]">Recherche du logo…</span>}
         </div>
 

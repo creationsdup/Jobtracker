@@ -4,18 +4,20 @@ import { cn } from '@/lib/utils'
 
 interface ChoiceChipsProps<T extends string> {
   label: string
+  /** Garde le libellé pour les lecteurs d'écran quand un intertitre visible le remplace déjà. */
+  hideLabel?: boolean
   options: ReadonlyArray<ChoiceOption<T>>
   isSelected: (value: T) => boolean
   onSelect: (value: T) => void
 }
 
 // Groupe de puces cliquables, à la place d'un <select>, pour choisir en un clic.
-export function ChoiceChips<T extends string>({ label, options, isSelected, onSelect }: ChoiceChipsProps<T>) {
+export function ChoiceChips<T extends string>({ label, hideLabel = false, options, isSelected, onSelect }: ChoiceChipsProps<T>) {
   const labelId = useId()
 
   return (
     <div className="flex flex-col gap-2">
-      <span id={labelId} className="text-xs font-medium text-[var(--color-ink-secondary)]">{label}</span>
+      <span id={labelId} className={hideLabel ? 'sr-only' : 'text-xs font-medium text-[var(--color-ink-secondary)]'}>{label}</span>
       <div role="group" aria-labelledby={labelId} className="flex flex-wrap gap-2">
         {options.map((option) => {
           const selected = isSelected(option.value)

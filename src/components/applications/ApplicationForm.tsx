@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from 'react'
-import { SlidersHorizontal, StickyNote, X } from 'lucide-react'
+import { SlidersHorizontal, StickyNote } from 'lucide-react'
 import type { Application } from '@/lib/types'
 import { guessCompanyWebsiteFromJobUrl } from '@/lib/jobBoards'
 import { FEATURES } from '@/config/edition'
@@ -16,6 +16,7 @@ import {
 } from '@/lib/applicationDraft'
 import { CollapsibleSection } from './form/CollapsibleSection'
 import { DetailsFields } from './form/DetailsFields'
+import { FormHeader } from './form/FormHeader'
 import { OfferEssentials } from './form/OfferEssentials'
 import { StatusPicker } from './form/StatusPicker'
 
@@ -36,6 +37,8 @@ interface ApplicationFormProps {
   onClose: () => void
 }
 
+const SECTION_TITLE_CLASS = 'text-sm font-semibold'
+
 export function ApplicationForm({ initial, userId, onSave, onSaveCompanyWebsite, existingCompanyWebsite, lookupCompanyDomain, externalError, onClose }: ApplicationFormProps) {
   const isEditMode = !!initial
   const [draft, setDraft] = useState<ApplicationDraft>(() => createDraft(initial, existingCompanyWebsite))
@@ -45,6 +48,7 @@ export function ApplicationForm({ initial, userId, onSave, onSaveCompanyWebsite,
   const [logoLookupLoading, setLogoLookupLoading] = useState(false)
   const linkInputRef = useRef<HTMLInputElement>(null)
   const canSave = canSaveDraft(draft)
+  const title = isEditMode ? 'Modifier la candidature' : 'Nouvelle candidature'
 
   useEffect(() => {
     if (!isEditMode) linkInputRef.current?.focus()
@@ -117,45 +121,50 @@ export function ApplicationForm({ initial, userId, onSave, onSaveCompanyWebsite,
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 backdrop-blur-sm animate-fade-in sm:p-6"
+      className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 animate-fade-in"
       onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
     >
       <form
         role="dialog"
         aria-modal="true"
-        aria-labelledby="application-form-title"
+        aria-label={title}
         noValidate
         onSubmit={handleSubmit}
         onKeyDown={handleKeyDown}
-        className="w-full sm:max-w-[560px] max-h-[92dvh] sm:max-h-[calc(100dvh-48px)] flex flex-col bg-[var(--color-surface)] rounded-t-[var(--radius-xl)] sm:rounded-[var(--radius-xl)] shadow-[var(--shadow-lg)]"
+        className="absolute inset-y-0 right-0 w-full max-w-2xl bg-[var(--color-surface)] shadow-[var(--shadow-lg)] flex flex-col h-full animate-slide-in-right"
       >
-        <header className="flex items-center justify-between gap-3 px-6 pt-5 pb-4">
-          <h2 id="application-form-title" className="text-lg font-bold text-[var(--color-ink)]">
-            {isEditMode ? 'Modifier la candidature' : 'Nouvelle candidature'}
-          </h2>
-          <button type="button" className="btn btn-ghost p-1.5" onClick={onClose} aria-label="Fermer">
-            <X size={18} />
-          </button>
-        </header>
+        <FormHeader
+          eyebrow={title}
+          company={draft.company}
+          position={draft.position}
+          companyWebsite={draft.companyWebsite}
+          onClose={onClose}
+        />
 
-        <div className="flex-1 overflow-y-auto px-6 pb-6 flex flex-col gap-5">
-          <OfferEssentials
-            draft={draft}
-            onChange={patch}
-            linkInputRef={linkInputRef}
-            onImportClick={!isEditMode && FEATURES.ai ? () => setImporterOpen(true) : undefined}
-            onCompanyBlur={handleCompanyBlur}
-            logoLookupLoading={logoLookupLoading}
-          />
+        <div className="flex-1 overflow-y-auto px-6 pb-6 mt-5 flex flex-col gap-6">
+          <section className="flex flex-col gap-3">
+            <h3 className={SECTION_TITLE_CLASS}>L'offre</h3>
+            <OfferEssentials
+              draft={draft}
+              onChange={patch}
+              linkInputRef={linkInputRef}
+              onImportClick={!isEditMode && FEATURES.ai ? () => setImporterOpen(true) : undefined}
+              onCompanyBlur={handleCompanyBlur}
+              logoLookupLoading={logoLookupLoading}
+            />
+          </section>
 
-          <StatusPicker
-            status={draft.status}
-            appliedAt={draft.appliedAt}
-            onStatusChange={(status) => setDraft((prev) => withStatus(prev, status, localDateString(new Date())))}
-            onAppliedAtChange={(appliedAt) => patch({ appliedAt })}
-          />
+          <section className="flex flex-col gap-3">
+            <h3 className={SECTION_TITLE_CLASS}>Statut</h3>
+            <StatusPicker
+              status={draft.status}
+              appliedAt={draft.appliedAt}
+              onStatusChange={(status) => setDraft((prev) => withStatus(prev, status, localDateString(new Date())))}
+              onAppliedAtChange={(appliedAt) => patch({ appliedAt })}
+            />
+          </section>
 
-          <div className="flex flex-col gap-2">
+          <div className="flex flex-col gap-3">
             <CollapsibleSection
               title="Plus de détails"
               hint="Lieu, contrat, site de l'entreprise"
@@ -187,7 +196,7 @@ export function ApplicationForm({ initial, userId, onSave, onSaveCompanyWebsite,
           {externalError && <p role="alert" className="text-sm text-[var(--color-danger)]">{externalError}</p>}
         </div>
 
-        <footer className="flex items-center justify-end gap-2 px-6 pt-4 pb-[max(1rem,env(safe-area-inset-bottom))] border-t border-[var(--color-border)]">
+        <footer className="flex items-center justify-end gap-2 px-6 pt-4 pb-[max(1rem,env(safe-area-inset-bottom))] border-t border-[var(--color-border)] flex-shrink-0">
           <span className="hidden sm:block mr-auto text-xs text-[var(--color-subtle)]">
             Ctrl/⌘ + Entrée pour {isEditMode ? 'enregistrer' : 'ajouter'}
           </span>
