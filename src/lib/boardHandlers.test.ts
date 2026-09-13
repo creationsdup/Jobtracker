@@ -5,8 +5,11 @@ import {
   handleDelete,
   handleOpen,
   handleRotate,
+  type BoardCaller,
   type BoardDeps,
 } from '../../supabase/functions/_shared/boardHandlers.ts'
+
+const CALLER: BoardCaller = { id: 'user-1', token: 'caller-token' }
 
 function fakeDeps(overrides: Partial<BoardDeps> = {}) {
   const calls: string[] = []
@@ -23,6 +26,7 @@ function fakeDeps(overrides: Partial<BoardDeps> = {}) {
     hasBoard: async () => true,
     updateCodeHash: async (id, hash) => { calls.push(`update:${id}:${hash}`); return 'ok' },
     deleteBoardData: async (id) => { calls.push(`deleteData:${id}`); return true },
+    revokeOtherSessions: async (token) => { calls.push(`revoke:${token}`); return true },
     ...overrides,
   }
   return { deps, calls }
@@ -75,6 +79,13 @@ describe('handleCreate', () => {
     expect(await handleCreate(deps, 'ip-key', () => 'uuid-1')).toEqual({ status: 500, body: { error: 'create_failed' } })
     expect(calls.some((c) => c.startsWith('deleteUser'))).toBe(false)
   })
+
+  it('répond create_failed sans réessayer si insertAccess renvoie une erreur (pas un conflit)', async () => {
+    const { deps, calls } = fakeDeps({ insertAccess: async (id, hash) => { calls.push(`insert:${id}:${hash}`); return 'error' } })
+    expect(await handleCreate(deps, 'ip-key', () => 'uuid-1')).toEqual({ status: 500, body: { error: 'create_failed' } })
+    expect(calls.filter((c) => c.startsWith('insert:'))).toHaveLength(1)
+    expect(calls).toContain('deleteUser:user-1')
+  })
 })
 
 describe('handleOpen', () => {
@@ -118,21 +129,40 @@ describe('handleRotate', () => {
 
   it('applique la limite par utilisateur', async () => {
     const { deps, calls } = fakeDeps({ allow: async (bucket, limit, windowSeconds) => { calls.push(`allow:${bucket}:${limit}:${windowSeconds}`); return false } })
-    expect(await handleRotate(deps, 'user-1')).toEqual({ status: 429, body: { error: 'rate_limited' } })
+    expect(await handleRotate(deps, CALLER)).toEqual({ status: 429, body: { error: 'rate_limited' } })
     expect(calls).toEqual(['allow:rotate:user-1:5:3600'])
   })
 
   it('refuse un compte sans tableau et signale une erreur de base', async () => {
-    expect(await handleRotate(fakeDeps({ updateCodeHash: async () => 'not_found' }).deps, 'user-1')).toEqual({ status: 404, body: { error: 'not_a_board' } })
-    expect(await handleRotate(fakeDeps({ updateCodeHash: async () => 'error' }).deps, 'user-1')).toEqual({ status: 500, body: { error: 'server_error' } })
+    expect(await handleRotate(fakeDeps({ updateCodeHash: async () => 'not_found' }).deps, CALLER)).toEqual({ status: 404, body: { error: 'not_a_board' } })
+    expect(await handleRotate(fakeDeps({ updateCodeHash: async () => 'error' }).deps, CALLER)).toEqual({ status: 500, body: { error: 'server_error' } })
   })
 
-  it('enregistre le hash du nouveau code et le renvoie', async () => {
+  it('n’appelle pas revokeOtherSessions quand la mise à jour échoue (not_found ou error)', async () => {
+    const { deps: notFoundDeps, calls: notFoundCalls } = fakeDeps({ updateCodeHash: async () => 'not_found' })
+    await handleRotate(notFoundDeps, CALLER)
+    expect(notFoundCalls.some((c) => c.startsWith('revoke'))).toBe(false)
+
+    const { deps: errorDeps, calls: errorCalls } = fakeDeps({ updateCodeHash: async () => 'error' })
+    await handleRotate(errorDeps, CALLER)
+    expect(errorCalls.some((c) => c.startsWith('revoke'))).toBe(false)
+  })
+
+  it('enregistre le hash du nouveau code, révoque les autres sessions de l’appelant et renvoie le code', async () => {
     const { deps, calls } = fakeDeps()
-    const result = await handleRotate(deps, 'user-1')
+    const result = await handleRotate(deps, CALLER)
     expect(result.status).toBe(200)
     expect(isValidAccessCode(result.body.code as string)).toBe(true)
     expect(calls).toContain(`update:user-1:${await hashAccessCode(result.body.code as string, 'test-pepper')}`)
+    expect(calls).toContain('revoke:caller-token')
+  })
+
+  it('renvoie tout de même 200 avec le code si la révocation échoue', async () => {
+    const { deps, calls } = fakeDeps({ revokeOtherSessions: async (token) => { calls.push(`revoke:${token}`); return false } })
+    const result = await handleRotate(deps, CALLER)
+    expect(result.status).toBe(200)
+    expect(isValidAccessCode(result.body.code as string)).toBe(true)
+    expect(calls).toContain('revoke:caller-token')
   })
 })
 
@@ -143,19 +173,19 @@ describe('handleDelete', () => {
 
   it('refuse de supprimer un compte classique', async () => {
     const { deps, calls } = fakeDeps({ hasBoard: async () => false })
-    expect(await handleDelete(deps, 'user-1')).toEqual({ status: 404, body: { error: 'not_a_board' } })
+    expect(await handleDelete(deps, CALLER)).toEqual({ status: 404, body: { error: 'not_a_board' } })
     expect(calls.some((c) => c.startsWith('delete'))).toBe(false)
   })
 
   it('garde le compte si l’effacement des données échoue', async () => {
     const { deps, calls } = fakeDeps({ deleteBoardData: async () => false })
-    expect(await handleDelete(deps, 'user-1')).toEqual({ status: 500, body: { error: 'server_error' } })
+    expect(await handleDelete(deps, CALLER)).toEqual({ status: 500, body: { error: 'server_error' } })
     expect(calls.some((c) => c.startsWith('deleteUser'))).toBe(false)
   })
 
   it('efface les données puis le compte', async () => {
     const { deps, calls } = fakeDeps()
-    expect(await handleDelete(deps, 'user-1')).toEqual({ status: 200, body: { success: true } })
+    expect(await handleDelete(deps, CALLER)).toEqual({ status: 200, body: { success: true } })
     expect(calls.filter((c) => c.startsWith('delete'))).toEqual(['deleteData:user-1', 'deleteUser:user-1'])
   })
 })

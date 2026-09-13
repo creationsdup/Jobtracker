@@ -16,6 +16,11 @@ export interface HandlerResult {
 export type InsertAccessResult = 'ok' | 'conflict' | 'error'
 export type UpdateCodeResult = 'ok' | 'not_found' | 'error'
 
+export interface BoardCaller {
+  id: string
+  token: string
+}
+
 export interface BoardDeps {
   pepper: string
   allow(bucket: string, limit: number, windowSeconds: number): Promise<boolean>
@@ -29,6 +34,7 @@ export interface BoardDeps {
   hasBoard(userId: string): Promise<boolean>
   updateCodeHash(userId: string, codeHash: string): Promise<UpdateCodeResult>
   deleteBoardData(userId: string): Promise<boolean>
+  revokeOtherSessions(callerToken: string): Promise<boolean>
 }
 
 export const CREATE_LIMIT = { limit: 5, windowSeconds: 3600 }
@@ -91,23 +97,26 @@ export async function handleOpen(deps: BoardDeps, ipKey: string, body: unknown):
   return reply(200, { tokenHash })
 }
 
-export async function handleRotate(deps: BoardDeps, callerId: string | null): Promise<HandlerResult> {
-  if (!callerId) return reply(401, { error: 'unauthorized' })
-  if (!(await deps.allow(`rotate:${callerId}`, ROTATE_LIMIT.limit, ROTATE_LIMIT.windowSeconds))) {
+export async function handleRotate(deps: BoardDeps, caller: BoardCaller | null): Promise<HandlerResult> {
+  if (!caller) return reply(401, { error: 'unauthorized' })
+  if (!(await deps.allow(`rotate:${caller.id}`, ROTATE_LIMIT.limit, ROTATE_LIMIT.windowSeconds))) {
     return reply(429, { error: 'rate_limited' })
   }
   const code = generateAccessCode()
-  const updated = await deps.updateCodeHash(callerId, await hashAccessCode(code, deps.pepper))
+  const updated = await deps.updateCodeHash(caller.id, await hashAccessCode(code, deps.pepper))
   if (updated === 'not_found') return reply(404, { error: 'not_a_board' })
   if (updated === 'error') return reply(500, { error: 'server_error' })
+  // WHY: le nouveau code doit toujours être affiché (sinon le propriétaire est bloqué dehors) ;
+  // l'ancien code est déjà refusé puisque code_hash a été remplacé, la révocation est best-effort.
+  await deps.revokeOtherSessions(caller.token)
   return reply(200, { code })
 }
 
-export async function handleDelete(deps: BoardDeps, callerId: string | null): Promise<HandlerResult> {
-  if (!callerId) return reply(401, { error: 'unauthorized' })
+export async function handleDelete(deps: BoardDeps, caller: BoardCaller | null): Promise<HandlerResult> {
+  if (!caller) return reply(401, { error: 'unauthorized' })
   // WHY: cette voie ne doit jamais supprimer un compte classique de l'édition full.
-  if (!(await deps.hasBoard(callerId))) return reply(404, { error: 'not_a_board' })
-  if (!(await deps.deleteBoardData(callerId))) return reply(500, { error: 'server_error' })
-  if (!(await deps.deleteUser(callerId))) return reply(500, { error: 'server_error' })
+  if (!(await deps.hasBoard(caller.id))) return reply(404, { error: 'not_a_board' })
+  if (!(await deps.deleteBoardData(caller.id))) return reply(500, { error: 'server_error' })
+  if (!(await deps.deleteUser(caller.id))) return reply(500, { error: 'server_error' })
   return reply(200, { success: true })
 }

@@ -1,7 +1,7 @@
 import { serve } from 'https://deno.land/std@0.224.0/http/server.ts'
 import { handleRotate } from '../_shared/boardHandlers.ts'
 import { json, preflight } from '../_shared/http.ts'
-import { createDeps, getCallerId, loadContext } from '../_shared/supabaseDeps.ts'
+import { createDeps, getCaller, loadContext } from '../_shared/supabaseDeps.ts'
 
 serve(async (req) => {
   const early = preflight(req)
@@ -9,7 +9,7 @@ serve(async (req) => {
   const ctx = loadContext()
   if (!ctx) return json({ error: 'server_misconfigured' }, 500)
   try {
-    const result = await handleRotate(createDeps(ctx), await getCallerId(ctx, req))
+    const result = await handleRotate(createDeps(ctx), await getCaller(ctx, req))
     return json(result.body, result.status)
   } catch {
     // WHY: jamais de message d'erreur brut (détails internes, et le code ne doit pas fuiter).
