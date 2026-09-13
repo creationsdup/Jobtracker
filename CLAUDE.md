@@ -234,11 +234,12 @@ L'app iOS n'est **pas un projet séparé** : c'est ce même repo, packagé via C
 
 ### Workflow de dev
 ```bash
-npm run build        # build web → dist/
-npx cap sync ios      # copie dist/ dans ios/App/App/public + sync les plugins natifs
-npx cap open ios      # ouvre ios/App/App.xcworkspace dans Xcode
+npm run build:lite    # build distribué (TestFlight / App Store) → dist/
+# npm run build:full   # build complet (IA, Objectifs, Bibliothèque) — usage perso uniquement, jamais distribué
+npx cap sync ios       # copie dist/ dans ios/App/App/public + sync les plugins natifs
+npx cap open ios       # ouvre ios/App/App.xcworkspace dans Xcode
 ```
-Toujours `build` + `sync` avant de relancer un build Xcode après une modif du code web — Xcode ne reconstruit pas le bundle web lui-même.
+`npm run build:full` embarque le code IA et, si `VITE_OPENAI_API_KEY` est défini, sa clé inline dans le bundle : à réserver à un appareil personnel, jamais à un build distribué. Toujours `build:lite` (ou `build:full` pour un appareil perso) + `sync` avant de relancer un build Xcode après une modif du code web — Xcode ne reconstruit pas le bundle web lui-même.
 
 ### Conventions spécifiques iOS
 - Respecter les safe areas (`env(safe-area-inset-*)`) — notch, Dynamic Island, home indicator.
