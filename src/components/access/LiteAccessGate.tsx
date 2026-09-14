@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useBoardAccess } from '@/hooks/useBoardAccess'
+import { savedAccessCode } from '@/lib/savedAccessCode'
 import { AccessCodeScreen } from './AccessCodeScreen'
 import { BoardCreatedScreen } from './BoardCreatedScreen'
 import { MagicLinkScreen } from './MagicLinkScreen'
@@ -27,6 +28,12 @@ export function LiteAccessGate({ shortcutCode, onShortcutConsumed }: LiteAccessG
   const [creating, setCreating] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const shortcutHandled = useRef(false)
+
+  // WHY: cet écran ne s'affiche que sans session. Un code resté d'une session révoquée ou expirée
+  // ne doit pas réapparaître dans « Mon tableau » après une entrée par lien email (il peut avoir changé).
+  useEffect(() => {
+    savedAccessCode.clear()
+  }, [])
 
   // WHY: en cas de succès, onAuthStateChange (useAuth) bascule l'app et démonte ce composant :
   // on ne remet donc busy à false qu'en cas d'erreur.
@@ -59,10 +66,10 @@ export function LiteAccessGate({ shortcutCode, onShortcutConsumed }: LiteAccessG
     setState({ step: 'created', code: result.code, tokenHash: result.tokenHash })
   }
 
-  async function handleEnterCreated(tokenHash: string) {
+  async function handleEnterCreated(tokenHash: string, code: string) {
     setBusy(true)
     setError(null)
-    const err = await enterBoard(tokenHash)
+    const err = await enterBoard(tokenHash, code)
     if (err) {
       setError(err)
       setBusy(false)
@@ -88,7 +95,7 @@ export function LiteAccessGate({ shortcutCode, onShortcutConsumed }: LiteAccessG
   }
 
   if (state.step === 'created') {
-    return <BoardCreatedScreen code={state.code} busy={busy} error={error} onOpen={() => handleEnterCreated(state.tokenHash)} />
+    return <BoardCreatedScreen code={state.code} busy={busy} error={error} onOpen={() => handleEnterCreated(state.tokenHash, state.code)} />
   }
   if (state.step === 'magic') {
     return <MagicLinkScreen busy={busy} error={error} onSubmit={handleMagicLink} onBack={() => goTo({ step: 'code' })} />

@@ -35,8 +35,9 @@ const SECTIONS: readonly LegalSection[] = [
           basis="Exécution du service que tu utilises."
           duration="Tant que le tableau existe."
         >
-          Jamais stocké en clair&nbsp;: seule une empreinte cryptographique est conservée, avec un identifiant technique
-          aléatoire et les dates de création, de changement de code et de dernière ouverture.
+          Jamais stocké en clair côté serveur&nbsp;: seule une empreinte cryptographique est conservée, avec un identifiant
+          technique aléatoire et les dates de création, de changement de code et de dernière ouverture. Sur l'appareil où
+          tu l'as saisi, ton navigateur le garde pour l'afficher dans «&nbsp;Mon tableau&nbsp;».
         </DataItem>
         <DataItem
           title="Ton email (facultatif)"
@@ -119,9 +120,10 @@ const SECTIONS: readonly LegalSection[] = [
       <>
         <p>JobTracker n'utilise ni cookie publicitaire, ni mesure d'audience, ni pixel de suivi.</p>
         <p>
-          Ton navigateur garde seulement l'indispensable&nbsp;: la session qui laisse ton tableau ouvert sur cet appareil, et
-          tes préférences d'affichage (colonnes ou liste, langue). Ces éléments strictement nécessaires ne demandent pas de
-          consentement. «&nbsp;Quitter ce tableau&nbsp;» efface la session de l'appareil.
+          Ton navigateur garde seulement l'indispensable&nbsp;: la session qui laisse ton tableau ouvert sur cet appareil, ton
+          code d'accès (pour que tu le retrouves dans «&nbsp;Mon tableau&nbsp;») et tes préférences d'affichage (colonnes ou
+          liste, langue). Ces éléments strictement nécessaires ne demandent pas de consentement. «&nbsp;Quitter ce
+          tableau&nbsp;» efface la session et le code de l'appareil.
         </p>
         <p>La police de caractères est servie par JobTracker lui-même&nbsp;: aucune requête n'est envoyée à Google Fonts.</p>
       </>

@@ -2,17 +2,23 @@ import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 
 interface BoardUserState {
+  userId: string | null
   email: string | null
   pendingEmail: string | null
   loading: boolean
 }
 
 export function useBoardUser() {
-  const [state, setState] = useState<BoardUserState>({ email: null, pendingEmail: null, loading: true })
+  const [state, setState] = useState<BoardUserState>({ userId: null, email: null, pendingEmail: null, loading: true })
 
   const refresh = useCallback(async () => {
     const { data } = await supabase.auth.getUser()
-    setState({ email: data.user?.email ?? null, pendingEmail: data.user?.new_email ?? null, loading: false })
+    setState({
+      userId: data.user?.id ?? null,
+      email: data.user?.email ?? null,
+      pendingEmail: data.user?.new_email ?? null,
+      loading: false,
+    })
   }, [])
 
   useEffect(() => {

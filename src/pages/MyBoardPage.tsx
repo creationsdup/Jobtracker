@@ -2,11 +2,13 @@ import { useState, type FormEvent, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { ArrowLeft } from 'lucide-react'
 import { isBoardEmail } from '@/lib/accessCode'
+import { savedAccessCode } from '@/lib/savedAccessCode'
 import { cn } from '@/lib/utils'
 import { useBoardAccess } from '@/hooks/useBoardAccess'
 import { useBoardUser } from '@/hooks/useBoardUser'
 import { CodeRevealPanel } from '@/components/access/CodeRevealPanel'
 import { DeleteBoardDialog } from '@/components/access/DeleteBoardDialog'
+import { SavedCodePanel } from '@/components/access/SavedCodePanel'
 import { ErrorText, Eyebrow, Field, PrimaryButton, SecondaryButton, Title } from '@/components/access/accessUi'
 
 type PillTone = 'warning' | 'info' | 'success'
@@ -36,7 +38,7 @@ function Help({ children }: { children: ReactNode }) {
 
 export function MyBoardPage() {
   const { secureWithEmail, rotateCode, leaveBoard, deleteBoard } = useBoardAccess()
-  const { email, pendingEmail, loading, refresh } = useBoardUser()
+  const { userId, email, pendingEmail, loading, refresh } = useBoardUser()
 
   const [newEmail, setNewEmail] = useState('')
   const [emailBusy, setEmailBusy] = useState(false)
@@ -49,6 +51,8 @@ export function MyBoardPage() {
   const [deleteError, setDeleteError] = useState<string | null>(null)
 
   const secured = email !== null && !isBoardEmail(email)
+  // WHY: relu à chaque rendu (lecture locale, sans réseau) pour refléter tout de suite un nouveau code enregistré par rotateCode.
+  const savedCode = userId ? savedAccessCode.read(userId) : null
 
   async function sendConfirmation(target: string) {
     setEmailBusy(true)
@@ -135,12 +139,25 @@ export function MyBoardPage() {
       <Section title="Code d'accès">
         {revealedCode ? (
           <>
-            <Help>Voici ton nouveau code. Note-le : il ne sera plus jamais affiché.</Help>
+            <Help>Voici ton nouveau code. Note-le : il te faudra sur tes autres appareils. Ici, tu le retrouveras sur cette page.</Help>
             <CodeRevealPanel code={revealedCode} doneLabel="Fermer" onDone={() => setRevealedCode(null)} />
           </>
         ) : rotateStep === 'idle' ? (
           <>
-            <Help>Ton code a fuité ? Génère-en un nouveau : l'ancien ne marchera plus et les autres appareils devront le retaper.</Help>
+            {loading ? (
+              <Help>Chargement…</Help>
+            ) : savedCode ? (
+              <>
+                <Help>Gardé sur cet appareil uniquement.</Help>
+                <SavedCodePanel code={savedCode} />
+                <Help>Ton code a fuité ? Génère-en un nouveau : l'ancien ne marchera plus et les autres appareils devront le retaper.</Help>
+              </>
+            ) : (
+              <Help>
+                Ton code n'est pas gardé sur cet appareil (tableau ouvert par lien email, ou avant cette mise à jour). Tu peux en
+                générer un nouveau : l'ancien ne marchera plus et les autres appareils devront le retaper.
+              </Help>
+            )}
             <SecondaryButton onClick={() => setRotateStep('confirm')}>Générer un nouveau code</SecondaryButton>
           </>
         ) : (
@@ -156,7 +173,7 @@ export function MyBoardPage() {
       </Section>
 
       <Section title="Quitter ce tableau">
-        <Help>Ferme le tableau sur cet appareil. Il faudra retaper le code.</Help>
+        <Help>Ferme le tableau sur cet appareil et y efface le code. Il faudra le retaper.</Help>
         <SecondaryButton onClick={() => void leaveBoard()}>Quitter ce tableau</SecondaryButton>
       </Section>
 

@@ -14,7 +14,7 @@ export function BoardCreatedScreen({ code, busy, error, onOpen }: BoardCreatedSc
     <AccessLayout>
       <Eyebrow>Tableau créé</Eyebrow>
       <Title>Voici ton code d'accès</Title>
-      <Note>Note-le : il ne sera plus jamais affiché. Sans lui (ou sans email rattaché), le tableau est perdu.</Note>
+      <Note>Note-le : il te faudra sur tes autres appareils, et sans lui (ou sans email rattaché) le tableau est perdu. Sur cet appareil, tu le retrouveras dans « Mon tableau ».</Note>
       {error && <ErrorText>{error}</ErrorText>}
       <CodeRevealPanel code={code} doneLabel="Ouvrir mon tableau" onDone={onOpen} busy={busy} />
     </AccessLayout>

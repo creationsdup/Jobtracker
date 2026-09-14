@@ -1,6 +1,7 @@
 import { useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import { isValidAccessCode, normalizeAccessCode } from '@/lib/accessCode'
+import { savedAccessCode } from '@/lib/savedAccessCode'
 import {
   MESSAGES,
   isPlausibleEmail,
@@ -27,9 +28,12 @@ async function callBoardFunction<T>(
 }
 
 export function useBoardAccess() {
-  const enterBoard = useCallback(async (tokenHash: string): Promise<string | null> => {
-    const { error } = await supabase.auth.verifyOtp({ token_hash: tokenHash, type: 'magiclink' })
-    return error ? MESSAGES.network : null
+  const enterBoard = useCallback(async (tokenHash: string, code?: string): Promise<string | null> => {
+    const { data, error } = await supabase.auth.verifyOtp({ token_hash: tokenHash, type: 'magiclink' })
+    if (error) return MESSAGES.network
+    // WHY: le code n'est connu du client qu'à la création et à l'ouverture ; on le garde pour « Mon tableau » sur cet appareil.
+    if (code && data.user) savedAccessCode.save(data.user.id, code)
+    return null
   }, [])
 
   const createBoard = useCallback(async (): Promise<{ code: string; tokenHash: string } | { error: string }> => {
@@ -42,7 +46,7 @@ export function useBoardAccess() {
     if (!isValidAccessCode(code)) return MESSAGES.invalidFormat
     const result = await callBoardFunction<{ tokenHash: string }>('board-open', 'open', { code })
     if ('error' in result) return result.error
-    return enterBoard(result.data.tokenHash)
+    return enterBoard(result.data.tokenHash, code)
   }, [enterBoard])
 
   const requestMagicLink = useCallback(async (email: string): Promise<string | null> => {
@@ -64,10 +68,14 @@ export function useBoardAccess() {
 
   const rotateCode = useCallback(async (): Promise<{ code: string } | { error: string }> => {
     const result = await callBoardFunction<{ code: string }>('board-rotate-code', 'rotate')
-    return 'error' in result ? result : { code: result.data.code }
+    if ('error' in result) return result
+    const { data } = await supabase.auth.getSession()
+    if (data.session) savedAccessCode.save(data.session.user.id, result.data.code)
+    return { code: result.data.code }
   }, [])
 
   const leaveBoard = useCallback(async (): Promise<void> => {
+    savedAccessCode.clear()
     // WHY: « Quitter » ne doit fermer que cet appareil ; un signOut global déconnecterait aussi
     // les autres appareils qui ont ouvert le même tableau avec le code.
     await supabase.auth.signOut({ scope: 'local' })
@@ -76,6 +84,7 @@ export function useBoardAccess() {
   const deleteBoard = useCallback(async (): Promise<string | null> => {
     const result = await callBoardFunction<{ success: boolean }>('board-delete', 'delete')
     if ('error' in result) return result.error
+    savedAccessCode.clear()
     await supabase.auth.signOut()
     return null
   }, [])
