@@ -1,4 +1,4 @@
-import { lazy, Suspense, useCallback, useEffect, useState } from 'react'
+import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AppShell } from '@/components/layout/AppShell'
 import { LiteShell } from '@/components/layout/LiteShell'
@@ -20,6 +20,7 @@ import { useSteps } from '@/hooks/useSteps'
 import { useGoals } from '@/hooks/useGoals'
 import { useOrgLogos } from '@/hooks/useOrgLogos'
 import { useCompanyDomains } from '@/hooks/useCompanyDomains'
+import { useAutoCompanyDomains } from '@/hooks/useAutoCompanyDomains'
 import { extractDomain } from '@/lib/url'
 import { FEATURES } from '@/config/edition'
 import type { Application } from '@/lib/types'
@@ -40,11 +41,22 @@ export function App() {
   const { applications, loading: appsLoading, addApplication, updateApplication, updateStatus, deleteApplication } = useApplications(user?.id ?? null)
   const { fetchStepsForApplication, addStep, updateStep, deleteStep, deleteStepsForApplication, getStepsForApplication } = useSteps()
   const { activeGoal: goal } = useGoals(FEATURES.goals ? user?.id ?? null : null)
-  const { logos: orgLogos, setOrgWebsite } = useOrgLogos(user?.id ?? null)
-  const { lookup: lookupCompanyDomain, contribute: contributeCompanyDomain } = useCompanyDomains()
+  const { logos: orgLogos, loaded: orgLogosLoaded, setOrgWebsite } = useOrgLogos(user?.id ?? null)
+  const { lookup: lookupCompanyDomain, loaded: companyDomainsLoaded, contribute: contributeCompanyDomain } = useCompanyDomains()
+  const companies = useMemo(() => applications.map((a) => a.company), [applications])
+  const hasKnownLogo = useCallback(
+    (company: string) => Boolean(orgLogos[company] ?? lookupCompanyDomain(company)),
+    [orgLogos, lookupCompanyDomain],
+  )
+  const { lookup: lookupFoundDomain } = useAutoCompanyDomains(companies, hasKnownLogo, orgLogosLoaded && companyDomainsLoaded)
+
+  // Catalogue partagé d'abord, puis le site trouvé automatiquement pendant cette visite.
+  function lookupKnownDomain(company: string): string | undefined {
+    return lookupCompanyDomain(company) ?? lookupFoundDomain(company)
+  }
 
   function resolveLogo(company: string): string | undefined {
-    return orgLogos[company] ?? lookupCompanyDomain(company)
+    return orgLogos[company] ?? lookupKnownDomain(company)
   }
 
   async function saveCompanyWebsite(company: string, website: string): Promise<string | null> {
@@ -202,7 +214,7 @@ export function App() {
           onSave={handleSave}
           onSaveCompanyWebsite={saveCompanyWebsite}
           existingCompanyWebsite={editingApp ? resolveLogo(editingApp.company) ?? null : null}
-          lookupCompanyDomain={lookupCompanyDomain}
+          lookupCompanyDomain={lookupKnownDomain}
           externalError={saveError}
           onClose={() => { setFormOpen(false); setEditingApp(null); setSaveError(null) }}
         />
@@ -217,7 +229,7 @@ export function App() {
           onClose={() => setDetailApp(null)}
           onUpdate={(data) => updateApplication(detailApp.id, data)}
           onSaveCompanyWebsite={saveCompanyWebsite}
-          lookupCompanyDomain={lookupCompanyDomain}
+          lookupCompanyDomain={lookupKnownDomain}
           onAddStep={(step) => addStep(step)}
           onUpdateStep={(stepId, data) => updateStep(stepId, data)}
           onDeleteStep={(stepId) => deleteStep(stepId)}

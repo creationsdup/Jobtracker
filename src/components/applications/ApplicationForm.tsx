@@ -1,6 +1,7 @@
 import { lazy, Suspense, useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from 'react'
 import type { Application } from '@/lib/types'
 import { guessCompanyWebsiteFromJobUrl } from '@/lib/jobBoards'
+import { findCompanyDomain } from '@/lib/companyLookup'
 import { FEATURES } from '@/config/edition'
 import {
   canSaveDraft,
@@ -53,31 +54,36 @@ export function ApplicationForm({ initial, userId, onSave, onSaveCompanyWebsite,
     setDraft((prev) => patchDraft(prev, changes, lookupCompanyDomain))
   }
 
-  // Si la saisie ne correspond à aucune entrée connue de la banque de logos, demande à l'IA
-  // de reconnaître l'entreprise (sigle, marque) et trouver son domaine, puis l'enregistre dans
-  // le catalogue partagé pour que les prochaines saisies (par n'importe quel utilisateur) soient
-  // instantanées. Désactivé en édition lite (pas d'IA).
+  // Si la saisie ne correspond à aucune entrée connue de la banque de logos, cherche le site de
+  // l'entreprise (autocomplétion Clearbit) pour pré-remplir le champ ; il est enregistré à l'ajout.
+  // En édition full seulement, l'IA prend le relais si Clearbit ne trouve rien (sigle, marque) et
+  // sa réponse rejoint aussitôt le catalogue partagé.
   async function handleCompanyBlur() {
     const company = draft.company.trim()
     if (!company || draft.companyWebsite.trim() || lookupCompanyDomain(company)) return
-    // WHY: condition littérale pour que Rollup supprime l'import de lib/ai du build lite (spec §3.3).
-    if (__APP_EDITION__ !== 'full') return
     setLogoLookupLoading(true)
     let domain: string | null = null
+    let guessedByAi = false
     try {
-      // WHY: si l'import dynamique ou l'appel IA échoue (déploiement obsolète, hors-ligne), on se
-      // comporte comme si aucun domaine n'avait été trouvé plutôt que de laisser planter le flux
-      // ou bloquer logoLookupLoading à true indéfiniment.
-      const { guessCompanyDomain } = await import('@/lib/ai')
-      domain = await guessCompanyDomain(company)
+      domain = await findCompanyDomain(company)
+      // WHY: condition littérale en premier pour que Rollup supprime l'import de lib/ai du build lite (spec §3.3).
+      if (__APP_EDITION__ === 'full' && !domain) {
+        // WHY: si l'import dynamique ou l'appel IA échoue (déploiement obsolète, hors-ligne), on se
+        // comporte comme si aucun domaine n'avait été trouvé plutôt que de laisser planter le flux
+        // ou bloquer logoLookupLoading à true indéfiniment.
+        const { guessCompanyDomain } = await import('@/lib/ai')
+        domain = await guessCompanyDomain(company)
+        guessedByAi = true
+      }
     } catch {
       return
     } finally {
       setLogoLookupLoading(false)
     }
     if (!domain) return
-    setDraft((prev) => (prev.companyWebsite.trim() || prev.company.trim() !== company ? prev : { ...prev, companyWebsite: domain }))
-    await onSaveCompanyWebsite(company, domain)
+    const found = domain
+    setDraft((prev) => (prev.companyWebsite.trim() || prev.company.trim() !== company ? prev : { ...prev, companyWebsite: found }))
+    if (guessedByAi) await onSaveCompanyWebsite(company, found)
   }
 
   function handleImport(data: Partial<ApplicationPayload> & { companyWebsite?: string | null }) {

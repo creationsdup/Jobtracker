@@ -11,13 +11,17 @@ interface CompanyDomainRow {
 // S'enrichit automatiquement quand un utilisateur confirme le site web d'une entreprise.
 export function useCompanyDomains() {
   const [domains, setDomains] = useState<Record<string, string>>({})
+  // WHY: comme useOrgLogos, signale la fin du chargement (même en erreur) à la recherche automatique.
+  const [loaded, setLoaded] = useState(false)
 
   const refetch = useCallback(async () => {
     const { data, error } = await supabase.from('company_domains').select('name_normalized, domain')
-    if (error || !data) return
-    const map: Record<string, string> = {}
-    for (const row of data as CompanyDomainRow[]) map[row.name_normalized] = row.domain
-    setDomains(map)
+    if (!error && data) {
+      const map: Record<string, string> = {}
+      for (const row of data as CompanyDomainRow[]) map[row.name_normalized] = row.domain
+      setDomains(map)
+    }
+    setLoaded(true)
   }, [])
 
   useEffect(() => { refetch() }, [refetch])
@@ -41,5 +45,5 @@ export function useCompanyDomains() {
     [],
   )
 
-  return { lookup, contribute }
+  return { lookup, loaded, contribute }
 }

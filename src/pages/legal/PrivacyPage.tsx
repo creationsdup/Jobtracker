@@ -91,6 +91,11 @@ const SECTIONS: readonly LegalSection[] = [
             navigateur leur demande l'icône de son site. Ils reçoivent le nom de domaine de l'entreprise (par exemple
             airbus.com) et, comme pour toute requête web, ton adresse IP. Jamais le reste de ton tableau.
           </li>
+          <li>
+            <strong>Clearbit</strong>, un service de HubSpot&nbsp;: pour trouver automatiquement le site d'une entreprise,
+            et donc son logo, ton navigateur lui envoie le nom de l'entreprise tel que tu l'as écrit (par exemple Airbus)
+            et, comme pour toute requête web, ton adresse IP. Jamais le reste de ton tableau.
+          </li>
         </List>
       </>
     ),
@@ -100,10 +105,10 @@ const SECTIONS: readonly LegalSection[] = [
     title: "Transferts hors de l'Union européenne",
     content: (
       <p>
-        Tes candidatures sont stockées dans l'Union européenne. Certains prestataires sont établis ailleurs (Vercel et
-        Google aux États-Unis, Supabase à Singapour) et peuvent y accéder pour fournir leur service. Ces transferts sont
-        encadrés par les clauses contractuelles types de la Commission européenne ou, pour Vercel et Google, par le Data
-        Privacy Framework UE–États-Unis.
+        Tes candidatures sont stockées dans l'Union européenne. Certains prestataires sont établis ailleurs (Vercel,
+        Google et HubSpot aux États-Unis, Supabase à Singapour) et peuvent y accéder pour fournir leur service. Ces
+        transferts sont encadrés par les clauses contractuelles types de la Commission européenne ou, pour Vercel, Google
+        et HubSpot, par le Data Privacy Framework UE–États-Unis.
       </p>
     ),
   },

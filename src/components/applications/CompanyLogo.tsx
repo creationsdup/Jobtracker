@@ -22,9 +22,9 @@ const probeFavicon: FaviconProbe = async (url) => {
   return { ok: true, size: blob.size }
 }
 
-// Affiche le favicon du site web réel de l'entreprise (saisi par l'utilisateur, stocké dans
-// OrgLogo) — pas de devinette de domaine, qui produisait des logos erronés. Essaie plusieurs
-// fournisseurs de favicon avant de retomber sur l'avatar à initiale si aucun ne répond.
+// Affiche le favicon du site de l'entreprise (saisi et stocké dans OrgLogo, trouvé dans le catalogue
+// partagé ou via Clearbit — voir lib/companyLookup, qui exige un nom identique pour éviter les faux
+// logos). Essaie plusieurs fournisseurs de favicon avant de retomber sur l'avatar à initiale.
 export function CompanyLogo({
   company,
   logoUrl,

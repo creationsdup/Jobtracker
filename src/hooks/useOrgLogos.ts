@@ -8,19 +8,24 @@ interface OrgLogoRow {
 
 export function useOrgLogos(userId: string | null) {
   const [logos, setLogos] = useState<Record<string, string>>({})
+  // WHY: la recherche automatique de logos attend ce chargement, pour ne pas envoyer à Clearbit
+  // des entreprises dont le site est déjà enregistré. Vrai même en cas d'erreur, pour ne pas la bloquer.
+  const [loaded, setLoaded] = useState(false)
 
   const refetch = useCallback(async () => {
-    if (!userId) { setLogos({}); return }
+    if (!userId) { setLogos({}); setLoaded(false); return }
     const { data, error } = await supabase
       .from('OrgLogo')
       .select('orgName, url')
       .eq('userId', userId)
-    if (error || !data) return
-    const map: Record<string, string> = {}
-    for (const row of data as OrgLogoRow[]) {
-      if (row.url) map[row.orgName] = row.url
+    if (!error && data) {
+      const map: Record<string, string> = {}
+      for (const row of data as OrgLogoRow[]) {
+        if (row.url) map[row.orgName] = row.url
+      }
+      setLogos(map)
     }
-    setLogos(map)
+    setLoaded(true)
   }, [userId])
 
   useEffect(() => { refetch() }, [refetch])
@@ -41,5 +46,5 @@ export function useOrgLogos(userId: string | null) {
     [userId],
   )
 
-  return { logos, setOrgWebsite, refetch }
+  return { logos, loaded, setOrgWebsite, refetch }
 }

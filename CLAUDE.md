@@ -289,6 +289,16 @@ L'app se construit en deux éditions à partir du même code, choisies **au buil
 
 ---
 
+## 🏷️ Logos d'entreprise
+
+- **Exigence** : les logos sont toujours identifiés automatiquement, y compris en `lite` (sans IA).
+- Ordre de résolution (`resolveLogo`, `App.tsx`) : site enregistré (`OrgLogo`) → catalogue partagé `company_domains` → site trouvé automatiquement pendant la visite (`useAutoCompanyDomains`, une entreprise à la fois, jamais écrit en base).
+- Recherche : autocomplétion Clearbit (`src/lib/companyLookup.ts`), sans clé, depuis le navigateur. Seul un nom **identique** après `normalizeCompanyName` est retenu (sinon « Free » → freeones.com) : mieux vaut l'initiale qu'un faux logo. Résultat mémorisé par nom normalisé ; les échecs réseau ne le sont pas.
+- Formulaire : en quittant le champ Entreprise, Clearbit pré-remplit le site, enregistré à l'ajout ; en `full`, l'IA (`guessCompanyDomain`) prend le relais si Clearbit ne trouve rien.
+- Affichage : favicon via icon.horse puis Google (`src/lib/favicon.ts`), avatar à initiale sinon. Tout nouveau service de logo doit figurer dans `PrivacyPage.tsx`.
+
+---
+
 ## 🎨 Direction design
 
 - **Thème** : Dark mode par défaut, tonalités slate/zinc avec accents verts émeraude (#10b981)
