@@ -295,7 +295,7 @@ L'app se construit en deux éditions à partir du même code, choisies **au buil
 - Ordre de résolution (`resolveLogo`, `App.tsx`) : site enregistré (`OrgLogo`) → catalogue partagé `company_domains` → site trouvé automatiquement pendant la visite (`useAutoCompanyDomains`, une entreprise à la fois, jamais écrit en base).
 - Recherche : autocomplétion Clearbit (`src/lib/companyLookup.ts`), sans clé, depuis le navigateur. Seul un nom **identique** après `normalizeCompanyName` est retenu (sinon « Free » → freeones.com) : mieux vaut l'initiale qu'un faux logo. Résultat mémorisé par nom normalisé ; les échecs réseau ne le sont pas.
 - Formulaire : en quittant le champ Entreprise, Clearbit pré-remplit le site, enregistré à l'ajout ; en `full`, l'IA (`guessCompanyDomain`) prend le relais si Clearbit ne trouve rien.
-- Affichage : favicon via icon.horse puis Google (`src/lib/favicon.ts`), avatar à initiale sinon. Tout nouveau service de logo doit figurer dans `PrivacyPage.tsx`.
+- Affichage (`src/lib/favicon.ts`) : icon.horse, sauf s'il sert son avatar-lettre généré (reconnu à `Cache-Control: s-maxage=300`, sa taille varie avec la lettre), puis Google chargé comme `<img>` (pas d'en-tête CORS : `fetch` échoue toujours ; globe 16×16 = pas d'icône), avatar à initiale sinon. L'offre gratuite d'icon.horse est limitée à 1 000 icônes/mois. Tout nouveau service de logo doit figurer dans `PrivacyPage.tsx`.
 
 ---
 

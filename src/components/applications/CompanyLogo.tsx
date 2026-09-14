@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { getInitial } from '@/lib/utils'
 import { extractDomain } from '@/lib/url'
-import { faviconProviders, resolveFaviconUrl, type FaviconProbe } from '@/lib/favicon'
+import { faviconProviders, resolveFaviconUrl, type FaviconProbes } from '@/lib/favicon'
 
 interface CompanyLogoProps {
   company: string
@@ -12,14 +12,20 @@ interface CompanyLogoProps {
   fallbackFg?: string
 }
 
-// Vérifie la taille réelle de la réponse avant de l'accepter — icon.horse renvoie un
-// HTTP 200 avec une image valide même quand il n'a pas le vrai favicon (un avatar-lettre
-// généré, ~1Ko), donc onError seul ne suffit pas à le détecter.
-const probeFavicon: FaviconProbe = async (url) => {
-  const res = await fetch(url)
-  if (!res.ok) return { ok: false, size: 0 }
-  const blob = await res.blob()
-  return { ok: true, size: blob.size }
+// WHY: icon.horse renvoie un HTTP 200 avec une image valide même sans vrai favicon (avatar-lettre
+// généré), donc onError seul ne le détecte pas : on lit son en-tête de cache (voir lib/favicon).
+// Google n'a pas d'en-tête CORS : chargé comme image, on juge sur sa largeur réelle.
+const FAVICON_PROBES: FaviconProbes = {
+  fetch: async (url) => {
+    const res = await fetch(url)
+    return { ok: res.ok, cacheControl: res.headers.get('cache-control') }
+  },
+  image: (url) => new Promise((resolve) => {
+    const img = new Image()
+    img.onload = () => resolve({ loaded: true, width: img.naturalWidth })
+    img.onerror = () => resolve({ loaded: false, width: 0 })
+    img.src = url
+  }),
 }
 
 // Affiche le favicon du site de l'entreprise (saisi et stocké dans OrgLogo, trouvé dans le catalogue
@@ -43,7 +49,7 @@ export function CompanyLogo({
     if (!domain) return
 
     let cancelled = false
-    resolveFaviconUrl(faviconProviders(domain), probeFavicon).then((url) => {
+    resolveFaviconUrl(faviconProviders(domain), FAVICON_PROBES).then((url) => {
       if (!cancelled) setResolvedUrl(url)
     })
     return () => { cancelled = true }
