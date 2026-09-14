@@ -3,7 +3,7 @@
 // prestataire change (hébergeur, envoi des emails…), mettre à jour ce fichier, les pages ET la date.
 export const LEGAL = {
   editorName: 'creationsdup',
-  contactEmail: 'contact@creationsdup.fr',
+  contactEmail: 'contact@creationsdupdup.fr',
   lastUpdated: '14 septembre 2026',
   siteHost: {
     name: 'Vercel Inc.',
