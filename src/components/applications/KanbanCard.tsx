@@ -9,20 +9,20 @@ import type { Application, UserGoal } from '@/lib/types'
 
 type JobMatch = ReturnType<typeof calculateJobMatch>
 
-const CARD_FRAME = 'rounded-[var(--radius-lg)] px-3.5 py-3.5 select-none'
+const CARD_FRAME = 'rounded-[var(--radius-lg)] px-2.5 py-2 select-none'
 const noop = () => {}
 
 function KanbanCardContent({ app, logoUrl, match, onMatchClick }: { app: Application; logoUrl?: string; match: JobMatch | null; onMatchClick?: () => void }) {
   return (
     <>
-      <div className="flex items-start gap-2.5">
-        <CompanyLogo company={app.company} logoUrl={logoUrl} size={32} />
+      <div className="flex items-start gap-2">
+        <CompanyLogo company={app.company} logoUrl={logoUrl} size={24} />
         <div className="min-w-0 flex-1">
-          <p className="font-semibold text-sm leading-snug text-[var(--color-text)] break-words" title={app.position}>{app.position}</p>
-          <p className="text-xs text-[var(--color-muted)] mt-1 truncate" title={app.company}>{app.company}</p>
+          <p className="font-semibold text-[13px] leading-snug text-[var(--color-text)] break-words" title={app.position}>{app.position}</p>
+          <p className="text-[11px] text-[var(--color-muted)] mt-0.5 truncate" title={app.company}>{app.company}</p>
         </div>
       </div>
-      <div className="flex items-center gap-2 mt-3 text-[11px] text-[var(--color-muted)]">
+      <div className="flex items-center gap-2 mt-1.5 text-[11px] text-[var(--color-muted)]">
         <span className="truncate">{app.location ?? '—'}</span>
         {app.appliedAt && (
           <>
@@ -31,7 +31,7 @@ function KanbanCardContent({ app, logoUrl, match, onMatchClick }: { app: Applica
           </>
         )}
       </div>
-      <div className="flex items-center justify-between gap-2 mt-2.5 pt-2.5 border-t border-[var(--color-border)]">
+      <div className="flex items-center justify-between gap-2 mt-1.5 pt-1.5 border-t border-[var(--color-border)]">
         {match ? <MatchScoreBadge result={match} onClick={onMatchClick ?? noop} /> : <span />}
         <span className="text-[11px] font-semibold text-[var(--color-accent)]">Voir →</span>
       </div>

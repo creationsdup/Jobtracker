@@ -99,7 +99,7 @@ function KanbanColumn({
         >{apps.length}</span>
       </div>
 
-      <div className="flex flex-col gap-2.5 min-h-[80px]">
+      <div className="flex flex-col gap-2 min-h-[80px]">
         {apps.map(app => (
           <KanbanCard key={app.id} app={app} goal={goal} onOpen={() => onOpen(app)} logoUrl={resolveLogo(app.company)} />
         ))}
