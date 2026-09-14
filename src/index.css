@@ -1,4 +1,10 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+/* WHY: Inter est servie par le site (@fontsource) et non par Google Fonts, qui recevrait l'adresse IP
+   de chaque visiteur — voir la politique de confidentialité (src/pages/legal/PrivacyPage.tsx). */
+@import '@fontsource/inter/400.css';
+@import '@fontsource/inter/500.css';
+@import '@fontsource/inter/600.css';
+@import '@fontsource/inter/700.css';
+@import '@fontsource/inter/800.css';
 @import './styles/tokens.css';
 
 @tailwind base;
