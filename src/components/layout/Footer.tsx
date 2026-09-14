@@ -1,10 +1,5 @@
+import { LegalLinks } from '@/components/legal/LegalLinks'
 import { JobTrackerLogo } from '@/components/ui/JobTrackerLogo'
-
-const LEGAL_LINKS = [
-  { label: 'Confidentialité', href: '#' },
-  { label: 'CGU',             href: '#' },
-  { label: 'Contact',         href: '#' },
-]
 
 const dot = <span style={{ color: 'rgba(255,255,255,0.3)', fontSize: 11 }}>·</span>
 
@@ -35,17 +30,7 @@ export function Footer() {
 
         {/* Legal + copyright */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          {LEGAL_LINKS.map(({ label, href }, i) => (
-            <span key={label} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              {i > 0 && dot}
-              <a
-                href={href}
-                style={{ fontSize: 11, color: 'rgba(255,255,255,0.6)', textDecoration: 'none' }}
-              >
-                {label}
-              </a>
-            </span>
-          ))}
+          <LegalLinks onDark />
           {dot}
           <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.6)' }}>© {year}</span>
         </div>

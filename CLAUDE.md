@@ -279,6 +279,16 @@ L'app se construit en deux éditions à partir du même code, choisies **au buil
 
 ---
 
+## ⚖️ Pages légales
+
+- `/cgu` (avec les mentions légales), `/confidentialite` et `/contact` : `src/pages/legal/`. Elles sont choisies dans `main.tsx` **avant** `App` (`legalPageFromPath`, `src/lib/legalRoutes.ts`), donc lisibles sans code ni session, dans un chunk à part. Les liens sont des `<a href>` classiques (rechargement), pas des `<Link>`.
+- Liens : `LegalLinks` dans le `Footer` de l'app et sous l'écran d'accès (`AccessLayout`).
+- Éditeur, email de contact, hébergeurs et date de mise à jour : `src/config/legal.ts`. Les textes décrivent **l'édition lite** : toute nouvelle donnée collectée ou tout nouveau prestataire (SMTP, mesure d'audience, requête vers un tiers…) impose de mettre à jour `PrivacyPage.tsx` et la date.
+- Police Inter servie par `@fontsource/inter` (plus de Google Fonts) : ne pas réintroduire de ressource tierce sans l'ajouter à la politique de confidentialité.
+- `vercel.json` renvoie toutes les adresses vers `index.html` (sinon `/cgu` ou `/mon-tableau` en accès direct donnent une 404 sur Vercel).
+
+---
+
 ## 🎨 Direction design
 
 - **Thème** : Dark mode par défaut, tonalités slate/zinc avec accents verts émeraude (#10b981)

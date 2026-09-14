@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react'
+import { LegalLinks } from '@/components/legal/LegalLinks'
 import { JobTrackerLogo } from '@/components/ui/JobTrackerLogo'
 
 interface AccessLayoutProps {
@@ -20,9 +21,12 @@ export function AccessLayout({ headerAction, children }: AccessLayoutProps) {
         </div>
         {headerAction}
       </header>
-      <main className="flex flex-1 justify-center px-5 pb-16 pt-10 sm:pt-20" style={{ paddingBottom: 'max(4rem, env(safe-area-inset-bottom))' }}>
+      <main className="flex flex-1 justify-center px-5 pb-12 pt-10 sm:pt-20">
         <div className="w-full max-w-[420px]">{children}</div>
       </main>
+      <footer className="px-5 pt-2 text-[13px]" style={{ paddingBottom: 'max(1.5rem, env(safe-area-inset-bottom))' }}>
+        <LegalLinks className="justify-center" />
+      </footer>
     </div>
   )
 }
