@@ -75,10 +75,13 @@ function KanbanColumn({
   const { setNodeRef, isOver } = useDroppable({ id: status })
   const tint = COLUMN_TINT[status]
 
+  // WHY: sur mobile la colonne fait 82vw (défilement aimanté) ; à partir de sm elle part de 270px
+  // mais s'étire pour occuper toute la largeur disponible (plafond 420px pour garder des cartes lisibles)
+  // et peut se tasser jusqu'à 240px plutôt que de déclencher un défilement horizontal de quelques pixels.
   return (
     <div
       ref={setNodeRef}
-      className="flex flex-col gap-3 w-[82vw] sm:w-[270px] min-w-[230px] sm:min-w-[270px] flex-shrink-0 snap-start rounded-[var(--radius-lg)] p-2.5 transition-shadow duration-150"
+      className="flex flex-col gap-3 w-[82vw] min-w-[230px] flex-shrink-0 sm:w-auto sm:basis-[270px] sm:grow sm:shrink sm:min-w-[240px] sm:max-w-[420px] snap-start rounded-[var(--radius-lg)] p-2.5 transition-shadow duration-150"
       style={{
         background: tint.bg,
         border: '1px solid rgba(148, 163, 184, 0.18)',
