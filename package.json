@@ -12,7 +12,8 @@
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
     "test": "vitest run",
     "db:push": "node scripts/db-push.mjs",
-    "verify:usage": "node scripts/verify-usage-sql.mjs"
+    "verify:usage": "node scripts/verify-usage-sql.mjs",
+    "grant:admin": "node scripts/grant-admin.mjs"
   },
   "dependencies": {
     "@capacitor/cli": "^8.4.1",
