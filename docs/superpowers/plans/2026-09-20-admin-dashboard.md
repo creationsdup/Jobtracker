@@ -873,6 +873,7 @@ git commit -m "feat(usage): traceur pur avec file, lots et refus de mesure"
   - `startUsageSession(targets: SessionTargets): () => void` — rend la fonction d'arrêt.
   - `browserTargets(): SessionTargets`
   - `resetUsage(): void` — pour les tests uniquement.
+  - `interface InsertOnlyClient` — exportée pour que les tests aient un type à viser plutôt qu'un `as never`.
   - `interface SessionTargets { addClickListener, addVisibilityListener, setInterval, now }`
 
   Les tâches 5, 6 et 11 appellent `configureUsage`, `track`, `setUsageOptedOut` et `startUsageSession`.
@@ -883,12 +884,15 @@ Créer `src/lib/usageClient.test.ts` :
 
 ```ts
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { configureUsage, resetUsage, setUsageOptedOut, startUsageSession, track, type SessionTargets } from './usageClient'
+import {
+  configureUsage, resetUsage, setUsageOptedOut, startUsageSession, track,
+  type InsertOnlyClient, type SessionTargets,
+} from './usageClient'
 
 function fakeClient() {
   const inserted: unknown[][] = []
-  const insert = vi.fn(async (rows: unknown[]) => { inserted.push(rows); return { error: null } })
-  return { inserted, insert, client: { from: () => ({ insert }) } }
+  const insert = vi.fn(async (rows: Record<string, unknown>[]) => { inserted.push(rows); return { error: null } })
+  return { inserted, insert, client: { from: () => ({ insert }) } satisfies InsertOnlyClient }
 }
 
 function fakeTargets() {
@@ -921,7 +925,7 @@ describe('usageClient', () => {
 
   it('insère les événements dans usage_events sans envoyer d’identifiant', async () => {
     const fake = fakeClient()
-    configureUsage({ client: fake.client as never })
+    configureUsage({ client: fake.client })
     track('application_added', { status: 'SENT' })
     const { targets } = fakeTargets()
     const stop = startUsageSession(targets)
@@ -935,7 +939,7 @@ describe('usageClient', () => {
 
   it('ouvre la session, compte les clics et les rend au masquage', async () => {
     const fake = fakeClient()
-    configureUsage({ client: fake.client as never })
+    configureUsage({ client: fake.client })
     const scene = fakeTargets()
     startUsageSession(scene.targets)
     scene.click()
@@ -950,7 +954,7 @@ describe('usageClient', () => {
 
   it('rouvre une session au retour au premier plan', async () => {
     const fake = fakeClient()
-    configureUsage({ client: fake.client as never })
+    configureUsage({ client: fake.client })
     const scene = fakeTargets()
     startUsageSession(scene.targets)
     scene.hide()
@@ -964,7 +968,7 @@ describe('usageClient', () => {
 
   it('ne ferme pas deux fois la même session', async () => {
     const fake = fakeClient()
-    configureUsage({ client: fake.client as never })
+    configureUsage({ client: fake.client })
     const scene = fakeTargets()
     const stop = startUsageSession(scene.targets)
     scene.hide()
@@ -976,7 +980,7 @@ describe('usageClient', () => {
 
   it('n’envoie plus rien après un refus', async () => {
     const fake = fakeClient()
-    configureUsage({ client: fake.client as never })
+    configureUsage({ client: fake.client })
     setUsageOptedOut(true)
     track('application_added')
     const scene = fakeTargets()
@@ -988,7 +992,7 @@ describe('usageClient', () => {
 
   it('avale une erreur renvoyée par Supabase', async () => {
     const insert = vi.fn(async () => ({ error: { message: 'refusé par la règle' } }))
-    configureUsage({ client: { from: () => ({ insert }) } as never })
+    configureUsage({ client: { from: () => ({ insert }) } satisfies InsertOnlyClient })
     track('application_added')
     const scene = fakeTargets()
     const stop = startUsageSession(scene.targets)
@@ -1014,7 +1018,7 @@ import { createUsageTracker, type UsageEventName, type UsageSource, type UsageTr
 const FLUSH_INTERVAL_MS = 10_000
 
 /** Le strict minimum attendu d'un client Supabase : de quoi insérer dans usage_events. */
-interface InsertOnlyClient {
+export interface InsertOnlyClient {
   from(table: string): { insert(rows: Record<string, unknown>[]): Promise<{ error: { message: string } | null }> }
 }
 
@@ -1221,26 +1225,22 @@ track('application_opened')
 Ajouter deux enveloppes autour de `updateStatus`, pour distinguer le glisser-déposer du menu :
 
 ```tsx
-const changeStatusByDrag = useCallback(
-  async (id: string, status: ApplicationStatus) => {
+// WHY: une seule fabrique — les deux chemins ne diffèrent que par la provenance.
+const changeStatusVia = useCallback(
+  (via: 'drag' | 'menu') => async (id: string, status: ApplicationStatus) => {
     const from = applications.find((a) => a.id === id)?.status
     const err = await updateStatus(id, status)
-    if (!err) track('application_status_changed', { from, to: status, via: 'drag' })
+    if (!err) track('application_status_changed', { from, to: status, via })
     return err
   },
   [applications, updateStatus],
 )
 
-const changeStatusByMenu = useCallback(
-  async (id: string, status: ApplicationStatus) => {
-    const from = applications.find((a) => a.id === id)?.status
-    const err = await updateStatus(id, status)
-    if (!err) track('application_status_changed', { from, to: status, via: 'menu' })
-    return err
-  },
-  [applications, updateStatus],
-)
+const changeStatusByDrag = useMemo(() => changeStatusVia('drag'), [changeStatusVia])
+const changeStatusByMenu = useMemo(() => changeStatusVia('menu'), [changeStatusVia])
 ```
+
+`useMemo` est déjà importé dans `App.tsx`.
 
 Ajouter `import type { ApplicationStatus } from '@/lib/types'` à l'import de types existant, puis remplacer les usages :
 - `<BoardPage … onStatusChange={changeStatusByDrag} …>` (c'est le chemin du kanban, donc du glisser-déposer) ;
@@ -2368,6 +2368,10 @@ export function AdminPage() {
   const [days, setDays] = useState<number>(30)
   const [data, setData] = useState<AdminData | null>(null)
   const [error, setError] = useState<string | null>(null)
+  // WHY: figé au chargement des données, pour que « il y a 3 j » ne bouge pas entre deux rendus.
+  // Un useMemo sur [data] ferait échouer npm run lint (--max-warnings 0) : exhaustive-deps y voit
+  // une dépendance inutile, puisque Date.now() ne lit pas data.
+  const [now, setNow] = useState(() => Date.now())
 
   useEffect(() => {
     let alive = true
@@ -2376,13 +2380,10 @@ export function AdminPage() {
     void fetchAdminData(days).then((result) => {
       if (!alive) return
       if ('error' in result) setError(result.error)
-      else setData(result)
+      else { setData(result); setNow(Date.now()) }
     })
     return () => { alive = false }
   }, [days])
-
-  // WHY: figé au chargement des données, pour que « il y a 3 j » ne change pas à chaque rendu.
-  const now = useMemo(() => Date.now(), [data])
   const since = data ? formatSince(data.meta.measurement_start) : ''
   const kpis = useMemo(
     () => (data ? computeKpis(data.boards, data.sessions, { now, days, measurementStart: data.meta.measurement_start }) : null),
