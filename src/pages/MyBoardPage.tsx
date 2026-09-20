@@ -6,6 +6,7 @@ import { savedAccessCode } from '@/lib/savedAccessCode'
 import { cn } from '@/lib/utils'
 import { useBoardAccess } from '@/hooks/useBoardAccess'
 import { useBoardUser } from '@/hooks/useBoardUser'
+import { useUsagePreference } from '@/hooks/useUsagePreference'
 import { track } from '@/lib/usageClient'
 import { CodeRevealPanel } from '@/components/access/CodeRevealPanel'
 import { DeleteBoardDialog } from '@/components/access/DeleteBoardDialog'
@@ -44,6 +45,7 @@ function Help({ children }: { children: ReactNode }) {
 export function MyBoardPage() {
   const { secureWithEmail, rotateCode, leaveBoard, deleteBoard } = useBoardAccess()
   const { userId, email, pendingEmail, loading, refresh } = useBoardUser()
+  const { optedOut, busy: usageBusy, change: changeUsage } = useUsagePreference()
 
   const [newEmail, setNewEmail] = useState('')
   const [emailBusy, setEmailBusy] = useState(false)
@@ -194,6 +196,24 @@ export function MyBoardPage() {
           <Chrome size={16} />
           Installer l'extension
         </a>
+      </Section>
+
+      <Section title="Mesure d'usage">
+        <Help>
+          Pour savoir si JobTracker sert à quelque chose, l'auteur mesure les actions que tu fais
+          (ajouter une candidature, changer un statut, ouvrir un détail…) et un total de clics par visite.
+          Jamais le contenu de tes candidatures, jamais le libellé des boutons, et rien n'est transmis à un tiers.
+        </Help>
+        <label className="flex cursor-pointer items-center gap-2.5 text-[14px] text-[var(--color-ink)]">
+          <input
+            type="checkbox"
+            className="h-4 w-4 accent-[var(--color-primary)]"
+            checked={optedOut === true}
+            disabled={optedOut === null || usageBusy}
+            onChange={(event) => void changeUsage(event.target.checked)}
+          />
+          Ne pas mesurer mon usage
+        </label>
       </Section>
 
       <Section title="Quitter ce tableau">
