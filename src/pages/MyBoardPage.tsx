@@ -6,6 +6,7 @@ import { savedAccessCode } from '@/lib/savedAccessCode'
 import { cn } from '@/lib/utils'
 import { useBoardAccess } from '@/hooks/useBoardAccess'
 import { useBoardUser } from '@/hooks/useBoardUser'
+import { track } from '@/lib/usageClient'
 import { CodeRevealPanel } from '@/components/access/CodeRevealPanel'
 import { DeleteBoardDialog } from '@/components/access/DeleteBoardDialog'
 import { SavedCodePanel } from '@/components/access/SavedCodePanel'
@@ -68,6 +69,7 @@ export function MyBoardPage() {
       return
     }
     setNewEmail('')
+    track('email_secured')
     await refresh()
   }
 
@@ -85,6 +87,7 @@ export function MyBoardPage() {
       setRotateStep('confirm')
       return
     }
+    track('code_rotated')
     setRevealedCode(result.code)
     setRotateStep('idle')
   }

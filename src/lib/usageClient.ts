@@ -2,9 +2,14 @@ import { createUsageTracker, type UsageEventName, type UsageSource, type UsageTr
 
 const FLUSH_INTERVAL_MS = 10_000
 
-/** Le strict minimum attendu d'un client Supabase : de quoi insérer dans usage_events. */
+/**
+ * Le strict minimum attendu d'un client Supabase : de quoi insérer dans usage_events.
+ * WHY: PromiseLike, pas Promise — `insert(...)` d'un vrai SupabaseClient renvoie un
+ * PostgrestFilterBuilder (thenable) et non un Promise natif ; exiger Promise ferait échouer
+ * `configureUsage({ client: supabase })` à la compilation.
+ */
 export interface InsertOnlyClient {
-  from(table: string): { insert(rows: Record<string, unknown>[]): Promise<{ error: { message: string } | null }> }
+  from(table: string): { insert(rows: Record<string, unknown>[]): PromiseLike<{ error: { message: string } | null }> }
 }
 
 export interface SessionTargets {

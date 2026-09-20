@@ -1,5 +1,7 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { supabase } from '@/lib/supabase'
+import { browserTargets, configureUsage, setUsageOptedOut, startUsageSession, track } from '@/lib/usageClient'
 import { AppShell } from '@/components/layout/AppShell'
 import { LiteShell } from '@/components/layout/LiteShell'
 import { BoardPage } from '@/pages/BoardPage'
@@ -23,7 +25,7 @@ import { useCompanyDomains } from '@/hooks/useCompanyDomains'
 import { useAutoCompanyDomains } from '@/hooks/useAutoCompanyDomains'
 import { extractDomain } from '@/lib/url'
 import { FEATURES } from '@/config/edition'
-import type { Application } from '@/lib/types'
+import type { Application, ApplicationStatus } from '@/lib/types'
 
 // WHY: condition littérale (pas FEATURES) pour que Rollup supprime ces pages — et l'IA / pdfjs
 // qu'elles importent — du build lite. Voir spec §3.3.
@@ -85,6 +87,34 @@ export function App() {
     if (!authLoading && isAuthenticated && shortcutCode) consumeShortcutCode()
   }, [authLoading, isAuthenticated, shortcutCode, consumeShortcutCode])
 
+  useEffect(() => {
+    if (!FEATURES.accessCode || !isAuthenticated) return
+    configureUsage({ client: supabase })
+    // WHY: la préférence arrive après coup ; les quelques événements émis entre-temps sont refusés
+    // par la règle RLS si l'utilisateur a dit non — la base reste l'autorité, pas ce chargement.
+    void supabase
+      .from('usage_preferences')
+      .select('opted_out')
+      .maybeSingle()
+      .then(({ data }) => setUsageOptedOut(data?.opted_out === true))
+    return startUsageSession(browserTargets())
+  }, [isAuthenticated])
+
+  // WHY: une seule fabrique — les deux chemins ne diffèrent que par la provenance. Défini avant les
+  // retours anticipés : les hooks doivent s'exécuter dans le même ordre à chaque rendu.
+  const changeStatusVia = useCallback(
+    (via: 'drag' | 'menu') => async (id: string, status: ApplicationStatus) => {
+      const from = applications.find((a) => a.id === id)?.status
+      const err = await updateStatus(id, status)
+      if (!err) track('application_status_changed', { from, to: status, via })
+      return err
+    },
+    [applications, updateStatus],
+  )
+
+  const changeStatusByDrag = useMemo(() => changeStatusVia('drag'), [changeStatusVia])
+  const changeStatusByMenu = useMemo(() => changeStatusVia('menu'), [changeStatusVia])
+
   if (authLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[var(--color-bg)]">
@@ -105,10 +135,13 @@ export function App() {
 
   async function handleSave(data: Omit<Application, 'id' | 'createdAt' | 'updatedAt'>) {
     setSaveError(null)
-    const err = editingApp
-      ? await updateApplication(editingApp.id, data)
+    // WHY: lu avant l'await — editingApp est remis à null juste après, la valeur aurait changé.
+    const editing = editingApp !== null
+    const err = editing
+      ? await updateApplication(editingApp!.id, data)
       : await addApplication(data)
     if (err) { setSaveError(err); return }
+    track(editing ? 'application_edited' : 'application_added', { status: data.status })
     setFormOpen(false)
     setEditingApp(null)
   }
@@ -118,6 +151,7 @@ export function App() {
     const err = await deleteApplication(app.id)
     if (err) return
     await deleteStepsForApplication(app.id)
+    track('application_deleted')
     setDetailApp(null)
   }
 
@@ -125,6 +159,7 @@ export function App() {
     const current = applications.find((a) => a.id === app.id) ?? app
     setDetailApp(current)
     fetchStepsForApplication(current.id)
+    track('application_opened')
   }
 
   function openNewApplication() {
@@ -160,7 +195,7 @@ export function App() {
                 applications={applications}
                 loading={appsLoading}
                 onOpenDetail={handleOpenDetail}
-                onStatusChange={updateStatus}
+                onStatusChange={changeStatusByDrag}
                 onAdd={openNewApplication}
                 onEdit={openEditApplication}
                 onDelete={handleDelete}
@@ -233,7 +268,7 @@ export function App() {
           onAddStep={(step) => addStep(step)}
           onUpdateStep={(stepId, data) => updateStep(stepId, data)}
           onDeleteStep={(stepId) => deleteStep(stepId)}
-          onStatusChange={(status) => updateStatus(detailApp.id, status)}
+          onStatusChange={(status) => changeStatusByMenu(detailApp.id, status)}
           resolveLogo={resolveLogo}
           goal={goal}
         />

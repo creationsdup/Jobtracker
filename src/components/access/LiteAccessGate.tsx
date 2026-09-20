@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useBoardAccess } from '@/hooks/useBoardAccess'
+import type { BoardOpenVia } from '@/hooks/useBoardAccess'
 import { savedAccessCode } from '@/lib/savedAccessCode'
 import { AccessCodeScreen } from './AccessCodeScreen'
 import { BoardCreatedScreen } from './BoardCreatedScreen'
@@ -37,10 +38,10 @@ export function LiteAccessGate({ shortcutCode, onShortcutConsumed }: LiteAccessG
 
   // WHY: en cas de succès, onAuthStateChange (useAuth) bascule l'app et démonte ce composant :
   // on ne remet donc busy à false qu'en cas d'erreur.
-  const handleOpen = useCallback(async (code: string) => {
+  const handleOpen = useCallback(async (code: string, via: BoardOpenVia = 'code') => {
     setBusy(true)
     setError(null)
-    const err = await openBoard(code)
+    const err = await openBoard(code, via)
     if (err) {
       setError(err)
       setBusy(false)
@@ -51,7 +52,7 @@ export function LiteAccessGate({ shortcutCode, onShortcutConsumed }: LiteAccessG
     if (!shortcutCode || shortcutHandled.current) return
     shortcutHandled.current = true
     onShortcutConsumed()
-    void handleOpen(shortcutCode)
+    void handleOpen(shortcutCode, 'shortcut')
   }, [shortcutCode, handleOpen, onShortcutConsumed])
 
   async function handleCreate() {
@@ -69,7 +70,7 @@ export function LiteAccessGate({ shortcutCode, onShortcutConsumed }: LiteAccessG
   async function handleEnterCreated(tokenHash: string, code: string) {
     setBusy(true)
     setError(null)
-    const err = await enterBoard(tokenHash, code)
+    const err = await enterBoard(tokenHash, code, 'created')
     if (err) {
       setError(err)
       setBusy(false)

@@ -1,5 +1,6 @@
 import { useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
+import { configureUsage, track } from '@/lib/usageClient'
 import { isValidAccessCode, normalizeAccessCode } from '@/lib/accessCode'
 import { savedAccessCode } from '@/lib/savedAccessCode'
 import {
@@ -27,12 +28,19 @@ async function callBoardFunction<T>(
   return { error: messageForFunctionError(action, status) }
 }
 
+export type BoardOpenVia = 'code' | 'shortcut' | 'created'
+
 export function useBoardAccess() {
-  const enterBoard = useCallback(async (tokenHash: string, code?: string): Promise<string | null> => {
+  const enterBoard = useCallback(async (tokenHash: string, code?: string, via: BoardOpenVia = 'code'): Promise<string | null> => {
     const { data, error } = await supabase.auth.verifyOtp({ token_hash: tokenHash, type: 'magiclink' })
     if (error) return MESSAGES.network
     // WHY: le code n'est connu du client qu'à la création et à l'ouverture ; on le garde pour « Mon tableau » sur cet appareil.
     if (code && data.user) savedAccessCode.save(data.user.id, code)
+    // WHY: la session existe dès que verifyOtp a résolu — on peut écrire tout de suite, sans
+    // attendre l'effet de App, qui ne s'exécutera qu'au rendu suivant.
+    configureUsage({ client: supabase })
+    if (via === 'created') track('board_created')
+    track('board_opened', { via })
     return null
   }, [])
 
@@ -41,12 +49,12 @@ export function useBoardAccess() {
     return 'error' in result ? result : { code: result.data.code, tokenHash: result.data.tokenHash }
   }, [])
 
-  const openBoard = useCallback(async (input: string): Promise<string | null> => {
+  const openBoard = useCallback(async (input: string, via: BoardOpenVia = 'code'): Promise<string | null> => {
     const code = normalizeAccessCode(input)
     if (!isValidAccessCode(code)) return MESSAGES.invalidFormat
     const result = await callBoardFunction<{ tokenHash: string }>('board-open', 'open', { code })
     if ('error' in result) return result.error
-    return enterBoard(result.data.tokenHash, code)
+    return enterBoard(result.data.tokenHash, code, via)
   }, [enterBoard])
 
   const requestMagicLink = useCallback(async (email: string): Promise<string | null> => {

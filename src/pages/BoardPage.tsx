@@ -7,6 +7,7 @@ import { BoardSummaryStrip } from '@/components/board/BoardSummaryStrip'
 import { BoardViewToggle } from '@/components/board/BoardViewToggle'
 import { StatusTabs } from '@/components/board/StatusTabs'
 import { KanbanPage } from '@/pages/KanbanPage'
+import { track } from '@/lib/usageClient'
 import { STATUS_OPTIONS, filterAndSortApplications, sortOptions, type SortMode } from '@/lib/applicationFilters'
 import { computeBoardSummary } from '@/lib/boardSummary'
 import { readBoardView, saveBoardView, type BoardView } from '@/lib/boardView'
@@ -42,6 +43,7 @@ export function BoardPage({ applications, loading, onOpenDetail, onStatusChange,
   function changeView(next: BoardView) {
     setView(next)
     saveBoardView(next)
+    track('view_switched', { to: next })
   }
 
   return (

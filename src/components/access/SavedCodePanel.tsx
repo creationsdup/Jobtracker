@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Check, Copy, Eye, EyeOff } from 'lucide-react'
 import { formatAccessCode } from '@/lib/accessCode'
+import { track } from '@/lib/usageClient'
 import { cn } from '@/lib/utils'
 import { SecondaryButton } from './accessUi'
 
@@ -38,7 +39,13 @@ export function SavedCodePanel({ code }: SavedCodePanelProps) {
         {visible ? formatted : MASK}
       </p>
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        <SecondaryButton onClick={() => setVisible((current) => !current)} aria-pressed={visible}>
+        <SecondaryButton
+          onClick={() => setVisible((current) => {
+            if (!current) track('code_revealed')
+            return !current
+          })}
+          aria-pressed={visible}
+        >
           {visible ? <EyeOff size={16} /> : <Eye size={16} />}
           {visible ? 'Masquer' : 'Afficher'}
         </SecondaryButton>
