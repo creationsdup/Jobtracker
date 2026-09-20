@@ -52,14 +52,20 @@ export function resetUsage(): void {
   tracker = null
 }
 
+export function startUsageSession(targets: SessionTargets): () => void {
+  const current = tracker
+  // WHY: sans configureUsage, il n'y a rien à mesurer — on rend un arrêt inoffensif.
+  if (!current) return () => {}
+  return runSession(current, targets)
+}
+
 /**
  * Une session = une période où l'onglet est au premier plan. Passer à un autre onglet la ferme,
  * revenir en ouvre une nouvelle : c'est ce qui donne un sens à « clics par session ».
+ * WHY: le traceur est reçu en paramètre, donc non nul par construction — TypeScript ne conserve
+ * pas le rétrécissement d'une variable capturée à l'intérieur des fonctions imbriquées.
  */
-export function startUsageSession(targets: SessionTargets): () => void {
-  const current = tracker
-  if (!current) return () => {}
-
+function runSession(tracker: UsageTracker, targets: SessionTargets): () => void {
   let startedAt = targets.now()
   let open = false
 
@@ -67,23 +73,23 @@ export function startUsageSession(targets: SessionTargets): () => void {
     if (open) return
     open = true
     startedAt = targets.now()
-    current.track('session_started')
+    tracker.track('session_started')
   }
 
   function end() {
-    if (!open) return
+    if (open === false) return
     open = false
-    current.track('session_ended', {
-      clicks: current.takeClicks(),
+    tracker.track('session_ended', {
+      clicks: tracker.takeClicks(),
       duration_s: Math.max(0, Math.round((targets.now() - startedAt) / 1000)),
     })
-    void current.flush()
+    void tracker.flush()
   }
 
   begin()
-  const offClick = targets.addClickListener(() => current.countClick())
+  const offClick = targets.addClickListener(() => tracker.countClick())
   const offVisibility = targets.addVisibilityListener((visible) => (visible ? begin() : end()))
-  const stopInterval = targets.setInterval(() => void current.flush(), FLUSH_INTERVAL_MS)
+  const stopInterval = targets.setInterval(() => void tracker.flush(), FLUSH_INTERVAL_MS)
 
   return () => {
     offClick()

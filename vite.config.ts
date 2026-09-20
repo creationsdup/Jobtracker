@@ -18,11 +18,8 @@ export default defineConfig(({ mode }) => {
         '@': fileURLToPath(new URL('./src', import.meta.url)),
       },
     },
-    test: {
-      // WHY: .worktrees contient des copies de travail d'AUTRES branches ; sans cette exclusion,
-      // vitest y ramasse leurs tests et `npm test` ne dit plus rien de la branche courante.
-      exclude: ['**/node_modules/**', '**/dist/**', '**/.worktrees/**'],
-    },
+    // WHY: la configuration de test vit dans vitest.config.ts, qui prend le pas sur ce fichier
+    // dès qu'il existe — un bloc `test` ici serait du code mort.
     build: {
       rollupOptions: {
         output: {
