@@ -339,6 +339,13 @@ git commit -m "feat(usage): table des événements d'usage et règles d'accès"
 
 - [ ] **Étape 1 : écrire la migration**
 
+> **Correction apportée après relecture (commit `a4e51e9`) :** le SQL ci-dessous casse les
+> `props` jsonb en entier avec `(e.props->>'clicks')::int`. C'est faux — `text::int` lève
+> `22P02` sur `2.5` comme sur une chaîne, et `props` est écrit librement par le client : une
+> seule ligne fautive rendrait la fonction définitivement inutilisable. Passer par
+> `::numeric::int` et garder `jsonb_typeof(...) = 'number'` sur **les trois** sites
+> (`admin_sessions`, `admin_boards`, `admin_timeseries`). Voir le fichier de migration réel.
+
 Créer `supabase/migrations/20260920000100_admin_stats.sql` :
 
 ```sql
