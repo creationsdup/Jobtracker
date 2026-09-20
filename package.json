@@ -11,7 +11,8 @@
     "preview": "vite preview",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
     "test": "vitest run",
-    "db:push": "node scripts/db-push.mjs"
+    "db:push": "node scripts/db-push.mjs",
+    "verify:usage": "node scripts/verify-usage-sql.mjs"
   },
   "dependencies": {
     "@capacitor/cli": "^8.4.1",
