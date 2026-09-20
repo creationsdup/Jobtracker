@@ -68,7 +68,7 @@ const SECTIONS: readonly LegalSection[] = [
           title="Mesure d'usage"
           why="Savoir si JobTracker sert, et à quoi, pour décider quoi améliorer."
           basis="Intérêt légitime&nbsp;: connaître l'usage de son propre service. Tu peux t'y opposer à tout moment."
-          duration="13 mois, puis effacement automatique."
+          duration="13 mois au plus. Les mesures plus anciennes sont effacées à la prochaine ouverture du tableau de bord par l'auteur."
         >
           Une liste fermée d'actions&nbsp;: ouvrir ton tableau, ajouter, modifier, ouvrir ou supprimer une candidature,
           changer un statut, basculer l'affichage, afficher ou régénérer ton code, sécuriser ton email. S'y ajoutera,
