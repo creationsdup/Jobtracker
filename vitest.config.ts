@@ -13,5 +13,8 @@ export default defineConfig({
   },
   test: {
     environment: 'node',
+    // WHY: .worktrees contient des copies de travail d'AUTRES branches ; sans cette exclusion,
+    // vitest y ramasse leurs tests et `npm test` ne dit plus rien de la branche courante.
+    exclude: ['**/node_modules/**', '**/dist/**', '**/.worktrees/**'],
   },
 })
