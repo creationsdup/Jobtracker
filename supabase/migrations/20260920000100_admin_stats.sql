@@ -70,7 +70,7 @@ begin
     ) as last_seen_at,
     (select count(*)::int from public.usage_events e
       where e.user_id = b.user_id and e.name = 'session_started' and e.occurred_at >= v_since) as sessions,
-    (select coalesce(sum((e.props->>'clicks')::int), 0)::int from public.usage_events e
+    (select coalesce(sum((e.props->>'clicks')::numeric), 0)::int from public.usage_events e
       where e.user_id = b.user_id and e.name = 'session_ended' and e.occurred_at >= v_since
         and jsonb_typeof(e.props->'clicks') = 'number') as clicks,
     (select count(*)::int from "Application" a where a."userId" = b.user_id::text) as applications,
@@ -102,11 +102,16 @@ begin
     raise exception 'forbidden' using errcode = '42501';
   end if;
 
+  -- WHY: props est du jsonb libre écrit par le client, text::int lèverait sur '2.5' ou une chaîne.
+  -- Une seule ligne fautive suffirait à rendre la fonction inutilisable pour tout le monde.
+  -- On passe par numeric pour arrondir avant de caster en int.
   return query
   select
     e.user_id,
-    coalesce((e.props->>'clicks')::int, 0),
-    coalesce((e.props->>'duration_s')::int, 0),
+    case when jsonb_typeof(e.props->'clicks') = 'number'
+         then (e.props->>'clicks')::numeric::int else 0 end,
+    case when jsonb_typeof(e.props->'duration_s') = 'number'
+         then (e.props->>'duration_s')::numeric::int else 0 end,
     e.occurred_at
   from public.usage_events e
   where e.name = 'session_ended'
@@ -134,7 +139,7 @@ begin
     (select count(*)::int from public.board_access b where b.created_at::date = g.day),
     (select count(distinct e.user_id)::int from public.usage_events e where e.occurred_at::date = g.day),
     (select count(*)::int from public.usage_events e where e.occurred_at::date = g.day),
-    (select coalesce(sum((e.props->>'clicks')::int), 0)::int from public.usage_events e
+    (select coalesce(sum((e.props->>'clicks')::numeric), 0)::int from public.usage_events e
       where e.name = 'session_ended' and e.occurred_at::date = g.day
         and jsonb_typeof(e.props->'clicks') = 'number')
   from (
