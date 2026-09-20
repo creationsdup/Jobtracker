@@ -17,6 +17,7 @@ import { MyBoardPage } from '@/pages/MyBoardPage'
 import { ApplicationForm } from '@/components/applications/ApplicationForm'
 import { ApplicationDetail } from '@/components/applications/ApplicationDetail'
 import { useAuth } from '@/hooks/useAuth'
+import { useIsAdmin } from '@/hooks/useIsAdmin'
 import { useApplications } from '@/hooks/useApplications'
 import { useSteps } from '@/hooks/useSteps'
 import { useGoals } from '@/hooks/useGoals'
@@ -36,6 +37,10 @@ const LibraryPage = __APP_EDITION__ === 'full'
   ? lazy(() => import('@/pages/LibraryPage').then((m) => ({ default: m.LibraryPage })))
   : null
 
+// WHY: chargée à la demande — la page d’administration ne doit jamais entrer dans le paquet que
+// téléchargent les utilisateurs ordinaires, qui n’y auront jamais accès.
+const AdminPage = lazy(() => import('@/pages/AdminPage').then((m) => ({ default: m.AdminPage })))
+
 const PAGE_FALLBACK = <div className="text-[var(--color-muted)] text-sm">Chargement...</div>
 
 export function App() {
@@ -43,6 +48,7 @@ export function App() {
   const { applications, loading: appsLoading, addApplication, updateApplication, updateStatus, deleteApplication } = useApplications(user?.id ?? null)
   const { fetchStepsForApplication, addStep, updateStep, deleteStep, deleteStepsForApplication, getStepsForApplication } = useSteps()
   const { activeGoal: goal } = useGoals(FEATURES.goals ? user?.id ?? null : null)
+  const isAdmin = useIsAdmin()
   const { logos: orgLogos, loaded: orgLogosLoaded, setOrgWebsite } = useOrgLogos(user?.id ?? null)
   const { lookup: lookupCompanyDomain, loaded: companyDomainsLoaded, contribute: contributeCompanyDomain } = useCompanyDomains()
   const companies = useMemo(() => applications.map((a) => a.company), [applications])
@@ -238,6 +244,14 @@ export function App() {
           {FEATURES.accessCode
             ? <Route path="mon-tableau" element={<MyBoardPage />} />
             : <Route path="profile" element={<ProfilePage userId={user.id} userEmail={user.email} />} />}
+          {/* WHY: tant que isAdmin vaut null (réponse pas encore connue), la route doit quand même
+              exister — sinon un accès direct à /admin retombe sur « * » avant que la base réponde. */}
+          {FEATURES.accessCode && isAdmin !== false && (
+            <Route
+              path="admin"
+              element={isAdmin === null ? PAGE_FALLBACK : <Suspense fallback={PAGE_FALLBACK}><AdminPage /></Suspense>}
+            />
+          )}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
       </Routes>

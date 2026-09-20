@@ -1,11 +1,12 @@
 import { useState, type FormEvent, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
-import { ArrowLeft, Chrome } from 'lucide-react'
+import { ArrowLeft, BarChart3, Chrome } from 'lucide-react'
 import { isBoardEmail } from '@/lib/accessCode'
 import { savedAccessCode } from '@/lib/savedAccessCode'
 import { cn } from '@/lib/utils'
 import { useBoardAccess } from '@/hooks/useBoardAccess'
 import { useBoardUser } from '@/hooks/useBoardUser'
+import { useIsAdmin } from '@/hooks/useIsAdmin'
 import { useUsagePreference } from '@/hooks/useUsagePreference'
 import { track } from '@/lib/usageClient'
 import { CodeRevealPanel } from '@/components/access/CodeRevealPanel'
@@ -46,6 +47,7 @@ export function MyBoardPage() {
   const { secureWithEmail, rotateCode, leaveBoard, deleteBoard } = useBoardAccess()
   const { userId, email, pendingEmail, loading, refresh } = useBoardUser()
   const { optedOut, busy: usageBusy, change: changeUsage } = useUsagePreference()
+  const isAdmin = useIsAdmin()
 
   const [newEmail, setNewEmail] = useState('')
   const [emailBusy, setEmailBusy] = useState(false)
@@ -123,6 +125,16 @@ export function MyBoardPage() {
       </Link>
       <Eyebrow>Réglages</Eyebrow>
       <Title>Mon tableau</Title>
+
+      {isAdmin === true && (
+        <Section title="Tableau de bord">
+          <Help>Réservé à l’auteur&nbsp;: l’usage de tous les tableaux.</Help>
+          <Link className={cn(SECONDARY_BUTTON_CLASS, 'no-underline')} to="/admin">
+            <BarChart3 size={16} />
+            Ouvrir le tableau de bord
+          </Link>
+        </Section>
+      )}
 
       <Section title={<>Sécuriser avec mon email{pill}</>}>
         {loading ? (
