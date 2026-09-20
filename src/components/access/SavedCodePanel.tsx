@@ -40,10 +40,12 @@ export function SavedCodePanel({ code }: SavedCodePanelProps) {
       </p>
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <SecondaryButton
-          onClick={() => setVisible((current) => {
-            if (!current) track('code_revealed')
-            return !current
-          })}
+          onClick={() => {
+            // WHY: hors de l'updater d'état, qui doit rester pur — React 18 en mode strict
+            // l'invoque deux fois en développement, ce qui enverrait l'événement en double.
+            if (!visible) track('code_revealed')
+            setVisible((current) => !current)
+          }}
           aria-pressed={visible}
         >
           {visible ? <EyeOff size={16} /> : <Eye size={16} />}
