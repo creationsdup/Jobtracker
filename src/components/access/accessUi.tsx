@@ -60,14 +60,16 @@ export function PrimaryButton({ className, ...props }: ButtonHTMLAttributes<HTML
   )
 }
 
+// WHY: partagé avec les liens externes (lien vers le Chrome Web Store) qui doivent être des <a>
+// tout en gardant l'aspect d'un bouton secondaire.
+export const SECONDARY_BUTTON_CLASS =
+  'inline-flex h-11 w-full items-center justify-center gap-2 rounded-lg border border-[var(--color-primary)] bg-white text-[14px] font-semibold text-[var(--color-primary)] transition-colors hover:bg-[var(--color-bg-light)] active:bg-[var(--color-bg-light)] disabled:cursor-not-allowed disabled:opacity-50'
+
 export function SecondaryButton({ className, ...props }: ButtonHTMLAttributes<HTMLButtonElement>) {
   return (
     <button
       type="button"
-      className={cn(
-        'inline-flex h-11 w-full items-center justify-center gap-2 rounded-lg border border-[var(--color-primary)] bg-white text-[14px] font-semibold text-[var(--color-primary)] transition-colors hover:bg-[var(--color-bg-light)] active:bg-[var(--color-bg-light)] disabled:cursor-not-allowed disabled:opacity-50',
-        className,
-      )}
+      className={cn(SECONDARY_BUTTON_CLASS, className)}
       {...props}
     />
   )

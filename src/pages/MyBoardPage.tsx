@@ -1,6 +1,6 @@
 import { useState, type FormEvent, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
-import { ArrowLeft } from 'lucide-react'
+import { ArrowLeft, Chrome } from 'lucide-react'
 import { isBoardEmail } from '@/lib/accessCode'
 import { savedAccessCode } from '@/lib/savedAccessCode'
 import { cn } from '@/lib/utils'
@@ -9,7 +9,11 @@ import { useBoardUser } from '@/hooks/useBoardUser'
 import { CodeRevealPanel } from '@/components/access/CodeRevealPanel'
 import { DeleteBoardDialog } from '@/components/access/DeleteBoardDialog'
 import { SavedCodePanel } from '@/components/access/SavedCodePanel'
-import { ErrorText, Eyebrow, Field, PrimaryButton, SecondaryButton, Title } from '@/components/access/accessUi'
+import { ErrorText, Eyebrow, Field, PrimaryButton, SECONDARY_BUTTON_CLASS, SecondaryButton, Title } from '@/components/access/accessUi'
+
+// Fiche non répertoriée du Chrome Web Store : elle n'est accessible que par ce lien.
+const CHROME_EXTENSION_URL =
+  'https://chromewebstore.google.com/detail/jobtracker-%E2%80%94-ajouter-une/bcjaopkifgjohhkpjllklapjmkbaoang'
 
 type PillTone = 'warning' | 'info' | 'success'
 
@@ -23,9 +27,9 @@ function Pill({ tone, children }: { tone: PillTone; children: ReactNode }) {
   return <span className={cn('ml-2 inline-block rounded-full px-2 py-0.5 align-middle text-[11px] font-bold', PILL_STYLES[tone])}>{children}</span>
 }
 
-function Section({ title, danger = false, children }: { title: ReactNode; danger?: boolean; children: ReactNode }) {
+function Section({ title, danger = false, className, children }: { title: ReactNode; danger?: boolean; className?: string; children: ReactNode }) {
   return (
-    <section className="border-t border-[var(--color-border)] py-6">
+    <section className={cn('border-t border-[var(--color-border)] py-6', className)}>
       <h2 className={cn('mb-2 text-[17px] font-bold', danger ? 'text-[var(--color-danger)]' : 'text-[var(--color-primary)]')}>{title}</h2>
       {children}
     </section>
@@ -170,6 +174,23 @@ export function MyBoardPage() {
             </div>
           </>
         )}
+      </Section>
+
+      {/* WHY: masquée sur téléphone, où l'on ne peut pas installer d'extension Chrome. */}
+      <Section title="Extension Chrome" className="hidden md:block">
+        <Help>
+          Ajoute une offre à ton tableau depuis la page de l'annonce, sans retaper l'entreprise ni l'intitulé.
+          Ton code d'accès n'est demandé qu'une fois.
+        </Help>
+        <a
+          className={cn(SECONDARY_BUTTON_CLASS, 'no-underline')}
+          href={CHROME_EXTENSION_URL}
+          target="_blank"
+          rel="noreferrer"
+        >
+          <Chrome size={16} />
+          Installer l'extension
+        </a>
       </Section>
 
       <Section title="Quitter ce tableau">
