@@ -38,6 +38,14 @@ function check(label, ok, detail = '') {
   if (!ok) failures += 1
 }
 
+/** Un refus n'est concluant que si Postgres donne LE code attendu : sinon l'erreur vient d'ailleurs. */
+function checkRefused(label, error, expectedCodes) {
+  if (!error) return check(label, false, 'aucune erreur : l\'insertion est passée')
+  const code = error.code ?? '(sans code)'
+  const ok = expectedCodes.includes(code)
+  check(label, ok, ok ? `code ${code}` : `code inattendu ${code} — ${error.message ?? ''}`)
+}
+
 const board = createClient(URL, ANON, { auth: { persistSession: false } })
 const admin = createClient(URL, SERVICE, { auth: { persistSession: false } })
 
@@ -55,18 +63,18 @@ try {
   check("un tableau écrit son propre événement", ok.error === null, ok.error?.message ?? '')
 
   const other = await board.from('usage_events').insert({ name: 'session_started', user_id: '00000000-0000-0000-0000-000000000000' })
-  check("écrire pour un autre tableau est refusé", other.error !== null)
+  checkRefused("écrire pour un autre tableau est refusé", other.error, ['42501'])
 
   const old = new Date(Date.now() - 2 * 3600 * 1000).toISOString()
   const backdated = await board.from('usage_events').insert({ name: 'session_started', occurred_at: old })
-  check('antidater de deux heures est refusé', backdated.error !== null)
+  checkRefused('antidater de deux heures est refusé', backdated.error, ['42501'])
 
   const unknown = await board.from('usage_events').insert({ name: 'pas_dans_le_dictionnaire' })
-  check('un nom hors dictionnaire est refusé', unknown.error !== null)
+  checkRefused('un nom hors dictionnaire est refusé', unknown.error, ['23514'])
 
   await board.from('usage_preferences').upsert({ user_id: userId, opted_out: true })
   const refused = await board.from('usage_events').insert({ name: 'session_started' })
-  check("le refus de mesure bloque l'écriture", refused.error !== null)
+  checkRefused("le refus de mesure bloque l'écriture", refused.error, ['42501'])
   await board.from('usage_preferences').upsert({ user_id: userId, opted_out: false })
 
   const read = await board.from('usage_events').select('id')
@@ -76,7 +84,7 @@ try {
   check('is_admin rend false pour un tableau ordinaire', notAdmin.data === false, notAdmin.error?.message ?? '')
 
   const forbidden = await board.rpc('admin_boards', { p_days: 30 })
-  check('admin_boards est refusée à un non-administrateur', forbidden.error !== null)
+  checkRefused('admin_boards est refusée à un non-administrateur', forbidden.error, ['42501'])
 
   await admin.from('admin_users').insert({ user_id: userId })
   const boards = await board.rpc('admin_boards', { p_days: 30 })
