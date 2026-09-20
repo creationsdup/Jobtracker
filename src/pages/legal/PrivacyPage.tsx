@@ -64,6 +64,21 @@ const SECTIONS: readonly LegalSection[] = [
         >
           Comme pour tout site, les hébergeurs enregistrent les connexions&nbsp;: adresse IP, date, navigateur, page demandée.
         </DataItem>
+        <DataItem
+          title="Mesure d'usage"
+          why="Savoir si JobTracker sert, et à quoi, pour décider quoi améliorer."
+          basis="Intérêt légitime&nbsp;: connaître l'usage de son propre service. Tu peux t'y opposer à tout moment."
+          duration="13 mois, puis effacement automatique."
+        >
+          Une liste fermée d'actions&nbsp;: ouvrir ton tableau, ajouter, modifier, ouvrir ou supprimer une candidature,
+          changer un statut, basculer l'affichage, afficher ou régénérer ton code, sécuriser ton email. S'y ajoutera,
+          quand l'extension Chrome sera connectée, l'ajout d'une offre depuis celle-ci. S'y ajoute aussi, à chaque
+          visite, la durée et un <strong>simple total de clics</strong>&nbsp;: ni le libellé des boutons, ni leur
+          position, ni le contenu de tes candidatures. Ces mesures sont rattachées à l'identifiant technique de ton
+          tableau, restent hébergées chez Supabase avec le reste, ne sont transmises à personne et ne servent à
+          aucune publicité. Pour t'y soustraire&nbsp;: «&nbsp;Ne pas mesurer mon usage&nbsp;» dans Réglages →
+          Mon tableau. Le refus est appliqué par la base de données elle-même.
+        </DataItem>
         <p>
           Quand tu indiques le site d'une entreprise, le couple «&nbsp;nom de l'entreprise – nom de domaine&nbsp;» rejoint un
           catalogue partagé qui aide à afficher son logo pour tout le monde. Ce catalogue ne contient aucun lien avec ton

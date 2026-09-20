@@ -279,6 +279,28 @@ L'app se construit en deux éditions à partir du même code, choisies **au buil
 
 ---
 
+## 📊 Mesure d'usage et tableau de bord créateur (édition `lite`)
+
+Voir `docs/superpowers/specs/2026-09-20-admin-dashboard-design.md`.
+
+- `usage_events` : dictionnaire **fermé** d'actions (contrainte `check` en base). Ajouter un nom
+  demande une migration **et** une entrée dans `USAGE_EVENT_NAMES` (`src/lib/usage.ts`).
+- Le client n'envoie jamais `user_id` : la colonne vaut `auth.uid()` par défaut, et la règle RLS le
+  revérifie. Elle refuse aussi l'écriture si le tableau a coché « Ne pas mesurer mon usage ».
+- `src/lib/usage.ts` est **pur** (ni React, ni Supabase, ni DOM) pour que l'extension le réutilise ;
+  toute la glu navigateur est dans `src/lib/usageClient.ts`, derrière `SessionTargets`.
+- Une **session** = une période où l'onglet est au premier plan, pas un chargement de page.
+- `/admin` n'existe que pour les identifiants inscrits dans `admin_users`
+  (`npm run grant:admin -- --list`), et la page est chargée à la demande : elle n'entre jamais dans
+  le paquet des utilisateurs ordinaires.
+- Les fonctions SQL rendent des **lignes brutes** ; moyennes, médianes, entonnoir et rétention sont
+  calculés dans `src/lib/adminStats.ts`, testé avec vitest.
+- Sessions et clics n'existent **qu'à partir du déploiement** : les colonnes correspondantes sont
+  vides pour tout ce qui précède, et la page l'affiche.
+- Vérification de bout en bout : `npm run verify:usage` (crée un tableau de test, puis le supprime).
+
+---
+
 ## ⚖️ Pages légales
 
 - `/cgu` (avec les mentions légales), `/confidentialite` et `/contact` : `src/pages/legal/`. Elles sont choisies dans `main.tsx` **avant** `App` (`legalPageFromPath`, `src/lib/legalRoutes.ts`), donc lisibles sans code ni session, dans un chunk à part. Les liens sont des `<a href>` classiques (rechargement), pas des `<Link>`.
