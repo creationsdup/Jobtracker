@@ -48,7 +48,7 @@ export function App() {
   const { applications, loading: appsLoading, addApplication, updateApplication, updateStatus, deleteApplication } = useApplications(user?.id ?? null)
   const { fetchStepsForApplication, addStep, updateStep, deleteStep, deleteStepsForApplication, getStepsForApplication } = useSteps()
   const { activeGoal: goal } = useGoals(FEATURES.goals ? user?.id ?? null : null)
-  const isAdmin = useIsAdmin()
+  const isAdmin = useIsAdmin(isAuthenticated)
   const { logos: orgLogos, loaded: orgLogosLoaded, setOrgWebsite } = useOrgLogos(user?.id ?? null)
   const { lookup: lookupCompanyDomain, loaded: companyDomainsLoaded, contribute: contributeCompanyDomain } = useCompanyDomains()
   const companies = useMemo(() => applications.map((a) => a.company), [applications])

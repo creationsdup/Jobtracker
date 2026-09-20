@@ -124,8 +124,19 @@ export function computeKpis(
   }
 }
 
-export function computeFunnel(boards: BoardRow[]): FunnelStep[] {
-  const total = boards.length
+/**
+ * WHY: « Revenu un autre jour » repose sur active_days, qui compte des usage_events. Les
+ * tableaux créés avant le début de la mesure en ont zéro et en auront zéro pour toujours : ils
+ * échouent cette étape par construction, tout en restant au dénominateur — ce qui fait mentir la
+ * dernière barre pendant des mois. Les étapes 2 et 3 (candidatures) sont, elles, valables pour
+ * tout tableau, mesuré ou non. On ne retient donc l’entonnoir entier que sur les tableaux créés
+ * après measurementStart — même population cohérente sur les quatre étapes, comme computeKpis le
+ * fait déjà pour la rétention. Si measurementStart est null, aucun tableau n’est éligible.
+ */
+export function computeFunnel(boards: BoardRow[], measurementStart: string | null): FunnelStep[] {
+  const start = measurementStart === null ? null : Date.parse(measurementStart)
+  const eligible = start === null ? [] : boards.filter((row) => Date.parse(row.created_at) >= start)
+  const total = eligible.length
   const steps: [string, (row: BoardRow) => boolean][] = [
     ['Tableau créé', () => true],
     ['Au moins 1 candidature', (row) => row.applications >= 1],
@@ -133,7 +144,7 @@ export function computeFunnel(boards: BoardRow[]): FunnelStep[] {
     ['Revenu un autre jour', (row) => row.active_days >= 2],
   ]
   return steps.map(([label, matches]) => {
-    const count = boards.filter(matches).length
+    const count = eligible.filter(matches).length
     return { label, count, share: share(count, total) }
   })
 }
@@ -168,9 +179,13 @@ export function formatSince(measurementStart: string | null): string {
 }
 
 export function formatDuration(seconds: number): string {
-  if (seconds < 60) return `${Math.round(seconds)} s`
-  const minutes = Math.floor(seconds / 60)
-  return `${minutes} min ${String(Math.round(seconds % 60)).padStart(2, '0')} s`
+  // WHY: arrondir AVANT de séparer minutes et secondes. formatDuration(119.5) arrondissait 59.5 s
+  // à part (« 1 min 60 s ») ; formatDuration(59.5) rendait « 60 s ». En arrondissant le total
+  // d’abord, 120 s devient bien « 2 min 00 s » et 60 s bien « 1 min 00 s ».
+  const rounded = Math.round(seconds)
+  if (rounded < 60) return `${rounded} s`
+  const minutes = Math.floor(rounded / 60)
+  return `${minutes} min ${String(rounded % 60).padStart(2, '0')} s`
 }
 
 export function formatShare(value: number): string {

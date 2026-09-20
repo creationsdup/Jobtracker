@@ -47,7 +47,9 @@ export function MyBoardPage() {
   const { secureWithEmail, rotateCode, leaveBoard, deleteBoard } = useBoardAccess()
   const { userId, email, pendingEmail, loading, refresh } = useBoardUser()
   const { optedOut, busy: usageBusy, change: changeUsage } = useUsagePreference()
-  const isAdmin = useIsAdmin()
+  // WHY: cette page ne se rend jamais sans session (voir App.tsx : la route /mon-tableau est
+  // sous le garde d'authentification), donc le test peut partir immédiatement.
+  const isAdmin = useIsAdmin(true)
 
   const [newEmail, setNewEmail] = useState('')
   const [emailBusy, setEmailBusy] = useState(false)

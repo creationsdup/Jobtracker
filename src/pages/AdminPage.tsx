@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { ArrowLeft } from 'lucide-react'
-import { fetchAdminData, type AdminData } from '@/lib/adminApi'
+import { fetchAdminData, type AdminApiError, type AdminData } from '@/lib/adminApi'
 import { computeFunnel, computeKpis, formatSince, toWeeks } from '@/lib/adminStats'
 import { BoardTable } from '@/components/admin/BoardTable'
 import { FunnelBars } from '@/components/admin/FunnelBars'
@@ -14,7 +14,7 @@ const PERIODS = [7, 30, 90] as const
 export function AdminPage() {
   const [days, setDays] = useState<number>(30)
   const [data, setData] = useState<AdminData | null>(null)
-  const [error, setError] = useState<string | null>(null)
+  const [error, setError] = useState<AdminApiError | null>(null)
   // WHY: figé au chargement des données, pour que « il y a 3 j » ne bouge pas entre deux rendus.
   // Un useMemo sur [data] ferait échouer npm run lint (--max-warnings 0) : exhaustive-deps y voit
   // une dépendance inutile, puisque Date.now() ne lit pas data.
@@ -26,7 +26,7 @@ export function AdminPage() {
     setError(null)
     void fetchAdminData(days).then((result) => {
       if (!alive) return
-      if ('error' in result) setError(result.error)
+      if ('error' in result) setError(result)
       else { setData(result); setNow(Date.now()) }
     })
     return () => { alive = false }
@@ -42,7 +42,11 @@ export function AdminPage() {
     [data, days, now],
   )
   const weeks = useMemo(() => (data ? toWeeks(data.days) : []), [data])
-  const funnel = useMemo(() => (data ? computeFunnel(data.boards) : []), [data])
+  const funnel = useMemo(
+    () => (data ? computeFunnel(data.boards, data.meta.measurement_start) : []),
+    [data],
+  )
+  const funnelEligible = funnel[0]?.count ?? 0
 
   return (
     <div className="mx-auto flex w-full max-w-[900px] flex-col gap-5">
@@ -76,7 +80,16 @@ export function AdminPage() {
         </div>
       </div>
 
-      {error && <p className="card p-4 text-[14px] text-[var(--color-danger)]">{error}</p>}
+      {error && (
+        <p className="card p-4 text-[14px] text-[var(--color-danger)]">
+          {error.error}
+          {(error.code ?? error.detail) && (
+            <span className="mt-1 block text-[12px] text-[var(--color-muted)]">
+              {[error.code, error.detail].filter(Boolean).join(' — ')}
+            </span>
+          )}
+        </p>
+      )}
       {!error && !data && <p className="text-[14px] text-[var(--color-muted)]">Chargement…</p>}
 
       {data && kpis && (
@@ -110,6 +123,17 @@ export function AdminPage() {
 
           <div>
             <h2 className="mb-2 text-[17px] font-bold text-[var(--color-primary)]">Entonnoir</h2>
+            {/* WHY: « Revenu un autre jour » ne peut être vrai que pour un tableau mesuré depuis
+                sa création — l’entonnoir ne porte donc que sur cette population, jamais sur
+                l’ensemble des tableaux. La page affiche partout ailleurs l’effectif à côté des
+                parts ; même règle ici. */}
+            <p className="mb-3 text-[13px] text-[var(--color-muted)]">
+              {measured
+                ? funnelEligible > 0
+                  ? <>Porte sur les {funnelEligible} tableaux créés {since} ; les tableaux plus anciens ne peuvent pas être mesurés sur toutes les étapes.</>
+                  : <>Aucun tableau créé {since} : pas encore de population à mesurer sur les quatre étapes.</>
+                : 'Aucune mesure enregistrée pour l’instant : pas encore de population à mesurer.'}
+            </p>
             <FunnelBars steps={funnel} />
           </div>
         </>

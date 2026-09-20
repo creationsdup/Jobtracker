@@ -104,14 +104,16 @@ describe('computeKpis', () => {
 })
 
 describe('computeFunnel', () => {
-  it('rend quatre étapes décroissantes, en nombre et en part', () => {
+  const start = daysAgo(30)
+
+  it('rend quatre étapes décroissantes, en nombre et en part, sur les tableaux mesurés', () => {
     const boards = [
-      board({ applications: 0, active_days: 1 }),
-      board({ applications: 2, active_days: 1 }),
-      board({ applications: 7, active_days: 3 }),
-      board({ applications: 9, active_days: 5 }),
+      board({ created_at: daysAgo(10), applications: 0, active_days: 1 }),
+      board({ created_at: daysAgo(10), applications: 2, active_days: 1 }),
+      board({ created_at: daysAgo(10), applications: 7, active_days: 3 }),
+      board({ created_at: daysAgo(10), applications: 9, active_days: 5 }),
     ]
-    expect(computeFunnel(boards)).toEqual([
+    expect(computeFunnel(boards, start)).toEqual([
       { label: 'Tableau créé', count: 4, share: 1 },
       { label: 'Au moins 1 candidature', count: 3, share: 0.75 },
       { label: 'Au moins 5 candidatures', count: 2, share: 0.5 },
@@ -120,11 +122,34 @@ describe('computeFunnel', () => {
   })
 
   it('rend des parts nulles sans aucun tableau', () => {
-    expect(computeFunnel([])).toEqual([
+    expect(computeFunnel([], start)).toEqual([
       { label: 'Tableau créé', count: 0, share: 0 },
       { label: 'Au moins 1 candidature', count: 0, share: 0 },
       { label: 'Au moins 5 candidatures', count: 0, share: 0 },
       { label: 'Revenu un autre jour', count: 0, share: 0 },
+    ])
+  })
+
+  it('rend quatre étapes à zéro quand measurementStart est null', () => {
+    const boards = [board({ applications: 9, active_days: 5 })]
+    expect(computeFunnel(boards, null)).toEqual([
+      { label: 'Tableau créé', count: 0, share: 0 },
+      { label: 'Au moins 1 candidature', count: 0, share: 0 },
+      { label: 'Au moins 5 candidatures', count: 0, share: 0 },
+      { label: 'Revenu un autre jour', count: 0, share: 0 },
+    ])
+  })
+
+  it('exclut un tableau créé avant measurementStart, du numérateur comme du dénominateur', () => {
+    const boards = [
+      board({ created_at: daysAgo(40), applications: 9, active_days: 5 }), // avant la mesure
+      board({ created_at: daysAgo(10), applications: 9, active_days: 5 }), // après la mesure
+    ]
+    expect(computeFunnel(boards, start)).toEqual([
+      { label: 'Tableau créé', count: 1, share: 1 },
+      { label: 'Au moins 1 candidature', count: 1, share: 1 },
+      { label: 'Au moins 5 candidatures', count: 1, share: 1 },
+      { label: 'Revenu un autre jour', count: 1, share: 1 },
     ])
   })
 })
@@ -158,6 +183,11 @@ describe('mises en forme', () => {
     expect(formatDuration(0)).toBe('0 s')
     expect(formatDuration(45)).toBe('45 s')
     expect(formatDuration(125)).toBe('2 min 05 s')
+  })
+
+  it('arrondit avant de séparer minutes et secondes (médiane sur un nombre pair de sessions)', () => {
+    expect(formatDuration(119.5)).toBe('2 min 00 s')
+    expect(formatDuration(59.5)).toBe('1 min 00 s')
   })
 
   it('écrit les parts en pourcentage entier', () => {
