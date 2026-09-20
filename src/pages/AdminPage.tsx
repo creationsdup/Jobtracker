@@ -32,6 +32,11 @@ export function AdminPage() {
     return () => { alive = false }
   }, [days])
   const since = data ? formatSince(data.meta.measurement_start) : ''
+  // WHY: formatSince(null) rend une phrase complète (« aucune mesure enregistrée pour
+  // l’instant »), pas un complément — insérée telle quelle dans « Mesure d’usage {since}. »
+  // ou « n’existent que {since} », elle casse la grammaire. On distingue donc l’état non
+  // mesuré des deux points d’insertion, sans toucher à formatSince (testée telle quelle).
+  const measured = data?.meta.measurement_start != null
   const kpis = useMemo(
     () => (data ? computeKpis(data.boards, data.sessions, { now, days, measurementStart: data.meta.measurement_start }) : null),
     [data, days, now],
@@ -49,7 +54,11 @@ export function AdminPage() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-[22px] font-bold text-[var(--color-primary)]">Tableau de bord</h1>
-          {data && <p className="text-[13px] text-[var(--color-muted)]">Mesure d’usage {since}.</p>}
+          {data && (
+            <p className="text-[13px] text-[var(--color-muted)]">
+              {measured ? <>Mesure d’usage {since}.</> : 'Aucune mesure enregistrée pour l’instant.'}
+            </p>
+          )}
         </div>
         <div role="group" aria-label="Période" className="flex items-center gap-1 rounded-full bg-[var(--color-bg)] p-1" style={{ border: '1px solid var(--color-border)' }}>
           {PERIODS.map((period) => (
@@ -84,8 +93,17 @@ export function AdminPage() {
           <div>
             <h2 className="mb-2 text-[17px] font-bold text-[var(--color-primary)]">Par tableau</h2>
             <p className="mb-3 text-[13px] text-[var(--color-muted)]">
-              Sessions et clics portent sur {days} jours et n’existent que {since} ; les candidatures et la
-              dernière utilisation remontent avant la mesure.
+              {measured ? (
+                <>
+                  Sessions et clics portent sur {days} jours et n’existent que {since} ; les candidatures et
+                  la dernière utilisation remontent avant la mesure.
+                </>
+              ) : (
+                <>
+                  Sessions et clics n’ont encore rien enregistré ; les candidatures et la dernière
+                  utilisation, elles, remontent avant la mesure.
+                </>
+              )}
             </p>
             <BoardTable boards={data.boards} now={now} />
           </div>

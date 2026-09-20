@@ -13,7 +13,7 @@ const COLUMNS: { key: SortKey | null; label: string; numeric?: boolean }[] = [
   { key: 'clicks', label: 'Clics', numeric: true },
   { key: 'applications', label: 'Candidatures', numeric: true },
   { key: null, label: 'Extension' },
-  { key: null, label: 'Email' },
+  { key: null, label: 'Sécurisé' },
 ]
 
 function compare(a: BoardRow, b: BoardRow, key: SortKey): number {
