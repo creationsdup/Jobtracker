@@ -1,7 +1,7 @@
 /**
  * Calcul des chiffres du tableau de bord créateur. Module pur : les fonctions SQL renvoient des
  * lignes brutes, tout le reste (moyennes, médianes, parts, entonnoir, rétention) se calcule ici,
- * où c'est testable sans base.
+ * où c’est testable sans base.
  */
 
 /** Une ligne de public.admin_boards(p_days). */
@@ -96,8 +96,8 @@ export function computeKpis(
   const seenAfter = (row: BoardRow, cutoff: number) => Date.parse(row.last_seen_at) >= cutoff
   const createdBefore = (row: BoardRow, cutoff: number) => Date.parse(row.created_at) < cutoff
 
-  // WHY: n'entrent dans la rétention que les tableaux nés APRÈS le début de la mesure — pour les
-  // plus anciens, l'absence d'événement ne veut pas dire qu'ils ne sont pas revenus (spec §6).
+  // WHY: n’entrent dans la rétention que les tableaux nés APRÈS le début de la mesure — pour les
+  // plus anciens, l’absence d’événement ne veut pas dire qu’ils ne sont pas revenus (spec §6).
   const eligible = start === null
     ? []
     : boards.filter((row) => Date.parse(row.created_at) >= start && createdBefore(row, now - 7 * DAY_MS))
@@ -138,7 +138,7 @@ export function computeFunnel(boards: BoardRow[]): FunnelStep[] {
   })
 }
 
-/** Lundi de la semaine d'un jour « AAAA-MM-JJ », en UTC pour ne pas dépendre du fuseau. */
+/** Lundi de la semaine d’un jour « AAAA-MM-JJ », en UTC pour ne pas dépendre du fuseau. */
 export function weekStart(day: string): string {
   const date = new Date(`${day}T00:00:00Z`)
   const weekday = (date.getUTCDay() + 6) % 7
@@ -156,13 +156,13 @@ export function toWeeks(days: DayRow[]): WeekRow[] {
     week.clicks += day.clicks
     weeks.set(start, week)
   }
-  // WHY: boards_active n'est PAS additionné : un même tableau actif deux jours compterait deux
-  // fois. Le nombre d'actifs exact reste dans les chiffres clés (actifs 7 j / 30 j).
+  // WHY: boards_active n’est PAS additionné : un même tableau actif deux jours compterait deux
+  // fois. Le nombre d’actifs exact reste dans les chiffres clés (actifs 7 j / 30 j).
   return [...weeks.values()].sort((a, b) => a.start.localeCompare(b.start))
 }
 
 export function formatSince(measurementStart: string | null): string {
-  if (measurementStart === null) return "aucune mesure enregistrée pour l'instant"
+  if (measurementStart === null) return 'aucune mesure enregistrée pour l’instant'
   const date = new Date(measurementStart)
   return `depuis le ${date.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' })}`
 }
@@ -183,7 +183,7 @@ export function shortBoardId(userId: string): string {
 
 export function relativeDays(iso: string, now: number): string {
   const days = Math.floor((now - Date.parse(iso)) / DAY_MS)
-  if (days <= 0) return "aujourd'hui"
+  if (days <= 0) return 'aujourd’hui'
   if (days === 1) return 'hier'
   if (days < 60) return `il y a ${days} j`
   return `il y a ${Math.floor(days / 30)} mois`
