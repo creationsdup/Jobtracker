@@ -162,7 +162,7 @@ export function toWeeks(days: DayRow[]): WeekRow[] {
 }
 
 export function formatSince(measurementStart: string | null): string {
-  if (measurementStart === null) return 'aucune mesure enregistrée pour l\'instant'
+  if (measurementStart === null) return "aucune mesure enregistrée pour l'instant"
   const date = new Date(measurementStart)
   return `depuis le ${date.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' })}`
 }
@@ -183,7 +183,7 @@ export function shortBoardId(userId: string): string {
 
 export function relativeDays(iso: string, now: number): string {
   const days = Math.floor((now - Date.parse(iso)) / DAY_MS)
-  if (days <= 0) return 'aujourd\'hui'
+  if (days <= 0) return "aujourd'hui"
   if (days === 1) return 'hier'
   if (days < 60) return `il y a ${days} j`
   return `il y a ${Math.floor(days / 30)} mois`
