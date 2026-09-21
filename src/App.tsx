@@ -39,7 +39,12 @@ const LibraryPage = __APP_EDITION__ === 'full'
 
 // WHY: chargée à la demande — la page d’administration ne doit jamais entrer dans le paquet que
 // téléchargent les utilisateurs ordinaires, qui n’y auront jamais accès.
-const AdminPage = lazy(() => import('@/pages/AdminPage').then((m) => ({ default: m.AdminPage })))
+// WHY: condition littérale (pas une variable) pour que Rollup supprime la page et tout ce
+// qu’elle importe du build de production — même mécanisme que __APP_EDITION__ ci-dessus.
+// Le tableau de bord de l’auteur ne se consulte qu’en local, via npm run dev.
+const AdminPage = import.meta.env.DEV
+  ? lazy(() => import('@/pages/AdminPage').then((m) => ({ default: m.AdminPage })))
+  : null
 
 const PAGE_FALLBACK = <div className="text-[var(--color-muted)] text-sm">Chargement...</div>
 
@@ -246,7 +251,7 @@ export function App() {
             : <Route path="profile" element={<ProfilePage userId={user.id} userEmail={user.email} />} />}
           {/* WHY: tant que isAdmin vaut null (réponse pas encore connue), la route doit quand même
               exister — sinon un accès direct à /admin retombe sur « * » avant que la base réponde. */}
-          {FEATURES.accessCode && isAdmin !== false && (
+          {AdminPage && FEATURES.accessCode && isAdmin !== false && (
             <Route
               path="admin"
               element={isAdmin === null ? PAGE_FALLBACK : <Suspense fallback={PAGE_FALLBACK}><AdminPage /></Suspense>}

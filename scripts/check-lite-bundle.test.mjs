@@ -35,6 +35,11 @@ describe('scanDist', () => {
     ])
   })
 
+  it('signale le tableau de bord d\u2019administration, qui ne doit jamais \u00eatre publi\u00e9', () => {
+    const dist = makeDist({ 'assets/AdminPage-abc.js': 'supabase.rpc("admin_boards",{p_days:30})' })
+    expect(scanDist(dist).map((v) => v.reason)).toEqual(['contient "admin_boards"'])
+  })
+
   it('signale une clé OpenAI inlinée', () => {
     const dist = makeDist({ 'assets/a.js': 'const k="sk-proj-XXXX"' })
     expect(scanDist(dist).map((v) => v.reason)).toEqual(['contient "sk-proj-"'])

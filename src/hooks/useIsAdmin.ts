@@ -11,12 +11,16 @@ import { FEATURES } from '@/config/edition'
  * la page, y compris après connexion, faute de rejouer l’effet. En le faisant dépendre de
  * `isAuthenticated`, l’effet rejoue dès que la session apparaît (ou disparaît).
  */
+// WHY: le tableau de bord ne vit qu’en développement. En production, ce hook répond false sans
+// jamais interroger la base : le site publié n’appelle donc pas is_admin() du tout.
+const ENABLED = import.meta.env.DEV && FEATURES.accessCode
+
 export function useIsAdmin(isAuthenticated: boolean): boolean | null {
-  const [isAdmin, setIsAdmin] = useState<boolean | null>(FEATURES.accessCode ? null : false)
+  const [isAdmin, setIsAdmin] = useState<boolean | null>(ENABLED ? null : false)
 
   useEffect(() => {
-    if (!FEATURES.accessCode || !isAuthenticated) {
-      setIsAdmin(FEATURES.accessCode ? null : false)
+    if (!ENABLED || !isAuthenticated) {
+      setIsAdmin(ENABLED ? null : false)
       return
     }
     let alive = true

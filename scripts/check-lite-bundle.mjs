@@ -12,7 +12,10 @@ import { existsSync, readdirSync, readFileSync, realpathSync } from 'node:fs'
 import { basename, join, relative, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-export const FORBIDDEN_CONTENT = ['api.openai.com', 'sk-proj-', 'ai-assistant', 'pdf.worker']
+// WHY: 'admin_boards' marque le tableau de bord de l’auteur, qui ne vit qu’en développement.
+// S’il réapparaît dans dist/, c’est que la condition littérale de App.tsx a sauté et que Rollup
+// ne l’élimine plus : le build doit échouer plutôt que de le publier en silence.
+export const FORBIDDEN_CONTENT = ['api.openai.com', 'sk-proj-', 'ai-assistant', 'pdf.worker', 'admin_boards']
 
 function listFiles(dir) {
   return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
