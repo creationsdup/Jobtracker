@@ -49,7 +49,7 @@ export function AdminPage() {
   const funnelEligible = funnel[0]?.count ?? 0
 
   return (
-    <div className="mx-auto flex w-full max-w-[900px] flex-col gap-5">
+    <div className="flex w-full flex-col gap-5">
       <Link to="/mon-tableau" className="inline-flex items-center gap-1.5 text-[13px] font-medium text-[var(--color-accent)] no-underline hover:underline">
         <ArrowLeft size={15} />
         Retour aux réglages

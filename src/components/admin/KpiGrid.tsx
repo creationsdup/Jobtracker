@@ -34,7 +34,7 @@ function tilesFor(kpis: Kpis, days: number, since: string): Tile[] {
 
 export function KpiGrid({ kpis, days, since }: KpiGridProps) {
   return (
-    <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
+    <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5">
       {tilesFor(kpis, days, since).map((tile) => (
         <div key={tile.label} className="card p-4">
           <p className="text-[12px] font-semibold uppercase tracking-wide text-[var(--color-muted)]">{tile.label}</p>

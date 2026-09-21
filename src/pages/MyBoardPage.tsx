@@ -120,7 +120,7 @@ export function MyBoardPage() {
         : <Pill tone="warning">non sécurisé</Pill>
 
   return (
-    <div className="mx-auto w-full max-w-[560px]">
+    <div className="w-full">
       <Link to="/" className="mb-6 inline-flex items-center gap-1.5 text-[13px] font-medium text-[var(--color-accent)] no-underline hover:underline">
         <ArrowLeft size={15} />
         Retour au tableau
@@ -128,6 +128,11 @@ export function MyBoardPage() {
       <Eyebrow>Réglages</Eyebrow>
       <Title>Mon tableau</Title>
 
+      {/* WHY: deux colonnes au-delà de 1024 px plutôt qu'une colonne centrée étroite. Les champs
+          et les boutons de accessUi sont tous en w-full : sans cette grille, retirer le plafond
+          de largeur les étirerait sur tout l'écran. items-start évite que deux sections voisines
+          s'alignent sur la plus haute. */}
+      <div className="grid grid-cols-1 gap-x-10 lg:grid-cols-2 lg:items-start">
       {isAdmin === true && (
         <Section title="Tableau de bord">
           <Help>Réservé à l’auteur&nbsp;: l’usage de tous les tableaux.</Help>
@@ -244,6 +249,8 @@ export function MyBoardPage() {
           Supprimer…
         </SecondaryButton>
       </Section>
+
+      </div>
 
       {deleteOpen && (
         <DeleteBoardDialog busy={deleteBusy} error={deleteError} onConfirm={() => void handleDelete()} onCancel={() => setDeleteOpen(false)} />
